@@ -9,9 +9,11 @@ import java.time.LocalDate;
 @Data
 @NoArgsConstructor
 public class ImpuestoMunicipalEntradaDto {
+
+
     private String descripcion;
     private String empresa;
-    private Double porcentaje;
+    private int porcentaje;
     private String numeroCliente;
     private String numeroMedidor;
     private Double montoAPagar;

@@ -19,4 +19,5 @@ public class InquilinoSalidaDto {
     private String nacionalidad;
     private String estadoCivil;
     private UsuarioDtoSalida usuarioDtoSalida;
+
 }

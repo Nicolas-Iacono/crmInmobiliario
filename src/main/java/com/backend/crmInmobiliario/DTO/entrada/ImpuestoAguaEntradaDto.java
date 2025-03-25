@@ -10,9 +10,10 @@ import java.time.LocalDate;
 @NoArgsConstructor
 public class ImpuestoAguaEntradaDto {
 
+
     private String descripcion;
     private String empresa;
-    private Double porcentaje;
+    private int porcentaje;
     private String numeroCliente;
     private String numeroMedidor;
     private Double montoAPagar;

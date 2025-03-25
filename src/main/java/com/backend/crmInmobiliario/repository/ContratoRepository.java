@@ -23,4 +23,6 @@ public interface ContratoRepository extends JpaRepository<Contrato, Long> {
     @Query("SELECT c FROM Contrato c ORDER BY c.publicDate DESC")
     Page<Contrato> findLatestContratos(Pageable pageable);
 
+    @Query("SELECT c FROM Contrato c LEFT JOIN FETCH c.recibos")
+    List<Contrato> findAllWithRecibos();
 }

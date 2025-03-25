@@ -1,5 +1,6 @@
 package com.backend.crmInmobiliario.utils;
 
+import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,5 +14,8 @@ public class ApiResponse<T> {
     private T data;
 
     public ApiResponse(boolean b, String contratoActualizadoConÉxito, ContratoSalidaDto contratoActualizado) {
+    }
+
+    public ApiResponse(boolean b, String reciboCreadoCorrectamente, ReciboSalidaDto reciboSalidaDto) {
     }
 }

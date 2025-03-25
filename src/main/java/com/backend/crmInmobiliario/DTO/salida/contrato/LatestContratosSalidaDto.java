@@ -1,5 +1,6 @@
 package com.backend.crmInmobiliario.DTO.salida.contrato;
 
+import com.backend.crmInmobiliario.DTO.entrada.inquilino.InquilinoContratoDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.*;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
@@ -12,8 +13,9 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 public class LatestContratosSalidaDto {
-
-    private String nombreContrato;
     private Long id;
-
+    private String nombreContrato;
+    private PropietarioContratoDtoSalida propietario;
+    private InquilinoContratoDtoSalida inquilino;
+    private PropiedadContratoSalidaDto propiedad;
 }

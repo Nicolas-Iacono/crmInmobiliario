@@ -1,9 +1,6 @@
 package com.backend.crmInmobiliario.DTO.entrada.propiedades;
 
 
-import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
-import com.backend.crmInmobiliario.entity.Inquilino;
-import com.backend.crmInmobiliario.entity.Propietario;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;

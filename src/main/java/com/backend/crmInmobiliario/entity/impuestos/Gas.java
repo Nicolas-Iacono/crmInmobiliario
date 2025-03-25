@@ -13,6 +13,7 @@ import java.util.List;
 @Entity
 @NoArgsConstructor
 @Table(name = "gas")
+@Inheritance(strategy = InheritanceType.JOINED)
 public class Gas extends Impuesto {
 
 

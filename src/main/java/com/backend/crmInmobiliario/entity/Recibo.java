@@ -5,6 +5,7 @@ import com.backend.crmInmobiliario.entity.impuestos.Gas;
 import com.backend.crmInmobiliario.entity.impuestos.Luz;
 import com.backend.crmInmobiliario.entity.impuestos.Municipal;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,10 +14,12 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
-@Table(name = "recibos")
 @Entity
+@Table(name = "recibos")
 @NoArgsConstructor
 public class Recibo {
 
@@ -25,27 +28,32 @@ public class Recibo {
     @Column(name = "id_recibo")
     private Long id;
 
-//    @ManyToOne
-//    @JoinColumn(name = "id_contrato", nullable = false)
-//    private Contrato contrato;
-//
-//    @ManyToOne
-//    @ToString.Exclude
-//    @JsonIgnore
-//    @JoinColumn(name = "usuario_id")
-//    private Usuario usuario;
-
     @CreationTimestamp
     private LocalDate fechaEmision;
 
-    private LocalDate periodo;
-
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_contrato", nullable = false)
+    @JsonIgnore // Evita referencias circulares en la serialización
+    private Contrato contrato;
+    private int numeroRecibo;
+    private String periodo;
+    private String concepto;
     private BigDecimal montoTotal;
 
-    private Double aguaServicio;
-    private Double luzServicio;
-    private Double gasServicio;
-    private Double municipalServicio;
+    @Column(name = "fecha_vencimiento", nullable = false)
+    private LocalDate fechaVencimiento;
 
+    // Relación polimórfica con Impuesto
+    @JsonManagedReference // Anotación en la entidad "padre"
+    @OneToMany(mappedBy = "recibo", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Impuesto> impuestos = new ArrayList<>();
 
+    private Boolean estado;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.fechaVencimiento == null) {
+            this.fechaVencimiento = LocalDate.now().plusDays(15);
+        }
+    }
 }

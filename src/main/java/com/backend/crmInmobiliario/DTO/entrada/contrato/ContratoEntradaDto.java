@@ -1,9 +1,6 @@
 package com.backend.crmInmobiliario.DTO.entrada.contrato;
 
-import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
-import com.backend.crmInmobiliario.entity.Inquilino;
-import com.backend.crmInmobiliario.entity.Propiedad;
-import com.backend.crmInmobiliario.entity.Propietario;
+
 import com.backend.crmInmobiliario.utils.CustomLocalDateDeserializer;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -41,11 +38,22 @@ public class ContratoEntradaDto {
     private Long id_propiedad;
 
     private List<Long> garantesIds;
-    private Long id_agua;
-    private Long id_gas;
-    private Long id_luz;
-    private Long id_municipal;
+//    private Long id_agua;
+//    private Long id_gas;
+//    private Long id_luz;
+//    private Long id_municipal;
 
+    private String aguaEmpresa;
+    private int aguaPorcentaje;
+
+    private String luzEmpresa;
+    private int luzPorcentaje;
+
+    private String gasEmpresa;
+    private int gasPorcentaje;
+
+    private String municipalEmpresa;
+    private int municipalPorcentaje;
 
     private int actualizacion;
     private double montoAlquiler;

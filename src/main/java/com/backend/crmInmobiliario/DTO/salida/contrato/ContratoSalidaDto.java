@@ -27,7 +27,21 @@ public class ContratoSalidaDto {
     private double montoAlquiler;
     private int duracion;
     private boolean activo;
-    private ImpuestosGeneralSalidaDto impuestos;
+
+    private String aguaEmpresa;
+    private int aguaPorcentaje;
+
+    private String luzEmpresa;
+    private int luzPorcentaje;
+
+    private String gasEmpresa;
+    private int gasPorcentaje;
+
+    private String municipalEmpresa;
+    private int municipalPorcentaje;
+//    private ImpuestosGeneralSalidaDto impuestos;
+    private ReciboSalidaDto recibos;
+
     private String indiceAjuste;
     private String montoAlquilerLetras;
     private Double multaXDia;
@@ -37,4 +51,6 @@ public class ContratoSalidaDto {
     private String contratoPdf;
 //    private ContratoPdfSalidaDto pdfSalidaDto;
     private UsuarioDtoSalida usuarioDtoSalida;
+
+
 }

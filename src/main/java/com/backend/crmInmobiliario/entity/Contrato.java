@@ -64,21 +64,37 @@ public class Contrato {
     @OneToMany(mappedBy = "contrato", fetch = FetchType.EAGER)
     private List<Garante> garantes;
 
-    @ManyToOne
-    @JoinColumn(name = "id_municipal", referencedColumnName = "id")
-    private Municipal municipal;
 
-    @ManyToOne
-    @JoinColumn(name = "id_gas", referencedColumnName = "id")
-    private Gas gas;
+//    @ManyToOne
+//    @JoinColumn(name = "id_municipal", referencedColumnName = "id")
+//    private Municipal municipal;
+//
+//    @ManyToOne
+//    @JoinColumn(name = "id_gas", referencedColumnName = "id")
+//    private Gas gas;
+//
+//    @ManyToOne
+//    @JoinColumn(name = "id_luz", referencedColumnName = "id")
+//    private Luz luz;
+//
+//    @ManyToOne
+//    @JoinColumn(name = "id_agua",referencedColumnName = "id")
+//    private Agua agua;
 
-    @ManyToOne
-    @JoinColumn(name = "id_luz", referencedColumnName = "id") 
-    private Luz luz;
+    private String aguaEmpresa;
+    private int aguaPorcentaje;
 
-    @ManyToOne
-    @JoinColumn(name = "id_agua",referencedColumnName = "id")
-    private Agua agua;
+    private String luzEmpresa;
+    private int luzPorcentaje;
+
+    private String gasEmpresa;
+    private int gasPorcentaje;
+
+    private String municipalEmpresa;
+    private int municipalPorcentaje;
+
+
+
 
     private int actualizacion;
     private double montoAlquiler;
@@ -90,8 +106,8 @@ public class Contrato {
     private Long tiempoRestante;
     private String destino;
 
-//    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY)
-//    private List<Recibo> recibos;
+    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY)
+    private List<Recibo> recibos;
 
 
 

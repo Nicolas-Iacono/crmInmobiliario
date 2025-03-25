@@ -1,6 +1,5 @@
 package com.backend.crmInmobiliario.DTO.entrada.garante;
 
-import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;

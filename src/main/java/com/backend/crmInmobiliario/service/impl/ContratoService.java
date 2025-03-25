@@ -99,21 +99,14 @@ public class ContratoService implements IContratoService {
                 .addMapping(ContratoEntradaDto::getId_inquilino, Contrato::setInquilino)
                 .addMapping(ContratoEntradaDto::getId_propiedad, Contrato::setPropiedad)
                 .addMapping(ContratoEntradaDto::getId_propietario, Contrato::setPropietario)
-                .addMapping(ContratoEntradaDto::getGarantesIds, Contrato::setGarantes)
-                .addMapping(ContratoEntradaDto::getId_agua, Contrato::setAgua)
-                .addMapping(ContratoEntradaDto::getId_luz, Contrato::setLuz)
-                .addMapping(ContratoEntradaDto::getId_gas, Contrato::setGas)
-                .addMapping(ContratoEntradaDto::getId_municipal, Contrato::setMunicipal);
+                .addMapping(ContratoEntradaDto::getGarantesIds, Contrato::setGarantes);
+
 
         modelMapper.typeMap(Contrato.class, ContratoSalidaDto.class)
                 .addMapping(Contrato::getInquilino, ContratoSalidaDto::setInquilino)
                 .addMapping(Contrato::getPropiedad, ContratoSalidaDto::setPropiedad)
                 .addMapping(Contrato::getPropietario, ContratoSalidaDto::setPropietario)
                 .addMapping(Contrato::getGarantes, ContratoSalidaDto::setGarantes)
-                .addMapping(Contrato::getAgua, ContratoSalidaDto::setImpuestos)
-                .addMapping(Contrato::getLuz, ContratoSalidaDto::setImpuestos)
-                .addMapping(Contrato::getGas, ContratoSalidaDto::setImpuestos)
-                .addMapping(Contrato::getMunicipal, ContratoSalidaDto::setImpuestos)
                 .addMapping(Contrato::getTiempoRestante, ContratoSalidaDto::setTiempoRestante);
 
         modelMapper.typeMap(ContratoModificacionDto.class, ContratoSalidaDto.class)
@@ -161,17 +154,17 @@ public class ContratoService implements IContratoService {
         Propiedad propiedad = propiedadRepository.findById(contratoEntradaDto.getId_propiedad())
                 .orElseThrow(() -> new ResourceNotFoundException("Propiedad no encontrada"));
 
-        Gas gas = gasRepository.findById(contratoEntradaDto.getId_gas())
-                .orElseThrow(() -> new ResourceNotFoundException("Servicio de gas no encontrado"));
-
-        Luz luz = luzRepository.findById(contratoEntradaDto.getId_luz())
-                .orElseThrow(() -> new ResourceNotFoundException("Servicio de luz no encontrado"));
-
-        Agua agua = aguaRepository.findById(contratoEntradaDto.getId_agua())
-                .orElseThrow(() -> new ResourceNotFoundException("Servicio de agua no encontrado"));
-
-        Municipal municipal = municipalRepository.findById(contratoEntradaDto.getId_municipal())
-                .orElseThrow(() -> new ResourceNotFoundException("Servicio municipal no encontrado"));
+//        Gas gas = gasRepository.findById(contratoEntradaDto.getId_gas())
+//                .orElseThrow(() -> new ResourceNotFoundException("Servicio de gas no encontrado"));
+//
+//        Luz luz = luzRepository.findById(contratoEntradaDto.getId_luz())
+//                .orElseThrow(() -> new ResourceNotFoundException("Servicio de luz no encontrado"));
+//
+//        Agua agua = aguaRepository.findById(contratoEntradaDto.getId_agua())
+//                .orElseThrow(() -> new ResourceNotFoundException("Servicio de agua no encontrado"));
+//
+//        Municipal municipal = municipalRepository.findById(contratoEntradaDto.getId_municipal())
+//                .orElseThrow(() -> new ResourceNotFoundException("Servicio municipal no encontrado"));
 
         List<Garante> garantes = obtenerGarantesPorIds(contratoEntradaDto.getGarantesIds());
 
@@ -179,7 +172,8 @@ public class ContratoService implements IContratoService {
 
         // Crear el contrato y mapear sus datos
         Contrato contratoEnCreacion = modelMapper.map(contratoEntradaDto, Contrato.class);
-        asignarEntidadesRelacionadas(contratoEnCreacion, usuario, propietario, inquilino, propiedad, luz, gas, agua, municipal, garantes);
+
+        asignarEntidadesRelacionadas(contratoEntradaDto, contratoEnCreacion, usuario, propietario, inquilino, propiedad, garantes);
 
         // Persistir el contrato
         Contrato contratoPersistido = contratoRepository.save(contratoEnCreacion);
@@ -232,17 +226,21 @@ public class ContratoService implements IContratoService {
         }
     }
 
-    private void asignarEntidadesRelacionadas(Contrato contrato, Usuario usuario, Propietario propietario, Inquilino inquilino,
-                                              Propiedad propiedad, Luz luz, Gas gas, Agua agua, Municipal municipal, List<Garante> garantes) {
+    private void asignarEntidadesRelacionadas(ContratoEntradaDto contratoEntradaDto, Contrato contrato, Usuario usuario, Propietario propietario, Inquilino inquilino,
+                                              Propiedad propiedad, List<Garante> garantes) {
         contrato.setUsuario(usuario);
         contrato.setPropietario(propietario);
         contrato.setInquilino(inquilino);
         contrato.setPropiedad(propiedad);
-        contrato.setLuz(luz);
-        contrato.setGas(gas);
-        contrato.setAgua(agua);
-        contrato.setMunicipal(municipal);
         contrato.setGarantes(garantes);
+        contrato.setAguaEmpresa(contratoEntradaDto.getAguaEmpresa());
+        contrato.setGasEmpresa(contratoEntradaDto.getGasEmpresa());
+        contrato.setLuzEmpresa(contratoEntradaDto.getLuzEmpresa());
+        contrato.setMunicipalEmpresa(contratoEntradaDto.getMunicipalEmpresa());
+        contrato.setAguaPorcentaje(contratoEntradaDto.getAguaPorcentaje());
+        contrato.setLuzPorcentaje(contratoEntradaDto.getLuzPorcentaje());
+        contrato.setMunicipalPorcentaje(contratoEntradaDto.getMunicipalPorcentaje());
+        contrato.setGasPorcentaje(contratoEntradaDto.getGasPorcentaje());
 //        contrato.setPdfContrato(pdfContrato);
     }
 
