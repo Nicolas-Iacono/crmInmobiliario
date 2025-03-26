@@ -17,7 +17,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/usuario")
-@CrossOrigin
+@CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
 @PreAuthorize("denyAll()")
 public class UsuarioController {
     private IUsuarioService userService;
@@ -26,7 +26,6 @@ public class UsuarioController {
         this.userService = userService;
     }
 
-    @CrossOrigin(origins = "http://localhost:3000")
     @PreAuthorize("permitAll()")
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<UsuarioDtoSalida>>> allUsuarios(){
@@ -37,7 +36,6 @@ public class UsuarioController {
     }
     @PostMapping("/registrar-admin")
     @PreAuthorize("permitAll()")
-    @CrossOrigin(origins = "http://localhost:3000")
     public ResponseEntity<TokenDtoSalida> registrarAdmin(@RequestBody @Valid UserAdminEntradaDto userAdminEntradaDto){
 
         return new ResponseEntity<>(userService.registrarUsuarioAdmin(userAdminEntradaDto), HttpStatus.CREATED);
@@ -45,7 +43,6 @@ public class UsuarioController {
 
     @PostMapping("/login")
     @PreAuthorize("permitAll()")
-    @CrossOrigin(origins = "http://localhost:3000")
     public ResponseEntity<AuthResponse> login (@RequestBody LoginEntradaDto loginEntradaDto){
         return new ResponseEntity<>(this.userService.loginUser(loginEntradaDto), HttpStatus.OK);
     }

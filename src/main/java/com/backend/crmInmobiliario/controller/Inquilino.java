@@ -20,7 +20,7 @@ import java.util.List;
 @RequestMapping("/api/inquilino")
 public class Inquilino {
 
-private final InquilinoService inquilinoService;
+    private final InquilinoService inquilinoService;
 
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<InquilinoSalidaDto>> crearInquilino(@Valid @RequestBody InquilinoEntradaDto inquilinoEntradaDto) {
@@ -68,7 +68,7 @@ private final InquilinoService inquilinoService;
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "http://localhost:3000")
+    @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<InquilinoSalidaDto>> getInquilinoByUsername(@PathVariable String username) {
         List<InquilinoSalidaDto> inquilinos = inquilinoService.buscarInquilinoPorUsuario(username);

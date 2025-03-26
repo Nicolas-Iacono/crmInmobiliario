@@ -16,10 +16,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin
+
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/propiedad")
+@CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
 public class PropiedadController {
     private final PropiedadService propiedadService;
 
@@ -58,7 +59,7 @@ public class PropiedadController {
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "http://localhost:3000")
+    @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<PropiedadSalidaDto>> getPropiedadByUsername(@PathVariable String username) {
         List<PropiedadSalidaDto> propiedades =propiedadService.buscarPropiedadesPorUsuario(username);

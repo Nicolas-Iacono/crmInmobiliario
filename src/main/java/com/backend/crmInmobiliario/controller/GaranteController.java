@@ -15,9 +15,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin
 @RestController
 @AllArgsConstructor
+@CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
 @RequestMapping("api/garante")
 public class GaranteController {
     private final GaranteService garanteService;
@@ -59,7 +59,7 @@ public class GaranteController {
     }
 
 
-    @CrossOrigin(origins = "http://localhost:3000")
+    @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<ApiResponse<?>> eliminarGarante(@PathVariable Long id) {
         try {
@@ -75,7 +75,7 @@ public class GaranteController {
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "http://localhost:3000")
+    @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<GaranteSalidaDto>> getGarantesByUsername(@PathVariable String username) {
         List<GaranteSalidaDto> garantes = garanteService.buscarGarantePorUsuario(username);

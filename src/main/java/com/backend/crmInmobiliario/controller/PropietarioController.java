@@ -14,13 +14,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-
+/**
+ * Controlador para la entidad Propietario
+ */
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/propietario")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
 public class PropietarioController {
-
 
     private final PropietarioService propietarioService;
 
@@ -59,7 +60,7 @@ public class PropietarioController {
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "http://localhost:3000")
+    @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<PropietarioSalidaDto>> getPropietariosByUsername(@PathVariable String username) {
         List<PropietarioSalidaDto> propietarios =propietarioService.buscarPropietariosPorUsuario(username);

@@ -18,7 +18,7 @@ import java.util.List;
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/recibo")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
 public class ReciboController {
 
     private final ReciboService reciboService;
@@ -35,12 +35,10 @@ public class ReciboController {
 //        }
 //    }
     @PostMapping("/create")
-    @CrossOrigin(origins = "http://localhost:3000")
     public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @RequestBody ReciboEntradaDto reciboEntradaDto) throws ResourceNotFoundException {
         ReciboSalidaDto reciboSalidaDto = reciboService.crearRecibo(reciboEntradaDto);
         return ResponseEntity.ok(new ApiResponse<>(true, "Recibo creado correctamente", reciboSalidaDto));
     }
-    @CrossOrigin(origins = "http://localhost:3000")
     @GetMapping("/{id}") // Usa /{id} para indicar un parámetro en la URL
     public ResponseEntity<ApiResponse<ReciboSalidaDto>> buscarReciboPorId(@PathVariable Long id) throws ResourceNotFoundException {
         ReciboSalidaDto reciboSalidaDto = reciboService.buscarReciboPorId(id);
@@ -48,7 +46,6 @@ public class ReciboController {
         return ResponseEntity.ok(response);
     }
 
-    @CrossOrigin(origins = "http://localhost:3000")
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<ReciboSalidaDto>>> allRecibos(){
         List<ReciboSalidaDto> reciboSalidaDtos = reciboService.listarRecibos();

@@ -1,6 +1,5 @@
 package com.backend.crmInmobiliario.controller;
 
-
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
@@ -20,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
 @RestController
 @AllArgsConstructor
 @RequestMapping("api/contrato")
@@ -44,7 +43,6 @@ public class ContratoController {
         return ResponseEntity.ok(new ApiResponse<>("contrato encontrado, ", contratoSalidaDto));
     }
 
-    @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<ContratoSalidaDto>> crearContrato(@Valid @RequestBody ContratoEntradaDto contratoEntradaDto) {
         LOGGER.info("Recibiendo solicitud para crear contrato: {}", contratoEntradaDto);
@@ -60,7 +58,6 @@ public class ContratoController {
         }
     }
 
-    @CrossOrigin(origins = "http://localhost:3000")
     @GetMapping("/verificar-contrato/{id}")
     public ResponseEntity<?> VerificarFinalizacionContrato(@PathVariable Long id) {
         try {
@@ -95,7 +92,6 @@ public class ContratoController {
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "http://localhost:3000")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<ContratoSalidaDto>> getContratosByUsername(@PathVariable String username) {
         List<ContratoSalidaDto> contratos = contratoService.buscarContratoPorUsuario(username);
@@ -131,7 +127,6 @@ public class ContratoController {
 
     @GetMapping("/latest")
     @PreAuthorize("permitAll()")
-    @CrossOrigin(origins = "http://localhost:3000")
     public List<LatestContratosSalidaDto> getLatestContratos() {
         return contratoService.getLatestContratos();
     }
