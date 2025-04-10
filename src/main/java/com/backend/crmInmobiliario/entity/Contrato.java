@@ -1,9 +1,6 @@
 package com.backend.crmInmobiliario.entity;
 
-import com.backend.crmInmobiliario.entity.impuestos.Agua;
-import com.backend.crmInmobiliario.entity.impuestos.Gas;
-import com.backend.crmInmobiliario.entity.impuestos.Luz;
-import com.backend.crmInmobiliario.entity.impuestos.Municipal;
+
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
@@ -61,25 +58,9 @@ public class Contrato {
     @JoinColumn(name = "id_propiedad", nullable = false)
     private Propiedad propiedad;
 
-    @OneToMany(mappedBy = "contrato", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY,cascade = CascadeType.ALL)
     private List<Garante> garantes;
 
-
-//    @ManyToOne
-//    @JoinColumn(name = "id_municipal", referencedColumnName = "id")
-//    private Municipal municipal;
-//
-//    @ManyToOne
-//    @JoinColumn(name = "id_gas", referencedColumnName = "id")
-//    private Gas gas;
-//
-//    @ManyToOne
-//    @JoinColumn(name = "id_luz", referencedColumnName = "id")
-//    private Luz luz;
-//
-//    @ManyToOne
-//    @JoinColumn(name = "id_agua",referencedColumnName = "id")
-//    private Agua agua;
 
     private String aguaEmpresa;
     private int aguaPorcentaje;

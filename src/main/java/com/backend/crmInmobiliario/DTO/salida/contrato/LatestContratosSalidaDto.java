@@ -18,4 +18,5 @@ public class LatestContratosSalidaDto {
     private PropietarioContratoDtoSalida propietario;
     private InquilinoContratoDtoSalida inquilino;
     private PropiedadContratoSalidaDto propiedad;
+    private UsuarioDtoSalida usuarioDtoSalida;
 }

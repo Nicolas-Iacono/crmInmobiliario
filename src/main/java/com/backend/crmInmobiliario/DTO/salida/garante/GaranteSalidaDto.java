@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.DTO.salida.garante;
 
 import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
+import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoIdSalidaDto;
 import com.backend.crmInmobiliario.entity.Usuario;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,6 +14,7 @@ import java.util.List;
 public class GaranteSalidaDto {
 
     private Long id;
+    private ContratoIdSalidaDto contrato;
     private String pronombre;
     private String nombre;
     private String apellido;
@@ -26,7 +28,7 @@ public class GaranteSalidaDto {
     private String nombreEmpresa;
     private String sectorActual;
     private String cargoActual;
-    private int legajo;
+    private Long legajo;
     private String cuitEmpresa;
 
     private String tipoGarantia;
@@ -37,7 +39,6 @@ public class GaranteSalidaDto {
     private String tipoPropiedad;
     private String informeDominio;
     private String informeInhibicion;
-    private List<ImgUrlSalidaDto> imagenes;
     private UsuarioDtoSalida usuarioDtoSalida;
 
 }

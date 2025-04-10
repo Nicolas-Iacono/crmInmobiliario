@@ -2,8 +2,11 @@ package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
+import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaSinGaranteDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.LatestContratosSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.entity.impuestos.Agua;
 import com.backend.crmInmobiliario.entity.impuestos.Gas;
@@ -15,6 +18,7 @@ import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IContratoService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import org.hibernate.Hibernate;
 import org.hibernate.collection.spi.PersistentBag;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
@@ -90,16 +94,11 @@ public class ContratoService implements IContratoService {
                 .setMatchingStrategy(MatchingStrategies.LOOSE)
                 .setAmbiguityIgnored(true);
 
-        modelMapper.createTypeMap(PersistentBag.class, List.class).setConverter(context -> {
-            PersistentBag source = (PersistentBag) context.getSource();
-            return source == null ? null : new ArrayList<>(source);
-        });
 
         modelMapper.typeMap(ContratoEntradaDto.class, Contrato.class)
                 .addMapping(ContratoEntradaDto::getId_inquilino, Contrato::setInquilino)
                 .addMapping(ContratoEntradaDto::getId_propiedad, Contrato::setPropiedad)
-                .addMapping(ContratoEntradaDto::getId_propietario, Contrato::setPropietario)
-                .addMapping(ContratoEntradaDto::getGarantesIds, Contrato::setGarantes);
+                .addMapping(ContratoEntradaDto::getId_propietario, Contrato::setPropietario);
 
 
         modelMapper.typeMap(Contrato.class, ContratoSalidaDto.class)
@@ -107,7 +106,18 @@ public class ContratoService implements IContratoService {
                 .addMapping(Contrato::getPropiedad, ContratoSalidaDto::setPropiedad)
                 .addMapping(Contrato::getPropietario, ContratoSalidaDto::setPropietario)
                 .addMapping(Contrato::getGarantes, ContratoSalidaDto::setGarantes)
+                .addMapping(Contrato::getRecibos,ContratoSalidaDto::setRecibos)
                 .addMapping(Contrato::getTiempoRestante, ContratoSalidaDto::setTiempoRestante);
+
+        modelMapper.typeMap(Contrato.class, ContratoSalidaSinGaranteDto.class)
+                .addMapping(Contrato::getInquilino, ContratoSalidaSinGaranteDto::setInquilino)
+                .addMapping(Contrato::getPropiedad, ContratoSalidaSinGaranteDto::setPropiedad)
+                .addMapping(Contrato::getPropietario, ContratoSalidaSinGaranteDto::setPropietario)
+                .addMapping(Contrato::getTiempoRestante, ContratoSalidaSinGaranteDto::setTiempoRestante)
+                .addMapping(Contrato::getRecibos, ContratoSalidaSinGaranteDto::setRecibos);
+
+        modelMapper.typeMap(Contrato.class, LatestContratosSalidaDto.class)
+                .addMapping(Contrato::getUsuario, LatestContratosSalidaDto::setUsuarioDtoSalida);
 
         modelMapper.typeMap(ContratoModificacionDto.class, ContratoSalidaDto.class)
                 .addMapping(ContratoModificacionDto::getPdfContratoTexto, ContratoSalidaDto::setContratoPdf);
@@ -116,21 +126,45 @@ public class ContratoService implements IContratoService {
 
 
     @Override
+    @Transactional
     public List<ContratoSalidaDto> listarContratos() {
         List<Contrato> contratos = contratoRepository.findAll();
+
         return contratos.stream()
                 .map(contrato -> {
-                    Long tiempoRestante = null;
+                    // 🔄 Inicializamos las colecciones que vienen como Lazy
+                    Hibernate.initialize(contrato.getGarantes());
+                    Hibernate.initialize(contrato.getRecibos());
+
+                    for (Recibo recibo : contrato.getRecibos()) {
+                        Hibernate.initialize(recibo.getImpuestos());
+                    }
+
+                    // ⏳ Cálculo de tiempo restante (fuera del mapeo DTO)
+                    Long tiempoRestante;
                     try {
                         tiempoRestante = verificarFinalizacionContrato(contrato.getId_contrato());
                     } catch (ResourceNotFoundException e) {
-                        throw new RuntimeException(e);
+                        throw new RuntimeException("No se pudo calcular el tiempo restante del contrato", e);
                     }
+
                     contrato.setTiempoRestante(tiempoRestante);
-                    return modelMapper.map(contrato, ContratoSalidaDto.class);
+
+                    // 🔁 Mapeo del contrato sin garantes (los salteamos en el config)
+                    ContratoSalidaDto contratoDto = modelMapper.map(contrato, ContratoSalidaDto.class);
+
+                    // ✅ Mapeo manual de garantes para evitar ciclo
+                    if (contrato.getGarantes() != null) {
+                        List<GaranteSalidaDto> garantesDto = contrato.getGarantes().stream()
+                                .map(garante -> modelMapper.map(garante, GaranteSalidaDto.class))
+                                .collect(Collectors.toList());
+
+                        contratoDto.setGarantes(garantesDto);
+                    }
+
+                    return contratoDto;
                 })
                 .toList();
-
     }
 
     @Transactional
@@ -154,17 +188,6 @@ public class ContratoService implements IContratoService {
         Propiedad propiedad = propiedadRepository.findById(contratoEntradaDto.getId_propiedad())
                 .orElseThrow(() -> new ResourceNotFoundException("Propiedad no encontrada"));
 
-//        Gas gas = gasRepository.findById(contratoEntradaDto.getId_gas())
-//                .orElseThrow(() -> new ResourceNotFoundException("Servicio de gas no encontrado"));
-//
-//        Luz luz = luzRepository.findById(contratoEntradaDto.getId_luz())
-//                .orElseThrow(() -> new ResourceNotFoundException("Servicio de luz no encontrado"));
-//
-//        Agua agua = aguaRepository.findById(contratoEntradaDto.getId_agua())
-//                .orElseThrow(() -> new ResourceNotFoundException("Servicio de agua no encontrado"));
-//
-//        Municipal municipal = municipalRepository.findById(contratoEntradaDto.getId_municipal())
-//                .orElseThrow(() -> new ResourceNotFoundException("Servicio municipal no encontrado"));
 
         List<Garante> garantes = obtenerGarantesPorIds(contratoEntradaDto.getGarantesIds());
 
@@ -226,13 +249,22 @@ public class ContratoService implements IContratoService {
         }
     }
 
-    private void asignarEntidadesRelacionadas(ContratoEntradaDto contratoEntradaDto, Contrato contrato, Usuario usuario, Propietario propietario, Inquilino inquilino,
+    private void asignarEntidadesRelacionadas(ContratoEntradaDto contratoEntradaDto, Contrato contrato, Usuario usuario,
+                                              Propietario propietario, Inquilino inquilino,
                                               Propiedad propiedad, List<Garante> garantes) {
         contrato.setUsuario(usuario);
         contrato.setPropietario(propietario);
         contrato.setInquilino(inquilino);
         contrato.setPropiedad(propiedad);
+
+        // Asigna el contrato a cada garante
+        for (Garante garante : garantes) {
+            garante.setContrato(contrato);
+            LOGGER.info("Asignando garante id {} al contrato", garante.getId());
+        }
+        // Asigna la lista de garantes al contrato
         contrato.setGarantes(garantes);
+
         contrato.setAguaEmpresa(contratoEntradaDto.getAguaEmpresa());
         contrato.setGasEmpresa(contratoEntradaDto.getGasEmpresa());
         contrato.setLuzEmpresa(contratoEntradaDto.getLuzEmpresa());
@@ -241,16 +273,25 @@ public class ContratoService implements IContratoService {
         contrato.setLuzPorcentaje(contratoEntradaDto.getLuzPorcentaje());
         contrato.setMunicipalPorcentaje(contratoEntradaDto.getMunicipalPorcentaje());
         contrato.setGasPorcentaje(contratoEntradaDto.getGasPorcentaje());
-//        contrato.setPdfContrato(pdfContrato);
     }
 
 
     @Override
+    @Transactional
     public List<ContratoSalidaDto> buscarContratoPorUsuario(String username) {
 
         List<Contrato> contratoList = contratoRepository.findContratosByUsername(username);
         return contratoList.stream()
                 .map(contrato -> {
+                    if (contrato.getGarantes() != null) {
+                        contrato.setGarantes(new ArrayList<>(contrato.getGarantes()));
+                    }
+                    if (contrato.getRecibos() != null){
+                        Hibernate.initialize(contrato.getRecibos());
+                    }
+                    for (Recibo recibo : contrato.getRecibos()) {
+                        Hibernate.initialize(recibo.getImpuestos()); // 💥 ESTE es el que te falta
+                    }
                     Long tiempoRestante = null;
                     try {
                         tiempoRestante = verificarFinalizacionContrato(contrato.getId_contrato());
@@ -286,9 +327,21 @@ public class ContratoService implements IContratoService {
 
 
     @Override
-    public ContratoSalidaDto buscarContratoPorId(Long id){
-        Contrato contrato = contratoRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Contrato no encontrado"));
+    @Transactional
+    public ContratoSalidaDto buscarContratoPorId(Long id) {
+        Contrato contrato = contratoRepository.findContratoByIdWithGarantes(id);
+        if (contrato == null) {
+            throw new EntityNotFoundException("Contrato no encontrado");
+        }
+        if (contrato.getGarantes() != null) {
+            contrato.setGarantes(new ArrayList<>(contrato.getGarantes()));
+        }
+        if (contrato.getRecibos() != null){
+            Hibernate.initialize(contrato.getRecibos());
+        }
+        for (Recibo recibo : contrato.getRecibos()) {
+            Hibernate.initialize(recibo.getImpuestos());
+        }
         return modelMapper.map(contrato, ContratoSalidaDto.class);
     }
 
@@ -388,6 +441,8 @@ public class ContratoService implements IContratoService {
                     LatestContratosSalidaDto lts = new LatestContratosSalidaDto();
                     lts.setId(contrato.getId_contrato());
                     lts.setNombreContrato(contrato.getNombreContrato());
+                    modelMapper.map(contrato, LatestContratosSalidaDto.class);
+                    lts.setUsuarioDtoSalida(modelMapper.map(contrato.getUsuario(), UsuarioDtoSalida.class));
                     return lts;
                 })
                 .collect(Collectors.toList());

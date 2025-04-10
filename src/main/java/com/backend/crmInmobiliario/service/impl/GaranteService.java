@@ -20,7 +20,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class GaranteService implements IGaranteService {
@@ -44,8 +46,8 @@ public class GaranteService implements IGaranteService {
     private void configureMapping() {
         modelMapper.typeMap(GaranteEntradaDto.class, Garante.class);
         modelMapper.typeMap(Garante.class, GaranteSalidaDto.class)
-                .addMapping(Garante::getUsuario, GaranteSalidaDto::setUsuarioDtoSalida)
-                .addMapping(Garante::getImageUrls, GaranteSalidaDto::setImagenes);
+                .addMapping(Garante::getUsuario, GaranteSalidaDto::setUsuarioDtoSalida);
+
 
     }
     public void deleteByContratoId(Long contratoId) {
@@ -139,58 +141,24 @@ public class GaranteService implements IGaranteService {
 
     @Override
     public void asignarGarante(Long idGarante, Long idContrato) throws ResourceNotFoundException {
-        // Busca el contrato por su ID
         Contrato contrato = contratoRepository.findById(idContrato)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encuentra el contrato con el id proporcionado!!"));
 
-        // Busca el garante por su ID
         Garante garante = garanteRepository.findById(idGarante)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encuentra el garante con el id proporcionado!!"));
 
-        // Obtiene la lista actual de garantes y agrega el nuevo garante
+        // Relación bidireccional
+        garante.setContrato(contrato);
+
         List<Garante> garantes = contrato.getGarantes();
         if (garantes == null) {
             garantes = new ArrayList<>();  // Inicializa la lista si es null
         }
-        garantes.add(garante);  // Agrega el nuevo garante a la lista
+        garantes.add(garante); // HashSet evita duplicados automáticamente
 
-        // Asigna la lista actualizada al contrato
         contrato.setGarantes(garantes);
 
-        System.out.println("Contrato antes de guardar: " + contrato);
-        // Guarda el contrato con el garante asignado
         contratoRepository.save(contrato);
-        System.out.println("garante agregado"+ garantes);
+        garanteRepository.save(garante);
     }
-
-
-
-
-
-
-//    @Override
-//    public void agregarRecibo(Long id,MultipartFile archivoRecibo)throws ResourceNotFoundException,  IOException {
-//// Buscar el garante por su ID
-//        Garante garante = garanteRepository.findById(id)
-//                .orElseThrow(() -> new ResourceNotFoundException("No se encuentra el garante con el id proporcionado!!"));
-//
-//        // Verificar si el archivo es válido
-//        if (archivoRecibo.isEmpty()) {
-//            throw new IllegalArgumentException("El archivo de DNI está vacío");
-//        }
-//
-//        // Definir la ruta donde se guardará el archivo
-//        String rutaDirectorio = "/ruta/donde/quieres/guardar/el/dni/";
-//        String nombreArchivo = archivoRecibo.getOriginalFilename();
-//
-//        // Guarda el archivo en el sistema de archivos
-//        Path rutaCompleta = Paths.get(rutaDirectorio, nombreArchivo);
-//        Files.copy(archivoRecibo.getInputStream(), rutaCompleta, StandardCopyOption.REPLACE_EXISTING);
-//
-//        // Guardar la ruta del archivo en el garante
-//        garante.setImagenDniPath(rutaCompleta.toString());
-//
-//        // Actualizar el garante en la base de datos
-//        garanteRepository.save(garante);
-//    }
 }

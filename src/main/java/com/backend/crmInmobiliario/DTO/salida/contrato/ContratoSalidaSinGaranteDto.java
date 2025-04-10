@@ -1,19 +1,22 @@
 package com.backend.crmInmobiliario.DTO.salida.contrato;
 
 import com.backend.crmInmobiliario.DTO.entrada.inquilino.InquilinoContratoDtoSalida;
-import com.backend.crmInmobiliario.DTO.salida.*;
+import com.backend.crmInmobiliario.DTO.salida.PropiedadContratoSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.PropietarioContratoDtoSalida;
+import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteContratoDtoSalida;
-import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
-import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
 
+
+
 @Data
 @NoArgsConstructor
-public class ContratoSalidaDto {
+public class ContratoSalidaSinGaranteDto {
 
     private String nombreContrato;
     private Long id;
@@ -22,7 +25,6 @@ public class ContratoSalidaDto {
     private PropietarioContratoDtoSalida propietario;
     private InquilinoContratoDtoSalida inquilino;
     private PropiedadContratoSalidaDto propiedad;
-    private List<GaranteSalidaDto> garantes;
     private int actualizacion;
     private double montoAlquiler;
     private int duracion;
@@ -39,6 +41,7 @@ public class ContratoSalidaDto {
 
     private String municipalEmpresa;
     private int municipalPorcentaje;
+    //    private ImpuestosGeneralSalidaDto impuestos;
     private List<ReciboSalidaDto> recibos;
 
     private String indiceAjuste;
@@ -48,7 +51,7 @@ public class ContratoSalidaDto {
     private String destino;
 
     private String contratoPdf;
-//    private ContratoPdfSalidaDto pdfSalidaDto;
+    //    private ContratoPdfSalidaDto pdfSalidaDto;
     private UsuarioDtoSalida usuarioDtoSalida;
 
 

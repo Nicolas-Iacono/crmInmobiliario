@@ -1,5 +1,6 @@
 package com.backend.crmInmobiliario.DTO.salida;
 
+import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoIdSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.LatestContratosSalidaDto;
 import lombok.Data;
@@ -14,6 +15,7 @@ import java.util.List;
 public class ReciboSalidaDto {
 
     private Long id;
+    private ContratoIdSalidaDto contratoId;
     private LocalDate fechaEmision;
     private LocalDate fechaVencimiento;
     private String periodo;
@@ -21,8 +23,7 @@ public class ReciboSalidaDto {
     private BigDecimal montoTotal;
     private int numeroRecibo;
     private Boolean estado;
-    // Información del contrato puede incluirse según sea necesario
-    private LatestContratosSalidaDto contrato; // o un DTO específico de contrato
+
 
     // Lista de impuestos asociados, ya convertidos a DTO de salida
     private List<ImpuestosGeneralSalidaDto> impuestos;

@@ -4,16 +4,19 @@ import com.backend.crmInmobiliario.DTO.entrada.propiedades.PropiedadEntradaDto;
 import com.backend.crmInmobiliario.DTO.salida.*;
 import com.backend.crmInmobiliario.entity.Propiedad;
 import com.backend.crmInmobiliario.entity.Propietario;
+import com.backend.crmInmobiliario.entity.Usuario;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.InquilinoRepository;
 import com.backend.crmInmobiliario.repository.PropiedadRepository;
 import com.backend.crmInmobiliario.repository.PropietarioRepository;
+import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IPropiedadService;
 import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,10 +24,20 @@ import java.util.List;
 @Service
 public class PropiedadService implements IPropiedadService {
     private final Logger LOGGER = LoggerFactory.getLogger(ContratoService.class);
+    @Autowired
     private ModelMapper modelMapper;
+
+    @Autowired
     private InquilinoRepository inquilinoRepository;
+
+    @Autowired
     private PropiedadRepository propiedadRepository;
+
+    @Autowired
     private PropietarioRepository propietarioRepository;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
     public PropiedadService(ModelMapper modelMapper, InquilinoRepository inquilinoRepository, PropiedadRepository propiedadRepository, PropietarioRepository propietarioRepository) {
         this.modelMapper = modelMapper;
@@ -39,10 +52,12 @@ public class PropiedadService implements IPropiedadService {
                 .setMatchingStrategy(MatchingStrategies.LOOSE)
                 .setAmbiguityIgnored(true); // Ignorar ambigüedad en el mapeo.
         modelMapper.typeMap(PropiedadEntradaDto.class, Propiedad.class)
-                .addMapping(PropiedadEntradaDto::getId_propietario, Propiedad::setPropietario);
+                .addMapping(PropiedadEntradaDto::getId_propietario, Propiedad::setPropietario)
+                .addMapping(PropiedadEntradaDto::getNombreUsuario, Propiedad::setUsuario);
 
         modelMapper.typeMap(Propiedad.class, PropiedadSalidaDto.class)
-                .addMapping(Propiedad::getPropietario, PropiedadSalidaDto::setPropietarioSalidaDto);
+                .addMapping(Propiedad::getPropietario, PropiedadSalidaDto::setPropietarioSalidaDto)
+                .addMapping(Propiedad::getUsuario, PropiedadSalidaDto::setUsuarioDtoSalida);
 
     }
 
@@ -57,6 +72,11 @@ public class PropiedadService implements IPropiedadService {
     @Override
     @Transactional
     public PropiedadSalidaDto crearPropiedad(PropiedadEntradaDto propiedadEntradaDto, Long propietarioId) throws ResourceNotFoundException {
+
+        String nombreUsuario = propiedadEntradaDto.getNombreUsuario();
+
+        Usuario usuario = usuarioRepository.findUserByUsername(nombreUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         // Buscar el propietario con propietarioId
         Propietario propietario = propietarioRepository.findById(propietarioId)
@@ -73,6 +93,7 @@ public class PropiedadService implements IPropiedadService {
         propiedad.setDisponibilidad(propiedadEntradaDto.getDisponibilidad());
         // Asignar el propietario ya encontrado
         propiedad.setPropietario(propietario);
+        propiedad.setUsuario(usuario);
 
         // Guardar la propiedad en la base de datos
         Propiedad propiedadAPersistir = propiedadRepository.save(propiedad);

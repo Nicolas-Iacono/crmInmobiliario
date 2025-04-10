@@ -33,11 +33,15 @@ public class Recibo {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_contrato", nullable = false)
-    @JsonIgnore // Evita referencias circulares en la serialización
+    @JsonIgnore
     private Contrato contrato;
+
     private int numeroRecibo;
+
     private String periodo;
+
     private String concepto;
+
     private BigDecimal montoTotal;
 
     @Column(name = "fecha_vencimiento", nullable = false)

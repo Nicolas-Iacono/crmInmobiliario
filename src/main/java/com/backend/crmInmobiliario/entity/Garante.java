@@ -20,6 +20,7 @@ public class Garante extends Persona{
 
     @ManyToOne
     @JoinColumn(name = "id_contrato")
+    @JsonIgnore
     private Contrato contrato;
 
     @OneToMany(mappedBy = "garante", cascade = CascadeType.ALL, fetch = FetchType.EAGER)

@@ -7,10 +7,7 @@ import com.backend.crmInmobiliario.DTO.salida.ImpuestosGeneralSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.entity.*;
-import com.backend.crmInmobiliario.entity.impuestos.Agua;
-import com.backend.crmInmobiliario.entity.impuestos.Gas;
-import com.backend.crmInmobiliario.entity.impuestos.Luz;
-import com.backend.crmInmobiliario.entity.impuestos.Municipal;
+import com.backend.crmInmobiliario.entity.impuestos.*;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.ContratoRepository;
 import com.backend.crmInmobiliario.repository.InquilinoRepository;
@@ -56,13 +53,13 @@ public class ReciboService implements IReciboService {
 
 
 
-        // Verifica si ya existe el TypeMap para evitar duplicados
-        if (modelMapper.getTypeMap(PersistentBag.class, List.class) == null) {
-            modelMapper.createTypeMap(PersistentBag.class, List.class).setConverter(context -> {
-                PersistentBag source = (PersistentBag) context.getSource();
-                return source == null ? null : new ArrayList<>(source);
-            });
-        }
+//        // Verifica si ya existe el TypeMap para evitar duplicados
+//        if (modelMapper.getTypeMap(PersistentBag.class, List.class) == null) {
+//            modelMapper.createTypeMap(PersistentBag.class, List.class).setConverter(context -> {
+//                PersistentBag source = (PersistentBag) context.getSource();
+//                return source == null ? null : new ArrayList<>(source);
+//            });
+//        }
 
         modelMapper.typeMap(ReciboEntradaDto.class, Recibo.class)
                 .addMapping(ReciboEntradaDto::getIdContrato, Recibo::setContrato)
@@ -76,8 +73,8 @@ public class ReciboService implements IReciboService {
 
 
         modelMapper.typeMap(Recibo.class, ReciboSalidaDto.class)
-                .addMapping(Recibo::getContrato, ReciboSalidaDto::setContrato)
                 .addMapping(Recibo::getId, ReciboSalidaDto::setId)
+                .addMapping(Recibo::getContrato, ReciboSalidaDto::setContratoId)
                 .addMapping(Recibo::getFechaEmision, ReciboSalidaDto::setFechaEmision)
                 .addMapping(Recibo::getFechaVencimiento, ReciboSalidaDto::setFechaVencimiento)
                 .addMapping(Recibo::getPeriodo, ReciboSalidaDto::setPeriodo)
@@ -177,6 +174,18 @@ public class ReciboService implements IReciboService {
                 break;
             case "MUNICIPAL":
                 impuesto = new Municipal();
+                break;
+            case "EXP_ORD":
+                impuesto = new ExpensaOrdinaria();
+                break;
+            case "EXP_EXT_ORD":
+                impuesto = new ExpensaExtraOrdinaria();
+                break;
+            case "DEUDA_PENDIENTE":
+                impuesto = new DeudaPendiente();
+                break;
+            case "OTRO":
+                impuesto = new Otro();
                 break;
             default:
                 throw new IllegalArgumentException("Tipo de impuesto no soportado: " + dto.getTipoImpuesto());

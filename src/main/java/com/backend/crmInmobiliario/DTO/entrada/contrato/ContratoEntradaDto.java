@@ -38,10 +38,6 @@ public class ContratoEntradaDto {
     private Long id_propiedad;
 
     private List<Long> garantesIds;
-//    private Long id_agua;
-//    private Long id_gas;
-//    private Long id_luz;
-//    private Long id_municipal;
 
     private String aguaEmpresa;
     private int aguaPorcentaje;

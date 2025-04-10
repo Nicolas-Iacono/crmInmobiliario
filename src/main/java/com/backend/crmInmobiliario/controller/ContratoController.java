@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.controller;
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaSinGaranteDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.LatestContratosSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ContratoService;
