@@ -1,8 +1,12 @@
 package com.backend.crmInmobiliario.DTO.salida.inquilino;
 
+//import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -18,6 +22,9 @@ public class InquilinoSalidaDto {
     private String cuit;
     private String nacionalidad;
     private String estadoCivil;
+
+//    private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
+
     private UsuarioDtoSalida usuarioDtoSalida;
 
 }

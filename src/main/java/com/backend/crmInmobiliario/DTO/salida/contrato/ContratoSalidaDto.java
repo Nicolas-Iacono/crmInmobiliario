@@ -5,6 +5,7 @@ import com.backend.crmInmobiliario.DTO.salida.*;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteContratoDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -13,6 +14,7 @@ import java.util.List;
 
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
 public class ContratoSalidaDto {
 
     private String nombreContrato;
@@ -47,9 +49,8 @@ public class ContratoSalidaDto {
     private Long tiempoRestante;
     private String destino;
 
-    private String contratoPdf;
-//    private ContratoPdfSalidaDto pdfSalidaDto;
-    private UsuarioDtoSalida usuarioDtoSalida;
 
+    private String contratoPdf;
+    private UsuarioDtoSalida usuarioDtoSalida;
 
 }

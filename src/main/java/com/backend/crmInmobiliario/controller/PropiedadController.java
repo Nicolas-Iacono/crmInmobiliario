@@ -2,9 +2,11 @@ package com.backend.crmInmobiliario.controller;
 
 
 import com.backend.crmInmobiliario.DTO.entrada.propiedades.PropiedadEntradaDto;
+import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSoloSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.service.impl.PropiedadService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
 import jakarta.validation.Valid;
@@ -13,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -23,7 +26,7 @@ import java.util.List;
 @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
 public class PropiedadController {
     private final PropiedadService propiedadService;
-
+    private final ImagenService imagenService;
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<PropiedadSalidaDto>> crearPropiedad(@Valid @RequestBody PropiedadEntradaDto propiedadEntradaDto) {
         try {
@@ -64,5 +67,36 @@ public class PropiedadController {
     public ResponseEntity<List<PropiedadSalidaDto>> getPropiedadByUsername(@PathVariable String username) {
         List<PropiedadSalidaDto> propiedades =propiedadService.buscarPropiedadesPorUsuario(username);
         return ResponseEntity.ok(propiedades);
+    }
+
+
+    @PostMapping("/{id}/imagenes")
+    public ResponseEntity<?> subirImagenesAPropiedad(@PathVariable Long id,
+                                                     @RequestParam("files") MultipartFile[] archivos) {
+        try {
+            List<ImgUrlSalidaDto> imagenes = imagenService.subirImagenesYAsociarAPropiedad(id, archivos);
+            return ResponseEntity.ok(imagenes);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al subir las imágenes: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{idPropiedad}/imagenes/{idImagen}")
+    public ResponseEntity<?> eliminarImagen(
+            @PathVariable Long idPropiedad,
+            @PathVariable Long idImagen) {
+        try {
+            imagenService.eliminarImagenDePropiedad(idPropiedad, idImagen);
+            return ResponseEntity.ok("Imagen eliminada correctamente.");
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al eliminar la imagen: " + e.getMessage());
+        }
     }
 }

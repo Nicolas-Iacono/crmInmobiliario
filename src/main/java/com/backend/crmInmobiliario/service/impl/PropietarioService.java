@@ -1,7 +1,10 @@
 package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.entrada.PropietarioEntradaDto;
+//import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
+import com.backend.crmInmobiliario.entity.Inquilino;
 import com.backend.crmInmobiliario.entity.Propiedad;
 import com.backend.crmInmobiliario.entity.Propietario;
 import com.backend.crmInmobiliario.entity.Usuario;
@@ -11,6 +14,7 @@ import com.backend.crmInmobiliario.repository.PropiedadRepository;
 import com.backend.crmInmobiliario.repository.PropietarioRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IPropietarioService;
+import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,16 +44,27 @@ public class PropietarioService implements IPropietarioService {
     private void configureMapping() {
     }
 
-
+    @Transactional
     @Override
     public List<PropietarioSalidaDto> listarPropietarios() {
        List<Propietario> propietarios = propietarioRepository.findAll();
         return propietarios.stream()
-                .map(propietario -> modelMapper.map(propietario, PropietarioSalidaDto.class))
+                .map(garante -> {
+                    PropietarioSalidaDto dto = modelMapper.map(propietarios, PropietarioSalidaDto.class);
+
+//                    List<ImgUrlSalidaDto> imagenesDto = dto.getImagenes()
+//                            .stream()
+//                            .map(img -> modelMapper.map(img, ImgUrlSalidaDto.class))
+//                            .toList();
+//
+//                    dto.setImagenes(imagenesDto);
+                    return dto;
+                })
                 .toList();
     }
 
     @Override
+    @Transactional
     public PropietarioSalidaDto crearPropietario(PropietarioEntradaDto propietarioEntradaDto) throws ResourceNotFoundException {
         String nombreUsuario = propietarioEntradaDto.getNombreUsuario();
         if (nombreUsuario == null || nombreUsuario.isEmpty()) {
@@ -98,9 +113,25 @@ public class PropietarioService implements IPropietarioService {
         return propietarioSalidaDto;
     }
 
+    @Transactional
     @Override
     public PropietarioSalidaDto buscarPropietarioPorId(Long id) throws ResourceNotFoundException {
-        return null;
+        Propietario propietario = propietarioRepository.findById(id).orElse(null);
+        PropietarioSalidaDto propietarioSalidaDto = null;
+        if(propietario != null){
+            propietarioSalidaDto = modelMapper.map(propietario, PropietarioSalidaDto.class);
+
+//            List<ImgUrlSalidaDto> imagenesDto = propietario.getImagenes()
+//                    .stream()
+//                    .map(img -> modelMapper.map(img, ImgUrlSalidaDto.class))
+//                    .toList();
+//
+//            propietarioSalidaDto.setImagenes(imagenesDto);
+
+        }else{
+            throw new ResourceNotFoundException("No se encontró el propietario con el ID proporcionado");
+        }
+        return propietarioSalidaDto;
     }
 
     @Override
@@ -111,6 +142,7 @@ public class PropietarioService implements IPropietarioService {
     }
 
     @Override
+    @Transactional
     public List<PropietarioSalidaDto> buscarPropietariosPorUsuario(String username) {
         List<Propietario> propietarioList = propietarioRepository.findPropietarioByUsername(username);
         return propietarioList.stream()

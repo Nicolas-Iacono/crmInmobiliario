@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -28,6 +29,8 @@ public class Propietario extends Persona{
     @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @ToString.Exclude
     private List<Propiedad> propiedades;
-
+//
+//    @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true,  fetch = FetchType.LAZY)
+//    private List<ImageUrls> imagenes = new ArrayList<>();
 
 }

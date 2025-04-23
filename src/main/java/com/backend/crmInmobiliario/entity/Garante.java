@@ -19,13 +19,10 @@ import java.util.List;
 public class Garante extends Persona{
 
     @ManyToOne
-    @JoinColumn(name = "id_contrato")
+    @JoinColumn(name = "id_contrato", nullable = true)
     @JsonIgnore
     private Contrato contrato;
 
-    @OneToMany(mappedBy = "garante", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    @JsonIgnore
-    private List<ImageUrls> imageUrls = new ArrayList<>();
 
     private String tipoGarantia;
 
@@ -42,6 +39,9 @@ public class Garante extends Persona{
     private String tipoPropiedad;
     private String informeDominio;
     private String informeInhibicion;
+
+//    @OneToMany(mappedBy = "garante", cascade = CascadeType.ALL, orphanRemoval = true)
+//    private List<ImageUrls> imagenes = new ArrayList<>();
 
     @ManyToOne
     @JoinColumn(name = "usuario_id")

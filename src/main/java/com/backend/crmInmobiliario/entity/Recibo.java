@@ -49,7 +49,7 @@ public class Recibo {
 
     // Relación polimórfica con Impuesto
     @JsonManagedReference // Anotación en la entidad "padre"
-    @OneToMany(mappedBy = "recibo", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "recibo", cascade = CascadeType.ALL, fetch = FetchType.LAZY,  orphanRemoval = true)
     private List<Impuesto> impuestos = new ArrayList<>();
 
     private Boolean estado;

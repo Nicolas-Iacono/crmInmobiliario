@@ -1,29 +1,50 @@
 package com.backend.crmInmobiliario.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import lombok.*;
+
+import java.time.LocalDateTime;
 
 @Entity
-@Data
-@Table(name = "IMAGE_URLS")
-@AllArgsConstructor
+@Table(name = "imagenes")
+@Getter
+@Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ImageUrls {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_image")
     private Long idImage;
 
-    @Column(name = "image_url", length = 1024)
     private String imageUrl;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "id_garante")
-    @ToString.Exclude
-    private Garante garante;
+    private LocalDateTime fechaSubida = LocalDateTime.now();
+
+    private String nombreOriginal;
+
+    private String tipoImagen; // Ej: "DNI", "Selfie", "Contrato"
+
+    // 🔁 Relación con Garante
+//    @ManyToOne
+//    @JoinColumn(name = "garante_id")
+//    private Garante garante;
+//
+//    // 🔁 Relación con Inquilino
+//    @ManyToOne
+//    @JoinColumn(name = "inquilino_id")
+//    private Inquilino inquilino;
+//
+//    // 🔁 Relación con Propietario
+//    @ManyToOne
+//    @JoinColumn(name = "propietario_id")
+//    private Propietario propietario;
+
+    // 🔁 Relación con Propiedad
+    @ManyToOne
+    @JoinColumn(name = "propiedad_id")
+    @JsonIgnore
+    private Propiedad propiedad;
 }

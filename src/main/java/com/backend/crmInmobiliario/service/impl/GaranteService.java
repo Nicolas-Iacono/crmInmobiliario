@@ -1,6 +1,7 @@
 package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.entrada.garante.GaranteEntradaDto;
+//import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
@@ -19,10 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class GaranteService implements IGaranteService {
@@ -47,6 +45,8 @@ public class GaranteService implements IGaranteService {
         modelMapper.typeMap(GaranteEntradaDto.class, Garante.class);
         modelMapper.typeMap(Garante.class, GaranteSalidaDto.class)
                 .addMapping(Garante::getUsuario, GaranteSalidaDto::setUsuarioDtoSalida);
+//                .addMapping(Garante::getImagenes, GaranteSalidaDto::setImagenes);
+
 
 
     }
@@ -61,12 +61,22 @@ public class GaranteService implements IGaranteService {
                 .map(garante -> modelMapper.map(garante, GaranteSalidaDto.class))
                 .toList();
     }
-
+    @Transactional
     @Override
     public List<GaranteSalidaDto> listarGarantes() {
         List<Garante> garantes = garanteRepository.findAll();
         return garantes.stream()
-                .map(garante -> modelMapper.map(garante,GaranteSalidaDto.class))
+                .map(garante -> {
+                    GaranteSalidaDto dto = modelMapper.map(garante, GaranteSalidaDto.class);
+
+//                    List<ImgUrlSalidaDto> imagenesDto = garante.getImagenes()
+//                            .stream()
+//                            .map(img -> modelMapper.map(img, ImgUrlSalidaDto.class))
+//                            .toList();
+//
+//                    dto.setImagenes(imagenesDto);
+                    return dto;
+                })
                 .toList();
     }
 
@@ -110,22 +120,43 @@ public class GaranteService implements IGaranteService {
         garante.setUsuario(usuario);
 
         Garante garanteToSave = garanteRepository.save(garante);
-        LOGGER.info("garanteToSave con username: " + garanteToSave.getUsuario().getUsername());
+        LOGGER.info("Garante guardado para usuario: {}", garanteToSave.getUsuario().getUsername());
 
+// Mapeo manual con fallback seguro para el UsuarioDtoSalida
         GaranteSalidaDto garanteSalidaDto = modelMapper.map(garanteToSave, GaranteSalidaDto.class);
 
-        LOGGER.info("garanteSalidaDto usuario con username: " + garanteSalidaDto.getUsuarioDtoSalida().getUsername());
+// Si el mapeo automático no funcionó, lo forzamos
+        if (garanteSalidaDto.getUsuarioDtoSalida() == null && garanteToSave.getUsuario() != null) {
+            UsuarioDtoSalida usuarioDtoSalida = modelMapper.map(garanteToSave.getUsuario(), UsuarioDtoSalida.class);
+            garanteSalidaDto.setUsuarioDtoSalida(usuarioDtoSalida);
+        }
+
+// Logging seguro (sin NPEs 💣)
+        String usernameLog = Optional.ofNullable(garanteSalidaDto.getUsuarioDtoSalida())
+                .map(UsuarioDtoSalida::getUsername)
+                .orElse("usuario-desconocido");
+
+        LOGGER.info("GaranteSalidaDto generado para usuario: {}", usernameLog);
 
         return garanteSalidaDto;
     }
 
 
+    @Transactional
     @Override
     public GaranteSalidaDto listarGarantePorId(Long id) throws ResourceNotFoundException {
         Garante garante = garanteRepository.findById(id).orElse(null);
         GaranteSalidaDto garanteSalidaDto = null;
         if(garante !=null){
             garanteSalidaDto = modelMapper.map(garante, GaranteSalidaDto.class);
+
+//            List<ImgUrlSalidaDto> imagenesDto = garante.getImagenes()
+//                    .stream()
+//                    .map(img -> modelMapper.map(img, ImgUrlSalidaDto.class))
+//                    .toList();
+//
+//            garanteSalidaDto.setImagenes(imagenesDto);
+
         }else{
             throw new ResourceNotFoundException("No se encontró el garante con el ID proporcionado");
         }

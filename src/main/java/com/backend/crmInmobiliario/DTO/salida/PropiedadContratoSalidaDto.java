@@ -3,6 +3,9 @@ package com.backend.crmInmobiliario.DTO.salida;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 public class PropiedadContratoSalidaDto {
@@ -13,4 +16,5 @@ public class PropiedadContratoSalidaDto {
     private String provincia;
     private String inventario;
     private String tipo;
+    private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
 }

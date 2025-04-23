@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.service;
 
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
+import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoActualizacionDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaSinGaranteDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.LatestContratosSalidaDto;
@@ -25,7 +26,7 @@ public interface IContratoService {
 
     void finalizarContrato (Long id)throws ResourceNotFoundException;
 
-    void verificarActualizacionContrato(Long id) throws ResourceNotFoundException;
+    ContratoActualizacionDtoSalida verificarActualizacionContrato(Long id) throws ResourceNotFoundException;
 
     Long verificarFinalizacionContrato(Long id) throws ResourceNotFoundException;
 

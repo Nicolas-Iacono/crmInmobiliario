@@ -2,9 +2,11 @@ package com.backend.crmInmobiliario.controller;
 
 import com.backend.crmInmobiliario.DTO.entrada.garante.GaranteEntradaDto;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ContratoService;
 import com.backend.crmInmobiliario.service.impl.GaranteService;
+import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -12,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -22,7 +25,7 @@ import java.util.List;
 public class GaranteController {
     private final GaranteService garanteService;
     private final ContratoService contratoService;
-
+    private final ImagenService imagenService;
 
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<GaranteSalidaDto>>> allGarantes(){
@@ -57,7 +60,16 @@ public class GaranteController {
                     .body(new ApiResponse<>("Error interno del servidor", null));
         }
     }
-
+    @GetMapping("/buscar/{id}")
+    public ResponseEntity<ApiResponse<GaranteSalidaDto>> buscarGarantePorId(@PathVariable Long id){
+        try{
+            GaranteSalidaDto garanteSalidaDto = garanteService.listarGarantePorId(id);
+            return  ResponseEntity.ok(new ApiResponse<>("Garante encontrado, ", garanteSalidaDto));
+        }catch (ResourceNotFoundException  e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>("No se encontro el garante buscado, ", null));
+        }
+    }
 
     @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
     @DeleteMapping("/delete/{id}")
@@ -81,4 +93,25 @@ public class GaranteController {
         List<GaranteSalidaDto> garantes = garanteService.buscarGarantePorUsuario(username);
         return ResponseEntity.ok(garantes);
     }
+
+//    @PostMapping("/{id}/imagenes")
+//    public ResponseEntity<?> subirImagenesAGarante(@PathVariable Long id,
+//                                                   @RequestParam("files") MultipartFile[] archivos) {
+//        try {
+//            List<String> urls = imagenService.subirImagenesYAsociarAGarante(id, archivos);
+//            return ResponseEntity.ok(urls);
+//        } catch (Exception e) {
+//            // 🔥 Imprimí el error para debug
+//            e.printStackTrace();
+//
+//            // 🧠 Podés loguearlo con SLF4J si querés:
+//            // log.error("Error al subir imágenes", e);
+//
+//            // 💬 Devolvés una respuesta clara al frontend
+//            return ResponseEntity
+//                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body("Error al subir las imágenes: " + e.getMessage());
+//        }
+//    }
+
 }

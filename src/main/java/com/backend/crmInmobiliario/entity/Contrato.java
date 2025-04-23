@@ -87,7 +87,7 @@ public class Contrato {
     private Long tiempoRestante;
     private String destino;
 
-    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Recibo> recibos;
 
 

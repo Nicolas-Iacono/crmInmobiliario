@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.service.impl;
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
+import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoActualizacionDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaSinGaranteDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.LatestContratosSalidaDto;
@@ -30,8 +31,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -135,6 +138,8 @@ public class ContratoService implements IContratoService {
                     // 🔄 Inicializamos las colecciones que vienen como Lazy
                     Hibernate.initialize(contrato.getGarantes());
                     Hibernate.initialize(contrato.getRecibos());
+                    Hibernate.initialize(contrato.getPropietario());
+
 
                     for (Recibo recibo : contrato.getRecibos()) {
                         Hibernate.initialize(recibo.getImpuestos());
@@ -212,7 +217,7 @@ public class ContratoService implements IContratoService {
 
         return modelMapper.map(contratoPersistido, ContratoSalidaDto.class);
     }
-
+    @Transactional
     private void validarContratoEntrada(ContratoEntradaDto dto) {
         if (dto.getNombreUsuario() == null || dto.getNombreUsuario().isEmpty()) {
             throw new IllegalArgumentException("El nombre de usuario no puede ser nulo o vacío");
@@ -225,20 +230,24 @@ public class ContratoService implements IContratoService {
         }
         // Validaciones adicionales aquí...
     }
-
+    @Transactional
     private List<Garante> obtenerGarantesPorIds(List<Long> garantesIds) throws ResourceNotFoundException {
-        if (garantesIds == null || garantesIds.isEmpty()) {
-            throw new IllegalArgumentException("La lista de garantes no puede estar vacía");
-        }
         List<Garante> garantes = new ArrayList<>();
+        if (garantesIds == null || garantesIds.isEmpty()) {
+            // Log opcional para debugging
+            LOGGER.info("Contrato sin garantes asociados.");
+            return garantes;
+        }
+
         for (Long id : garantesIds) {
             Garante garante = garanteRepository.findById(id)
                     .orElseThrow(() -> new ResourceNotFoundException("No se encontró el garante con el id " + id));
             garantes.add(garante);
         }
+
         return garantes;
     }
-
+    @Transactional
     private void validarInquilinoYPropiedadDisponibles(Inquilino inquilino, Propiedad propiedad) {
         Optional<Contrato> contratoExistente = contratoRepository.findByInquilinoAndActivoTrue(inquilino);
         if (contratoExistente.isPresent()) {
@@ -249,21 +258,30 @@ public class ContratoService implements IContratoService {
         }
     }
 
-    private void asignarEntidadesRelacionadas(ContratoEntradaDto contratoEntradaDto, Contrato contrato, Usuario usuario,
-                                              Propietario propietario, Inquilino inquilino,
-                                              Propiedad propiedad, List<Garante> garantes) {
+    private void asignarEntidadesRelacionadas(ContratoEntradaDto contratoEntradaDto,
+                                              Contrato contrato,
+                                              Usuario usuario,
+                                              Propietario propietario,
+                                              Inquilino inquilino,
+                                              Propiedad propiedad,
+                                              List<Garante> garantes) {
+
         contrato.setUsuario(usuario);
         contrato.setPropietario(propietario);
         contrato.setInquilino(inquilino);
         contrato.setPropiedad(propiedad);
 
-        // Asigna el contrato a cada garante
-        for (Garante garante : garantes) {
-            garante.setContrato(contrato);
-            LOGGER.info("Asignando garante id {} al contrato", garante.getId());
+        // Verificamos si hay garantes antes de asignar
+        if (garantes != null && !garantes.isEmpty()) {
+            for (Garante garante : garantes) {
+                garante.setContrato(contrato); // Asignamos el contrato al garante
+                LOGGER.info("Asignando garante id {} al contrato", garante.getId());
+            }
+            contrato.setGarantes(garantes);
+        } else {
+            contrato.setGarantes(Collections.emptyList()); // o null, según tu diseño de entidad
+            LOGGER.info("Este contrato no tiene garantes asignados.");
         }
-        // Asigna la lista de garantes al contrato
-        contrato.setGarantes(garantes);
 
         contrato.setAguaEmpresa(contratoEntradaDto.getAguaEmpresa());
         contrato.setGasEmpresa(contratoEntradaDto.getGasEmpresa());
@@ -345,8 +363,9 @@ public class ContratoService implements IContratoService {
         return modelMapper.map(contrato, ContratoSalidaDto.class);
     }
 
+    @Transactional
     @Override
-    public void eliminarContrato(Long id) throws ResourceNotFoundException{
+    public void eliminarContrato(Long id) throws ResourceNotFoundException {
         Contrato contrato = contratoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado con el id: " + id));
 
@@ -354,11 +373,18 @@ public class ContratoService implements IContratoService {
             throw new IllegalStateException("No se puede eliminar un contrato activo");
         }
 
-        contratoRepository.deleteById(id);
-        System.out.println("Contrato eliminado: " + contrato);
+        // Desvincular garantes si existen
+        List<Garante> garantes = contrato.getGarantes();
+        if (garantes != null && !garantes.isEmpty()) {
+            for (Garante garante : garantes) {
+                garante.setContrato(null);
+                garanteRepository.save(garante);
+            }
+        }
+        contratoRepository.delete(contrato);
 
     }
-
+    @Transactional
     @Override
     public Boolean cambiarEstadoContrato(Long id) throws ResourceNotFoundException {
         Contrato contrato = contratoRepository.findById(id)
@@ -367,7 +393,7 @@ public class ContratoService implements IContratoService {
         contratoRepository.save(contrato);
         return contrato.isActivo();
     }
-
+    @Transactional
     @Override
     public void finalizarContrato(Long id) throws ResourceNotFoundException {
         Contrato contrato = contratoRepository.findById(id)
@@ -380,42 +406,53 @@ public class ContratoService implements IContratoService {
         propiedad.setDisponibilidad(true);
         propiedadRepository.save(propiedad);
     }
-
+    @Transactional
     @Override
-    public void verificarActualizacionContrato(Long id) throws ResourceNotFoundException {
+    public ContratoActualizacionDtoSalida verificarActualizacionContrato(Long id) throws ResourceNotFoundException {
         Contrato contrato = contratoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado"));
+        System.out.println("contrato: " + contrato.getId_contrato());
+
         LocalDate fechaInicio = contrato.getFecha_inicio();
-        int peridoActualizacion = contrato.getActualizacion();
+        System.out.println("Fecha inicio: " + fechaInicio);
+        if (fechaInicio == null) {
+            return new ContratoActualizacionDtoSalida(null, 0, 0, false, "❌ El contrato no tiene fecha de inicio asignada");
+        }
+        int periodoActualizacion = contrato.getActualizacion(); // ej: cada 6 meses
 
         LocalDate ahora = LocalDate.now();
         long mesesTranscurridos = ChronoUnit.MONTHS.between(fechaInicio, ahora);
+        long periodosTranscurridos = mesesTranscurridos / periodoActualizacion;
 
-        if(mesesTranscurridos % peridoActualizacion == (peridoActualizacion - 1)){
-            System.out.println("El contrato está por ser actualizado. Falta menos de un mes.");
+        LocalDate proximaActualizacion = fechaInicio.plusMonths((periodosTranscurridos + 1) * periodoActualizacion);
+        System.out.println("Próxima actualización: " + proximaActualizacion);
+        if (!proximaActualizacion.isAfter(ahora)) {
+            return new ContratoActualizacionDtoSalida(
+                    proximaActualizacion,
+                    0,
+                    0,
+                    true,
+                    "⚠️ ¡El contrato ya debería haberse actualizado!"
+            );
         }
 
-    }
+        Period diferencia = Period.between(ahora, proximaActualizacion);
+        System.out.println("Meses restantes: " + diferencia.getMonths());
 
+        return new ContratoActualizacionDtoSalida(
+                proximaActualizacion,
+                diferencia.getMonths(),
+                diferencia.getDays(),
+                false,
+                "📅 Contrato pendiente de actualización"
+        );
+    }
+    @Transactional
     @Override
     public Long verificarFinalizacionContrato(Long id) throws ResourceNotFoundException {
-        Contrato contrato = contratoRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado"));
-
-        LocalDate fechaFin = contrato.getFecha_fin();
-        LocalDate ahora = LocalDate.now();
-        Long mensaje = 0L;
-        long diasFaltantes = ChronoUnit.DAYS.between(ahora, fechaFin);
-        if (diasFaltantes > 0) {
-            mensaje= diasFaltantes;
-        }
-        else {
-            finalizarContrato(id);
-        }
-        System.out.println(mensaje);
-        return mensaje;
+        return null;
     }
-
+    @Transactional
     @Override
     @Scheduled(cron = "0 0 0 * * ?")
     public void verificarAlertasContratos() {
@@ -430,7 +467,7 @@ public class ContratoService implements IContratoService {
             }
         }
     }
-
+    @Transactional
     @Override
     public List<LatestContratosSalidaDto> getLatestContratos() {
         List<Contrato> contratos = contratoRepository.findLatestContratos(PageRequest.of(0, 4)).getContent();

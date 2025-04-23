@@ -7,6 +7,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @DiscriminatorValue("INQUILINO")
 @Entity
@@ -19,6 +22,7 @@ public class Inquilino extends Persona{
     @JsonIgnore
     @JoinColumn(name = "usuario_id")
     private Usuario usuario;
-
-
+//
+//    @OneToMany(mappedBy = "inquilino", cascade = CascadeType.ALL, orphanRemoval = true)
+//    private List<ImageUrls> imagenes = new ArrayList<>();
 }

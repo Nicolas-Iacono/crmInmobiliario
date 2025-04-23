@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.controller;
 import com.backend.crmInmobiliario.DTO.entrada.PropietarioEntradaDto;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.service.impl.PropietarioService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -24,7 +26,7 @@ import java.util.List;
 public class PropietarioController {
 
     private final PropietarioService propietarioService;
-
+    private final ImagenService imagenService;
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<PropietarioSalidaDto>> crearPropietario(@Valid @RequestBody PropietarioEntradaDto PropietarioEntradaDto) {
         try {
@@ -66,4 +68,24 @@ public class PropietarioController {
         List<PropietarioSalidaDto> propietarios =propietarioService.buscarPropietariosPorUsuario(username);
         return ResponseEntity.ok(propietarios);
     }
+//
+//    @PostMapping("/{id}/imagenes")
+//    public ResponseEntity<?> subirImagenesAPropietario(@PathVariable Long id,
+//                                                     @RequestParam("files") MultipartFile[] archivos) {
+//        try {
+//            List<String> urls = imagenService.subirImagenesYAsociarAPropietario(id, archivos);
+//            return ResponseEntity.ok(urls);
+//        } catch (Exception e) {
+//            // 🔥 Imprimí el error para debug
+//            e.printStackTrace();
+//
+//            // 🧠 Podés loguearlo con SLF4J si querés:
+//            // log.error("Error al subir imágenes", e);
+//
+//            // 💬 Devolvés una respuesta clara al frontend
+//            return ResponseEntity
+//                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body("Error al subir las imágenes: " + e.getMessage());
+//        }
+//    }
 }

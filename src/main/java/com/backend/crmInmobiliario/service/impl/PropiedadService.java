@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.entrada.propiedades.PropiedadEntradaDto;
 import com.backend.crmInmobiliario.DTO.salida.*;
+import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.entity.Propiedad;
 import com.backend.crmInmobiliario.entity.Propietario;
 import com.backend.crmInmobiliario.entity.Usuario;
@@ -19,7 +20,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class PropiedadService implements IPropiedadService {
@@ -61,13 +64,38 @@ public class PropiedadService implements IPropiedadService {
 
     }
 
+    @Transactional
     @Override
     public List<PropiedadSoloSalidaDto> listarPropiedades() {
         List<Propiedad> propiedades = propiedadRepository.findAll();
+
         return propiedades.stream()
-                .map(propiedad -> modelMapper.map(propiedad, PropiedadSoloSalidaDto.class))
+                .filter(Objects::nonNull)
+                .map(propiedad -> {
+                    PropiedadSoloSalidaDto dto = modelMapper.map(propiedad, PropiedadSoloSalidaDto.class);
+
+                    if (propiedad.getImagenes() != null && !propiedad.getImagenes().isEmpty()) {
+                        List<ImgUrlSalidaDto> imagenesDto = propiedad.getImagenes().stream()
+                                .map(img -> {
+                                    ImgUrlSalidaDto imgDto = new ImgUrlSalidaDto();
+                                    imgDto.setIdImage(img.getIdImage());
+                                    imgDto.setImageUrl(img.getImageUrl());
+                                    imgDto.setNombreOriginal(img.getNombreOriginal());
+                                    imgDto.setTipoImagen(img.getTipoImagen());
+                                    imgDto.setFechaSubida(img.getFechaSubida());
+                                    return imgDto;
+                                })
+                                .toList();
+                        dto.setImagenes(imagenesDto);
+                    } else {
+                        dto.setImagenes(Collections.emptyList());
+                    }
+
+                    return dto;
+                })
                 .toList();
     }
+
 
     @Override
     @Transactional
@@ -109,6 +137,7 @@ public class PropiedadService implements IPropiedadService {
 
         return propiedadSalidaDto;
     }
+    @Transactional
     @Override
     public Boolean cambiarDisponibilidadPropiedad(Long id) throws ResourceNotFoundException {
         Propiedad propiedad = propiedadRepository.findById(id)
@@ -119,6 +148,7 @@ public class PropiedadService implements IPropiedadService {
     }
 
     @Override
+    @Transactional
     public List<PropiedadSalidaDto> buscarPropiedadesPorUsuario(String username) {
         List<Propiedad> propiedadList = propiedadRepository.findPropiedadByUsername(username);
         return propiedadList.stream()
@@ -128,11 +158,21 @@ public class PropiedadService implements IPropiedadService {
 
 
     @Override
+    @Transactional
     public PropiedadSalidaDto buscarPropiedadPorId(Long id)throws ResourceNotFoundException {
        Propiedad propiedad = propiedadRepository.findById(id).orElse(null);
        PropiedadSalidaDto propiedadSalidaDto =  null;
        if(propiedad != null){
            propiedadSalidaDto = modelMapper.map(propiedad, PropiedadSalidaDto.class);
+
+           List<ImgUrlSalidaDto> imagenesDto = propiedad.getImagenes()
+                   .stream()
+                   .map(img -> modelMapper.map(img, ImgUrlSalidaDto.class))
+                   .toList();
+
+           propiedadSalidaDto.setImagenes(imagenesDto);
+
+
        }else{
            throw new ResourceNotFoundException("No se encontro la propiedad buscada");
        }

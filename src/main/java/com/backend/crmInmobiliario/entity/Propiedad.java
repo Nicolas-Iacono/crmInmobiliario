@@ -9,6 +9,8 @@ import lombok.ToString;
 import org.w3c.dom.Text;
 
 import java.sql.Blob;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Table(name = "propiedad")
@@ -35,6 +37,9 @@ public class Propiedad {
     @JoinColumn(name = "propietario_id", nullable = false)
     @ToString.Exclude
     private Propietario propietario;
+
+    @OneToMany(mappedBy = "propiedad", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ImageUrls> imagenes = new ArrayList<>();
 
     @ManyToOne
     @ToString.Exclude
