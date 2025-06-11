@@ -187,4 +187,12 @@ public class PropiedadService implements IPropiedadService {
         propiedadRepository.deleteById(id);
         System.out.println("propiedad eliminada: " + propiedad);
     }
+
+    @Override
+    @Transactional
+    public Integer enumerarPropiedades(String username) {
+      return propiedadRepository.countByUsuarioUsername(username);
+
+    }
+
 }

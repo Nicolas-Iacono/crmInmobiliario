@@ -15,4 +15,6 @@ public interface InquilinoRepository extends JpaRepository<Inquilino, Long> {
 
     @Query("SELECT i FROM Inquilino i WHERE i.usuario.username = :username")
     List<Inquilino> findInquilinoByUsername(@Param("username") String username);
+
+    int countByUsuarioUsername(String username);
 }

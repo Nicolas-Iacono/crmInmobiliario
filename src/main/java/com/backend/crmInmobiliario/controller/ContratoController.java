@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
+@CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
 @RestController
 @AllArgsConstructor
 @RequestMapping("api/contrato")
@@ -33,6 +33,12 @@ public class ContratoController {
     private final ContratoService contratoService;
 
     @Transactional
+    @GetMapping("/enum/{username}")
+    public Integer enumerarContratos(@PathVariable String username) {
+        Integer contratos = contratoService.enumerarContratos(username);
+        return contratos;
+    }
+    @Transactional
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<ContratoSalidaDto>>> allContratos() {
         List<ContratoSalidaDto> contratosSalidaDtos = contratoService.listarContratos();
@@ -40,7 +46,17 @@ public class ContratoController {
                 new ApiResponse<>("Lista de contratos: ", contratosSalidaDtos);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
-
+    @Transactional
+    @PutMapping("/actualizacion")
+    public ResponseEntity<ContratoSalidaDto> actualizarMontoAlquiler(
+                                                                     @RequestBody ContratoModificacionDto dto) {
+        try {
+            ContratoSalidaDto actualizado = contratoService.actualizarMontoAlquiler(dto);
+            return ResponseEntity.ok(actualizado);
+        } catch (ResourceNotFoundException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
     @Transactional
     @GetMapping("/buscar/{id}")
     public ResponseEntity<ApiResponse<ContratoSalidaDto>> buscarContratoPorId(@PathVariable Long id) {

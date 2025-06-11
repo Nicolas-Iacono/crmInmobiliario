@@ -28,4 +28,7 @@ public interface ContratoRepository extends JpaRepository<Contrato, Long> {
 
     @Query("SELECT c FROM Contrato c LEFT JOIN FETCH c.garantes WHERE c.id = :id")
     Contrato findContratoByIdWithGarantes(@Param("id") Long id);
+
+
+    int countByUsuarioUsername(String username);
 }

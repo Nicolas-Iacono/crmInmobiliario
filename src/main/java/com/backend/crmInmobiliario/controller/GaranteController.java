@@ -20,7 +20,7 @@ import java.util.List;
 
 @RestController
 @AllArgsConstructor
-@CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
+@CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
 @RequestMapping("api/garante")
 public class GaranteController {
     private final GaranteService garanteService;
@@ -71,7 +71,7 @@ public class GaranteController {
         }
     }
 
-    @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
+    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<ApiResponse<?>> eliminarGarante(@PathVariable Long id) {
         try {
@@ -87,7 +87,7 @@ public class GaranteController {
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
+    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<GaranteSalidaDto>> getGarantesByUsername(@PathVariable String username) {
         List<GaranteSalidaDto> garantes = garanteService.buscarGarantePorUsuario(username);

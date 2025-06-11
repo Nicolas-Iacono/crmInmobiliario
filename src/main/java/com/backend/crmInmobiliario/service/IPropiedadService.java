@@ -20,4 +20,5 @@ public interface IPropiedadService {
 
     List<PropiedadSalidaDto> buscarPropiedadesPorUsuario(String username);
 
+    Integer enumerarPropiedades(String username);
 }

@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.service.impl;
 import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.repository.*;
+import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.utils.MultipartInputStreamFileResource;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.IImageUrlsService;
@@ -34,6 +35,9 @@ public class ImagenService implements IImageUrlsService {
     private final PropietarioRepository propietarioRepository;
     private final PropiedadRepository propiedadRepository;
     private final ImageUrlsRepository imageUrlsRepository;
+    private final NotaRepository notaRepository;
+    private final UsuarioRepository usuarioRepository;
+
     @Transactional
     public byte[] convertirImagenExternamente(MultipartFile archivo) throws IOException {
         HttpHeaders headers = new HttpHeaders();
@@ -104,13 +108,16 @@ public class ImagenService implements IImageUrlsService {
             throw new IOException("No se pudo eliminar la imagen de Supabase. Código: " + response.getStatusCode());
         }
     }
-    public ImagenService(ModelMapper mapper, GaranteRepository garanteRepository, InquilinoRepository inquilinoRepository, PropietarioRepository propietarioRepository, PropiedadRepository propiedadRepository, ImageUrlsRepository imageUrlsRepository) {
+    public ImagenService(ModelMapper mapper, GaranteRepository garanteRepository, InquilinoRepository inquilinoRepository, PropietarioRepository propietarioRepository, PropiedadRepository propiedadRepository, ImageUrlsRepository imageUrlsRepository, NotaRepository notaRepository, UsuarioRepository usuarioRepository) {
         this.mapper = mapper;
         this.garanteRepository = garanteRepository;
         this.inquilinoRepository = inquilinoRepository;
         this.propietarioRepository = propietarioRepository;
         this.propiedadRepository = propiedadRepository;
         this.imageUrlsRepository = imageUrlsRepository;
+        this.notaRepository = notaRepository;
+        this.usuarioRepository = usuarioRepository;
+
         configureMapping();
     }
 
@@ -118,8 +125,106 @@ public class ImagenService implements IImageUrlsService {
 
 
     }
+    @Transactional
+    @Override
+    public List<ImgUrlSalidaDto> subirImagenesYAsociarANota(Long notaId, MultipartFile[] archivos) throws IOException, ResourceNotFoundException {
+        Nota notaBuscada = notaRepository.findById(notaId).orElseThrow(() -> new ResourceNotFoundException("No se encontro la nota con el ID " + notaId));
 
-@Transactional
+        List<ImgUrlSalidaDto> nuevasImagenesDTO = new ArrayList<>();
+
+        for (MultipartFile archivo : archivos) {
+            byte[] webp = convertirImagenExternamente(archivo);
+            String nombreArchivo = UUID.randomUUID() + ".webp";
+            String url = subirAStorageSupabase(webp, nombreArchivo);
+
+            ImageUrls imagen = new ImageUrls();
+            imagen.setImageUrl(url);
+            imagen.setNombreOriginal(archivo.getOriginalFilename());
+            imagen.setTipoImagen("GENERICA");
+            imagen.setFechaSubida(LocalDateTime.now());
+            imagen.setNota(notaBuscada);
+            // Guardás imagen directamente, así obtenés el ID al instante
+            ImageUrls imagenGuardada = imageUrlsRepository.save(imagen);
+
+            // También actualizás la colección en la propiedad
+            notaBuscada.getImagenes().add(imagenGuardada);
+
+            // DTO
+            ImgUrlSalidaDto dto = new ImgUrlSalidaDto();
+            dto.setIdImage(imagenGuardada.getIdImage());
+            dto.setImageUrl(imagenGuardada.getImageUrl());
+            dto.setNombreOriginal(imagenGuardada.getNombreOriginal());
+            dto.setTipoImagen(imagenGuardada.getTipoImagen());
+            dto.setFechaSubida(imagenGuardada.getFechaSubida());
+
+            nuevasImagenesDTO.add(dto);
+        }
+
+        notaRepository.save(notaBuscada);
+
+        return nuevasImagenesDTO;
+    }
+
+    @Override
+    @Transactional
+    public ImgUrlSalidaDto subirLogo(Long usuarioId, MultipartFile archivo) throws IOException, ResourceNotFoundException {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró el usuario con ID " + usuarioId));
+
+        if (archivo == null || archivo.isEmpty()) {
+            throw new IllegalArgumentException("El archivo está vacío o no fue proporcionado.");
+        }
+
+        byte[] webp = convertirImagenExternamente(archivo);
+        String nombreArchivo = UUID.randomUUID() + ".webp";
+        String url = subirAStorageSupabase(webp, nombreArchivo);
+
+        ImageUrls imagen = new ImageUrls();
+        imagen.setImageUrl(url);
+        imagen.setNombreOriginal(archivo.getOriginalFilename());
+        imagen.setTipoImagen("GENERICA");
+        imagen.setFechaSubida(LocalDateTime.now());
+        imagen.setUsuario(usuario);
+
+        // Guardar la imagen primero
+        ImageUrls imagenGuardada = imageUrlsRepository.save(imagen);
+
+        // Asociarla al usuario
+
+        usuario.setLogoInmobiliaria(imagenGuardada);
+
+        ImgUrlSalidaDto dto = new ImgUrlSalidaDto();
+        dto.setIdImage(imagenGuardada.getIdImage());
+        dto.setImageUrl(imagenGuardada.getImageUrl());
+        dto.setNombreOriginal(imagenGuardada.getNombreOriginal());
+        dto.setFechaSubida(imagenGuardada.getFechaSubida());
+        dto.setTipoImagen(imagenGuardada.getTipoImagen());
+
+        usuarioRepository.save(usuario);
+
+        return dto;
+    }
+    // Guardás imagen directamente, así obtenés el ID al instante
+//    ImageUrls imagenGuardada = imageUrlsRepository.save(imagen);
+//
+//    // También actualizás la colección en la propiedad
+//        propiedad.getImagenes().add(imagenGuardada);
+//
+//    // DTO
+//    ImgUrlSalidaDto dto = new ImgUrlSalidaDto();
+//        dto.setIdImage(imagenGuardada.getIdImage());
+//        dto.setImageUrl(imagenGuardada.getImageUrl());
+//        dto.setNombreOriginal(imagenGuardada.getNombreOriginal());
+//        dto.setTipoImagen(imagenGuardada.getTipoImagen());
+//        dto.setFechaSubida(imagenGuardada.getFechaSubida());
+//
+//        nuevasImagenesDTO.add(dto);
+//}
+//
+//    propiedadRepository.save(propiedad);
+//
+//            return nuevasImagenesDTO;
+    @Transactional
 public List<ImgUrlSalidaDto> subirImagenesYAsociarAPropiedad(Long propiedadId, MultipartFile[] archivos)
         throws IOException, ResourceNotFoundException {
 
@@ -161,6 +266,25 @@ public List<ImgUrlSalidaDto> subirImagenesYAsociarAPropiedad(Long propiedadId, M
 
     return nuevasImagenesDTO;
 }
+
+    @Override
+    @Transactional
+    public void eliminarLogo(Long usuarioId) throws ResourceNotFoundException, IOException {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró el usuario con ID " + usuarioId));
+
+        ImageUrls logoActual = usuario.getLogoInmobiliaria();
+        if (logoActual != null) {
+            // Opcional: eliminar archivo del storage
+            eliminarDeStorageSupabase(logoActual.getImageUrl());
+
+            usuario.setLogoInmobiliaria(null);
+            usuarioRepository.save(usuario);
+
+            imageUrlsRepository.delete(logoActual);
+        }
+    }
+
     @Transactional
     public void eliminarImagenDePropiedad(Long propiedadId, Long idImagen) throws ResourceNotFoundException, IOException {
         // 1. Buscar la imagen
@@ -178,5 +302,24 @@ public List<ImgUrlSalidaDto> subirImagenesYAsociarAPropiedad(Long propiedadId, M
         // 4. Eliminar de la base de datos
         imageUrlsRepository.delete(imagen);
     }
+
+    @Transactional
+    public void eliminarImagenDeNota(Long notaId, Long idImagen) throws ResourceNotFoundException, IOException {
+        // 1. Buscar la imagen
+        ImageUrls imagen = imageUrlsRepository.findById(idImagen)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró la imagen con ID " + idImagen));
+
+        // 2. Verificar si la imagen pertenece a la propiedad indicada
+        if (imagen.getNota() == null || !imagen.getNota().getId().equals(notaId)) {
+            throw new ResourceNotFoundException("La imagen no pertenece a la nota con ID " + notaId);
+        }
+
+        // 3. Eliminar del Storage (Supabase o el sistema que uses)
+        eliminarDeStorageSupabase(imagen.getImageUrl()); // método auxiliar que tenés que implementar
+
+        // 4. Eliminar de la base de datos
+        imageUrlsRepository.delete(imagen);
+    }
+
 
 }

@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.security.core.GrantedAuthority;
 
 import java.util.Date;
 import java.util.HashSet;
@@ -15,7 +16,7 @@ import java.util.Set;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "ROLES")
-public class Role {
+public class Role implements GrantedAuthority {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,5 +44,10 @@ public class Role {
      */
     public Role(String rol) {
         this.rol = rol;
+    }
+
+    @Override
+    public String getAuthority() {
+        return "ROLE_" + this.rol;
     }
 }

@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -123,9 +124,44 @@ public class ContratoService implements IContratoService {
                 .addMapping(Contrato::getUsuario, LatestContratosSalidaDto::setUsuarioDtoSalida);
 
         modelMapper.typeMap(ContratoModificacionDto.class, ContratoSalidaDto.class)
-                .addMapping(ContratoModificacionDto::getPdfContratoTexto, ContratoSalidaDto::setContratoPdf);
+                .addMapping(ContratoModificacionDto::getPdfContratoTexto, ContratoSalidaDto::setContratoPdf)
+                .addMapping(ContratoModificacionDto::getMontoAlquiler, ContratoSalidaDto::setMontoAlquiler);
+
     }
 
+
+    @Override
+    @Transactional
+    public Integer enumerarContratos(String username) {
+        return contratoRepository.countByUsuarioUsername(username);
+    }
+
+    @Override
+    @Transactional
+    public ContratoSalidaDto actualizarMontoAlquiler(ContratoModificacionDto contratoModificacionDto) throws ResourceNotFoundException {
+        // Buscar el contrato
+        Contrato contratoBuscado = contratoRepository.findById(contratoModificacionDto.getIdContrato())
+                .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado"));
+
+        // Validar el nuevo monto
+        Double nuevoMonto = contratoModificacionDto.getMontoAlquiler();
+        if (nuevoMonto == null || nuevoMonto <= 0 ){
+            throw new IllegalArgumentException("El nuevo monto de alquiler debe ser mayor que cero");
+        }
+
+        // Actualizar el monto
+        contratoBuscado.setMontoAlquiler(nuevoMonto);
+
+        // Guardar los cambios
+        Contrato contratoActualizado = contratoRepository.save(contratoBuscado);
+
+        // Crear manualmente el DTO de salida
+        ContratoSalidaDto dto = new ContratoSalidaDto();
+        dto.setId(contratoActualizado.getId_contrato());
+        dto.setMontoAlquiler(contratoActualizado.getMontoAlquiler());
+
+        return dto;
+    }
 
 
     @Override
@@ -484,6 +520,7 @@ public class ContratoService implements IContratoService {
                 })
                 .collect(Collectors.toList());
     }
+
 
 
 

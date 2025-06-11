@@ -126,4 +126,10 @@ public class InquilinoService implements IInquilinoService {
                 .map(inquilino -> modelMapper.map(inquilino, InquilinoSalidaDto.class))
                 .toList();
     }
+
+    @Override
+    @Transactional
+    public Integer enumerarInquilinos(String username) {
+     return inquilinoRepository.countByUsuarioUsername(username);
+    }
 }

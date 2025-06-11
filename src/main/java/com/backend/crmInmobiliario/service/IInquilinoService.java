@@ -15,5 +15,6 @@ public interface IInquilinoService {
 
     List<InquilinoSalidaDto> buscarInquilinoPorUsuario(String username);
 
+    Integer enumerarInquilinos(String username);
 
 }

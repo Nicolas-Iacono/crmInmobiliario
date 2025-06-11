@@ -9,6 +9,7 @@ import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.service.impl.PropiedadService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,10 +24,18 @@ import java.util.List;
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/propiedad")
-@CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
+@CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
 public class PropiedadController {
     private final PropiedadService propiedadService;
     private final ImagenService imagenService;
+
+
+    @Transactional
+    @GetMapping("/enum/{username}")
+    public Integer enumerar(@PathVariable String username) {
+        Integer total = propiedadService.enumerarPropiedades(username);
+        return total;
+    }
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<PropiedadSalidaDto>> crearPropiedad(@Valid @RequestBody PropiedadEntradaDto propiedadEntradaDto) {
         try {
@@ -38,7 +47,7 @@ public class PropiedadController {
                     .body(new ApiResponse<>("El propietario no se encuentra en la base de datos", null));
         }
     }
-
+    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<PropiedadSoloSalidaDto>>> allPropiedades(){
         List<PropiedadSoloSalidaDto> propiedadesSalidaDtos = propiedadService.listarPropiedades();
@@ -46,7 +55,7 @@ public class PropiedadController {
                 new ApiResponse<>("Lista de propietarios: ", propiedadesSalidaDtos);
         return  ResponseEntity.status(HttpStatus.OK).body(response);
     }
-
+    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<ApiResponse<?>> eliminarPropiedad(@PathVariable Long id){
         try{
@@ -62,14 +71,14 @@ public class PropiedadController {
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
+    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<PropiedadSalidaDto>> getPropiedadByUsername(@PathVariable String username) {
         List<PropiedadSalidaDto> propiedades =propiedadService.buscarPropiedadesPorUsuario(username);
         return ResponseEntity.ok(propiedades);
     }
 
-
+    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
     @PostMapping("/{id}/imagenes")
     public ResponseEntity<?> subirImagenesAPropiedad(@PathVariable Long id,
                                                      @RequestParam("files") MultipartFile[] archivos) {
@@ -83,7 +92,7 @@ public class PropiedadController {
                     .body("Error al subir las imágenes: " + e.getMessage());
         }
     }
-
+    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
     @DeleteMapping("/{idPropiedad}/imagenes/{idImagen}")
     public ResponseEntity<?> eliminarImagen(
             @PathVariable Long idPropiedad,

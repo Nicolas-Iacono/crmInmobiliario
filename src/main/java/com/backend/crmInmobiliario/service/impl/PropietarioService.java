@@ -149,5 +149,12 @@ public class PropietarioService implements IPropietarioService {
                 .map(propietario -> modelMapper.map(propietario, PropietarioSalidaDto.class))
                 .toList();
     }
+
+
+    @Override
+    @Transactional
+    public Integer enumerarPropietarios(String username) {
+        return propietarioRepository.countByUsuarioUsername(username);
     }
+}
 

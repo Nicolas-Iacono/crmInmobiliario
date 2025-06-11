@@ -13,5 +13,5 @@ public interface IPropietarioService {
     void eliminarPropietario(Long id) throws ResourceNotFoundException;
 
     List<PropietarioSalidaDto> buscarPropietariosPorUsuario(String username);
-
+    Integer enumerarPropietarios(String username);
 }

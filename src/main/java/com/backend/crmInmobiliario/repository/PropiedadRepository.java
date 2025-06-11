@@ -15,4 +15,6 @@ public interface PropiedadRepository extends JpaRepository<Propiedad,Long> {
 
     @Query("SELECT p FROM Propiedad p WHERE p.usuario.username = :username")
     List<Propiedad> findPropiedadByUsername(@Param("username") String username);
+    int countByUsuarioUsername(String username);
+
 }

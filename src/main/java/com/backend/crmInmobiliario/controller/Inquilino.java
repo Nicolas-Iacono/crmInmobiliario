@@ -6,6 +6,7 @@ import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.service.impl.InquilinoService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,15 +17,22 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@CrossOrigin
+@CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
 @RestController
 @AllArgsConstructor
+
 @RequestMapping("/api/inquilino")
 public class Inquilino {
 
     private final InquilinoService inquilinoService;
     private final ImagenService imagenService;
 
+    @Transactional
+    @GetMapping("/enum/{username}")
+    public Integer enumeraInquilinosr(@PathVariable String username) {
+        Integer inquilinos = inquilinoService.enumerarInquilinos(username);
+        return inquilinos;
+    }
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<InquilinoSalidaDto>> crearInquilino(@Valid @RequestBody InquilinoEntradaDto inquilinoEntradaDto) {
         try {
@@ -71,7 +79,7 @@ public class Inquilino {
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "https://saddlebrown-coyote-218911.hostingersite.com")
+    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<InquilinoSalidaDto>> getInquilinoByUsername(@PathVariable String username) {
         List<InquilinoSalidaDto> inquilinos = inquilinoService.buscarInquilinoPorUsuario(username);

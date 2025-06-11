@@ -90,6 +90,8 @@ public class Contrato {
     @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Recibo> recibos;
 
+    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Nota> notas;
 
 
     public boolean isActivo() {

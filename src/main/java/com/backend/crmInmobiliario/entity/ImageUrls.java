@@ -27,24 +27,22 @@ public class ImageUrls {
 
     private String tipoImagen; // Ej: "DNI", "Selfie", "Contrato"
 
-    // 🔁 Relación con Garante
-//    @ManyToOne
-//    @JoinColumn(name = "garante_id")
-//    private Garante garante;
-//
-//    // 🔁 Relación con Inquilino
-//    @ManyToOne
-//    @JoinColumn(name = "inquilino_id")
-//    private Inquilino inquilino;
-//
-//    // 🔁 Relación con Propietario
-//    @ManyToOne
-//    @JoinColumn(name = "propietario_id")
-//    private Propietario propietario;
-
     // 🔁 Relación con Propiedad
     @ManyToOne
     @JoinColumn(name = "propiedad_id")
     @JsonIgnore
     private Propiedad propiedad;
+
+    //relacion con nota
+    @ManyToOne
+    @JoinColumn(name = "nota_id")
+    @JsonIgnore
+    private Nota nota;
+
+    @OneToOne
+    @JoinColumn(name = "usuario_id")
+    @JsonIgnore
+    private Usuario usuario;
+
+
 }

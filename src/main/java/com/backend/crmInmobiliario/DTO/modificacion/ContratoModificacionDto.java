@@ -8,4 +8,6 @@ import lombok.NoArgsConstructor;
 public class ContratoModificacionDto {
     private Long idContrato;
     private String pdfContratoTexto;
+    private Double montoAlquiler;
+
 }

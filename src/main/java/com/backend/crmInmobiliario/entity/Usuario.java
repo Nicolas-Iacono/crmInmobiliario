@@ -6,10 +6,8 @@ import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Data
 @Table(name = "usuario")
@@ -23,6 +21,9 @@ public class Usuario  implements UserDetails {
     private String password;
     private String nombreNegocio;
     private String email;
+
+    @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL)
+    private ImageUrls logoInmobiliaria;
 
     // Relación con las demás entidades
     @OneToMany(mappedBy = "usuario")
@@ -49,7 +50,9 @@ public class Usuario  implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return null;
+        return roles.stream()
+                .map(role -> (GrantedAuthority) () -> "ROLE_" + role.getRol())
+                .collect(Collectors.toSet());
     }
 
     @Override
