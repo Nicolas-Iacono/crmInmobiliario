@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+@CrossOrigin(origins = "https://tuinmo.net")
 @RestController
 @AllArgsConstructor
 @RequestMapping("api/contrato")
@@ -133,6 +133,26 @@ public class ContratoController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>("Error interno al eliminar el contrato", null));
+        }
+    }
+
+    @Transactional
+    @DeleteMapping("/delete-forzado/{id}")
+    public ResponseEntity<ApiResponse<?>> eliminarContratoForzado(@PathVariable Long id) {
+        try {
+            // Paso 1: Finalizar el contrato (lo marca como inactivo y libera la propiedad)
+            contratoService.finalizarContrato(id);
+
+            // Paso 2: Eliminar el contrato (ya inactivo)
+            contratoService.eliminarContrato(id);
+
+            return ResponseEntity.ok(new ApiResponse<>("✅ Contrato activo eliminado de forma forzada.", null));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>("Contrato no encontrado con el ID: " + id, null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("❌ Error al eliminar el contrato de forma forzada: " + e.getMessage(), null));
         }
     }
     @Transactional

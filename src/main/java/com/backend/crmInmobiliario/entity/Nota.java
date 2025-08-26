@@ -23,7 +23,7 @@ public class Nota {
 
     // Relaciones con otras entidades
     @ManyToOne
-    @JoinColumn(name = "id_contrado")
+    @JoinColumn(name = "id_contrato")
     private Contrato contrato; // Relación con el contrato de alquiler
 
     // Blob puede ser texto o imagen. Podrías considerar usar String si solo es texto.

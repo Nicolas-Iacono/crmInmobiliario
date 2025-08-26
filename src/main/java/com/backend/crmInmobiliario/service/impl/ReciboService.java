@@ -65,6 +65,8 @@ public class ReciboService implements IReciboService {
                 .addMapping(ReciboEntradaDto::getIdContrato, Recibo::setContrato)
                 .addMapping(ReciboEntradaDto::getEstado, Recibo::setEstado)
                 .addMapping(ReciboEntradaDto::getConcepto, Recibo::setConcepto)
+                .addMapping(ReciboEntradaDto::getFechaEmision, Recibo::setFechaEmision)
+                .addMapping(ReciboEntradaDto::getFechaVencimiento, Recibo::setFechaVencimiento)
                 .addMapping(ReciboEntradaDto::getMontoTotal, Recibo::setMontoTotal)
                 .addMapping(ReciboEntradaDto::getPeriodo, Recibo::setPeriodo)
                 .addMapping(ReciboEntradaDto::getImpuestos, Recibo::setImpuestos)
@@ -121,6 +123,8 @@ public class ReciboService implements IReciboService {
         recibo.setMontoTotal(reciboEntradaDto.getMontoTotal());
         recibo.setConcepto(reciboEntradaDto.getConcepto());
         recibo.setPeriodo(reciboEntradaDto.getPeriodo());
+        recibo.setFechaEmision(reciboEntradaDto.getFechaEmision());
+        recibo.setFechaVencimiento(reciboEntradaDto.getFechaVencimiento());
         recibo.setNumeroRecibo(reciboEntradaDto.getNumeroRecibo());
         // Otros campos del recibo
 
@@ -239,4 +243,46 @@ public class ReciboService implements IReciboService {
         // Mapear la entidad actualizada a DTO de salida y retornarlo
         return modelMapper.map(reciboActualizado, ReciboSalidaDto.class);
     }
+
+
+//    @Override
+//    @Transactional
+//    public void eliminarRecibo(Long id) throws ResourceNotFoundException {
+//        LOGGER.info("Iniciando eliminación del recibo con ID: {}", id);
+//
+//        // 1. Buscar el recibo
+//        Recibo recibo = reciboRepository.findById(id)
+//                .orElseThrow(() -> {
+//                    LOGGER.warn("Recibo no encontrado con ID: {}", id);
+//                    return new ResourceNotFoundException("Recibo no encontrado con el ID: " + id);
+//                });
+//
+//        // 2. Eliminar (en cascada se borran también los impuestos)
+//        reciboRepository.delete(recibo);
+//        LOGGER.info("Recibo eliminado correctamente con ID: {}", id);
+//    }
+//    @Override
+//    @Transactional
+//    public void eliminarRecibosPorContratoId(Long contratoId) throws ResourceNotFoundException {
+//        LOGGER.info("Iniciando eliminación de todos los recibos del contrato con ID: {}", contratoId);
+//
+////         1. Verificamos que el contrato exista
+//        Contrato contrato = contratoRepository.findById(contratoId)
+//                .orElseThrow(() -> {
+//                    LOGGER.warn("Contrato no encontrado con ID: {}", contratoId);
+//                    return new ResourceNotFoundException("Contrato no encontrado con ID: " + contratoId);
+//                });
+//
+//        // 2. Verificamos si tiene recibos asociados
+//        List<Recibo> recibos = reciboRepository.findByContratoId(contratoId);
+//        if (recibos.isEmpty()) {
+//            LOGGER.warn("No se encontraron recibos para el contrato con ID: {}", contratoId);
+//            return;
+//        }
+//
+//        // 3. Eliminamos los recibos (en cascada se eliminan los impuestos también)
+//        reciboRepository.deleteAll(recibos);
+//        LOGGER.info("Se eliminaron {} recibos del contrato con ID: {}", recibos.size(), contratoId);
+//    }
+
 }

@@ -27,4 +27,20 @@ public class UserAdminEntradaDto {
 
     @Email(message = "el email debe ser valido")
     private String email;
+
+    @NotNull(message = "La matricula no puede ser nulo")
+    private String matricula;
+    @NotNull(message = "la razon social no puede ser nulo")
+    private String razonSocial;
+    @NotBlank(message = "Debe especificarse la localidad")
+    private String localidad;
+    @NotBlank(message = "Debe especificarse el partido")
+    private String partido;
+    @NotBlank(message = "Debe especificarse la provincia")
+    private String provincia;
+    @NotNull(message = "El cuit no puede ser nulo")
+    @NotBlank(message = "Debe especificarse el cuit")
+    private String cuit;
+    @NotBlank(message = "Debe especificarse el telefono")
+    private String telefono;
 }

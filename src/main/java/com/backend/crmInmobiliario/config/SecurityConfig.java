@@ -42,6 +42,10 @@ public class SecurityConfig {
                 .httpBasic(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(HttpMethod.GET, "/usuario/check-username").permitAll()
+                        .requestMatchers("/auth/**", "/oauth2/**", "/google/**").permitAll()
+                        // Permitir endpoints usados en el flujo de vinculación con Google
+                        .requestMatchers("/rest/oauth2-credential/**", "/oauth/google/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/user/all").hasRole("ADMIN")
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtTokenValidator, BasicAuthenticationFilter.class)
@@ -70,9 +74,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("https://darkgreen-ferret-296866.hostingersite.com", "http://localhost:3000")); // Origen permitido
+        configuration.setAllowedOrigins(Arrays.asList("https://darkgreen-ferret-296866.hostingersite.com", "http://localhost:3000","https://tuinmo.net","http://localhost:8080")); // Origen permitido
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS")); // Métodos permitidos
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type")); // Cabeceras permitidas
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "x-user-id",
+                "x-username"
+        ));
         configuration.setAllowCredentials(true); // Si necesitas manejar credenciales (cookies, etc.)
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

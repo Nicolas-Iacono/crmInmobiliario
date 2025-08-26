@@ -175,24 +175,39 @@ public class ImagenService implements IImageUrlsService {
             throw new IllegalArgumentException("El archivo está vacío o no fue proporcionado.");
         }
 
+        // Eliminar logo existente si ya tiene uno
+        ImageUrls logoExistente = usuario.getLogoInmobiliaria();
+        if (logoExistente != null) {
+            // Eliminar del storage Supabase
+            eliminarDeStorageSupabase(logoExistente.getImageUrl());
+
+            // Desasociar del usuario y eliminar de la BD
+            usuario.setLogoInmobiliaria(null);
+            imageUrlsRepository.delete(logoExistente);
+            imageUrlsRepository.flush();
+        }
+
+        // Convertir imagen a formato webp
         byte[] webp = convertirImagenExternamente(archivo);
+
+        // Subir nueva imagen al storage
         String nombreArchivo = UUID.randomUUID() + ".webp";
         String url = subirAStorageSupabase(webp, nombreArchivo);
 
-        ImageUrls imagen = new ImageUrls();
-        imagen.setImageUrl(url);
-        imagen.setNombreOriginal(archivo.getOriginalFilename());
-        imagen.setTipoImagen("GENERICA");
-        imagen.setFechaSubida(LocalDateTime.now());
-        imagen.setUsuario(usuario);
+        // Crear entidad de imagen
+        ImageUrls nuevaImagen = new ImageUrls();
+        nuevaImagen.setImageUrl(url);
+        nuevaImagen.setNombreOriginal(archivo.getOriginalFilename());
+        nuevaImagen.setTipoImagen("GENERICA");
+        nuevaImagen.setFechaSubida(LocalDateTime.now());
+        nuevaImagen.setUsuario(usuario);
 
-        // Guardar la imagen primero
-        ImageUrls imagenGuardada = imageUrlsRepository.save(imagen);
-
-        // Asociarla al usuario
-
+        // Guardar imagen en BD y asociarla al usuario
+        ImageUrls imagenGuardada = imageUrlsRepository.save(nuevaImagen);
         usuario.setLogoInmobiliaria(imagenGuardada);
+        usuarioRepository.save(usuario);
 
+        // Crear y devolver DTO
         ImgUrlSalidaDto dto = new ImgUrlSalidaDto();
         dto.setIdImage(imagenGuardada.getIdImage());
         dto.setImageUrl(imagenGuardada.getImageUrl());
@@ -200,10 +215,9 @@ public class ImagenService implements IImageUrlsService {
         dto.setFechaSubida(imagenGuardada.getFechaSubida());
         dto.setTipoImagen(imagenGuardada.getTipoImagen());
 
-        usuarioRepository.save(usuario);
-
         return dto;
     }
+
     // Guardás imagen directamente, así obtenés el ID al instante
 //    ImageUrls imagenGuardada = imageUrlsRepository.save(imagen);
 //

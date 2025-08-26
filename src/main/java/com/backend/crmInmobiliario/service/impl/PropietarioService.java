@@ -14,14 +14,17 @@ import com.backend.crmInmobiliario.repository.PropiedadRepository;
 import com.backend.crmInmobiliario.repository.PropietarioRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IPropietarioService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PropietarioService implements IPropietarioService {
@@ -32,7 +35,8 @@ public class PropietarioService implements IPropietarioService {
     private PropietarioRepository propietarioRepository;
     private UsuarioRepository usuarioRepository;
 
-    public PropietarioService(ModelMapper modelMapper, InquilinoRepository inquilinoRepository, PropiedadRepository propiedadRepository, PropietarioRepository propietarioRepository, UsuarioRepository usuarioRepository) {
+    private ObjectMapper mapper;
+    public PropietarioService( ModelMapper modelMapper, InquilinoRepository inquilinoRepository, PropiedadRepository propiedadRepository, PropietarioRepository propietarioRepository, UsuarioRepository usuarioRepository) {
         this.modelMapper = modelMapper;
         this.inquilinoRepository = inquilinoRepository;
         this.propiedadRepository = propiedadRepository;
@@ -65,7 +69,7 @@ public class PropietarioService implements IPropietarioService {
 
     @Override
     @Transactional
-    public PropietarioSalidaDto crearPropietario(PropietarioEntradaDto propietarioEntradaDto) throws ResourceNotFoundException {
+    public PropietarioSalidaDto crearPropietario(PropietarioEntradaDto propietarioEntradaDto) throws  ResourceNotFoundException{
         String nombreUsuario = propietarioEntradaDto.getNombreUsuario();
         if (nombreUsuario == null || nombreUsuario.isEmpty()) {
             throw new IllegalArgumentException("El nombre de usuario no puede ser nulo o vacío");
@@ -106,11 +110,8 @@ public class PropietarioService implements IPropietarioService {
         // Guardar el propietario en la base de datos
         Propietario propietarioGuardado = propietarioRepository.save(propietario);
 
-        // Convertir el propietario guardado a un DTO de salida usando ModelMapper (o manualmente)
-        PropietarioSalidaDto propietarioSalidaDto = modelMapper.map(propietarioGuardado, PropietarioSalidaDto.class);
-
-        // Devolver el DTO de salida
-        return propietarioSalidaDto;
+        // 5) Mapear y devolver DTO de salida
+        return modelMapper.map(propietarioGuardado, PropietarioSalidaDto.class);
     }
 
     @Transactional

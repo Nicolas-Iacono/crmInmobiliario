@@ -24,7 +24,7 @@ import java.util.List;
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/propiedad")
-@CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+@CrossOrigin(origins = "https://tuinmo.net")
 public class PropiedadController {
     private final PropiedadService propiedadService;
     private final ImagenService imagenService;
@@ -47,7 +47,7 @@ public class PropiedadController {
                     .body(new ApiResponse<>("El propietario no se encuentra en la base de datos", null));
         }
     }
-    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+    @CrossOrigin(origins = "https://tuinmo.net")
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<PropiedadSoloSalidaDto>>> allPropiedades(){
         List<PropiedadSoloSalidaDto> propiedadesSalidaDtos = propiedadService.listarPropiedades();
@@ -55,7 +55,7 @@ public class PropiedadController {
                 new ApiResponse<>("Lista de propietarios: ", propiedadesSalidaDtos);
         return  ResponseEntity.status(HttpStatus.OK).body(response);
     }
-    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+    @CrossOrigin(origins = "https://tuinmo.net")
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<ApiResponse<?>> eliminarPropiedad(@PathVariable Long id){
         try{
@@ -71,14 +71,14 @@ public class PropiedadController {
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+    @CrossOrigin(origins = "https://tuinmo.net")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<PropiedadSalidaDto>> getPropiedadByUsername(@PathVariable String username) {
         List<PropiedadSalidaDto> propiedades =propiedadService.buscarPropiedadesPorUsuario(username);
         return ResponseEntity.ok(propiedades);
     }
 
-    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+    @CrossOrigin(origins = "https://tuinmo.net")
     @PostMapping("/{id}/imagenes")
     public ResponseEntity<?> subirImagenesAPropiedad(@PathVariable Long id,
                                                      @RequestParam("files") MultipartFile[] archivos) {
@@ -92,7 +92,7 @@ public class PropiedadController {
                     .body("Error al subir las imágenes: " + e.getMessage());
         }
     }
-    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+    @CrossOrigin(origins = "https://tuinmo.net")
     @DeleteMapping("/{idPropiedad}/imagenes/{idImagen}")
     public ResponseEntity<?> eliminarImagen(
             @PathVariable Long idPropiedad,

@@ -1,6 +1,8 @@
 package com.backend.crmInmobiliario.DTO.salida;
 
 //import com.backend.crmInmobiliario.entity.Role;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,6 +16,11 @@ public class UsuarioDtoSalida {
     private String nombreNegocio;
     private String email;
     private String logo;
-//    private List<Role> roles;
-
+    private String matricula;
+    private String razonSocial;
+    private String localidad;
+    private String partido;
+    private String provincia;
+    private String cuit;
+    private String telefono;
 }
