@@ -16,6 +16,7 @@ public interface IReciboService {
     List<ReciboSalidaDto> listarRecibos();
     ReciboSalidaDto crearRecibo(ReciboEntradaDto reciboEntradaDto) throws ResourceNotFoundException;
     ReciboSalidaDto buscarReciboPorId(Long id) throws ResourceNotFoundException;
-
+//    void eliminarRecibo(Long id) throws ResourceNotFoundException;
     ReciboSalidaDto modificarEstado(ReciboModificacionDto reciboModificacionDto) throws ResourceNotFoundException;
+//    void eliminarRecibosPorContratoId(Long contratoId) throws ResourceNotFoundException;
 }

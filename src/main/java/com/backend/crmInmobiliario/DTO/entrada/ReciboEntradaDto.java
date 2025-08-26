@@ -23,7 +23,9 @@ public class ReciboEntradaDto {
 
     private Long idContrato;       // Identificador del contrato asociado
     private int numeroRecibo;
-    private String periodo;        // Periodo al que corresponde el recibo
+    private String periodo;
+    private LocalDate fechaEmision;
+    private LocalDate fechaVencimiento;// Periodo al que corresponde el recibo
     private String concepto;       // Concepto o descripción del recibo
     private BigDecimal montoTotal; // Monto total del recibo
 

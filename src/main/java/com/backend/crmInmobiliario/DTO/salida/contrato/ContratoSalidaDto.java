@@ -26,7 +26,7 @@ public class ContratoSalidaDto {
     private PropiedadContratoSalidaDto propiedad;
     private List<GaranteSalidaDto> garantes;
     private int actualizacion;
-    private double montoAlquiler;
+    private Double montoAlquiler;
     private int duracion;
     private boolean activo;
 

@@ -3,11 +3,13 @@ package com.backend.crmInmobiliario.service.impl;
 import com.backend.crmInmobiliario.DTO.AuthResponse;
 import com.backend.crmInmobiliario.DTO.entrada.LoginEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.entity.Role;
 import com.backend.crmInmobiliario.entity.Usuario;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import com.backend.crmInmobiliario.exception.UsernameAlreadyExistsException;
 import com.backend.crmInmobiliario.repository.USER_REPO.RoleRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IUsuarioService;
@@ -35,6 +37,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
 import java.util.*;
@@ -87,7 +90,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
     @Override
     public TokenDtoSalida registrarUsuarioAdmin(UserAdminEntradaDto admin) {
         if (usuarioRepository.existsByUsername(admin.getUsername())) {
-            throw new RuntimeException("El username ya se encuentra registrado");
+            throw new UsernameAlreadyExistsException("El username ya se encuentra registrado");
         }
 
         LOGGER.info("UsuarioEntradaDto: " + JsonPrinter.toString(admin));
@@ -103,6 +106,10 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
         usuarioEntidad.setRoles(Collections.singleton(adminRole));
 
+        if (usuarioEntidad.getLogoInmobiliaria() != null) {
+            usuarioEntidad.getLogoInmobiliaria().setNota(null);
+            usuarioEntidad.getLogoInmobiliaria().setPropiedad(null); // por si acaso
+        }
         Usuario usuarioPersistido = usuarioRepository.save(usuarioEntidad);
 
         // Si necesitas generar un token, hacelo aquí
@@ -119,10 +126,18 @@ public class UserService implements IUsuarioService, UserDetailsService {
                 .orElseThrow(() -> new ResourceNotFoundException("No se encontró el usuario con ID " + id));
 
         UsuarioDtoSalida dto = new UsuarioDtoSalida();
+        dto.setId(usuario.getId());
         dto.setUsername(usuario.getUsername());
-        dto.setLogo(usuario.getLogoInmobiliaria().getImageUrl());
+        dto.setNombreNegocio(usuario.getNombreNegocio());
+        dto.setLogo(usuario.getLogoInmobiliaria() != null ? usuario.getLogoInmobiliaria().getImageUrl() : null);
         dto.setEmail(usuario.getEmail());
-
+        dto.setCuit(usuario.getCuit());
+        dto.setRazonSocial(usuario.getRazonSocial());
+        dto.setPartido(usuario.getPartido());
+        dto.setProvincia(usuario.getProvincia());
+        dto.setLocalidad(usuario.getLocalidad());
+        dto.setMatricula(usuario.getMatricula());
+        dto.setTelefono(usuario.getTelefono());
         return dto;
     }
 
@@ -138,7 +153,13 @@ public class UserService implements IUsuarioService, UserDetailsService {
         dto.setNombreNegocio(usuario.getNombreNegocio());
         dto.setLogo(usuario.getLogoInmobiliaria() != null ? usuario.getLogoInmobiliaria().getImageUrl() : null);
         dto.setEmail(usuario.getEmail());
-
+        dto.setCuit(usuario.getCuit());
+        dto.setRazonSocial(usuario.getRazonSocial());
+        dto.setPartido(usuario.getPartido());
+        dto.setProvincia(usuario.getProvincia());
+        dto.setLocalidad(usuario.getLocalidad());
+        dto.setMatricula(usuario.getMatricula());
+        dto.setTelefono(usuario.getTelefono());
         return dto;
     }
 
@@ -188,7 +209,13 @@ public class UserService implements IUsuarioService, UserDetailsService {
         Authentication authentication = this.authenticate(username, password);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        String accesToken = jwtUtil.createToken(authentication);
+        // Incluir el userId como claim en el JWT para poder leerlo luego (p.ej. estado de link con Google)
+        Long userId = usuarioRepository.findUserByUsername(username)
+                .map(Usuario::getId)
+                .orElse(null);
+        String accesToken = (userId != null)
+                ? jwtUtil.createToken(authentication, userId)
+                : jwtUtil.createToken(authentication);
         AuthResponse authResponse = new AuthResponse(username, "usuario creado correctamente", accesToken, true);
         return authResponse;
     }
@@ -227,5 +254,26 @@ public class UserService implements IUsuarioService, UserDetailsService {
                 user.isAccountNonExpired(),
                 authorityList
         );
+    }
+
+    @Transactional
+    @Override
+    public UsuarioDtoSalida actualizarUsuario(Long id, ActualizarUsuarioDto dto) throws ResourceNotFoundException {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró el usuario con ID " + id));
+
+        // Actualizar los campos
+        if (dto.getNombreNegocio() != null) usuario.setNombreNegocio(dto.getNombreNegocio());
+        if (dto.getEmail() != null) usuario.setEmail(dto.getEmail());
+        if (dto.getMatricula() != null) usuario.setMatricula(dto.getMatricula());
+        if (dto.getRazonSocial() != null) usuario.setRazonSocial(dto.getRazonSocial());
+        if (dto.getLocalidad() != null) usuario.setLocalidad(dto.getLocalidad());
+        if (dto.getPartido() != null) usuario.setPartido(dto.getPartido());
+        if (dto.getProvincia() != null) usuario.setProvincia(dto.getProvincia());
+        if (dto.getCuit() != null) usuario.setCuit(dto.getCuit());
+        if (dto.getTelefono() != null) usuario.setTelefono(dto.getTelefono());
+
+        Usuario usuarioActualizado = usuarioRepository.save(usuario);
+        return modelMapper.map(usuarioActualizado, UsuarioDtoSalida.class);
     }
 }

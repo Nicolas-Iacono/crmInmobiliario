@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.service;
 import com.backend.crmInmobiliario.DTO.AuthResponse;
 import com.backend.crmInmobiliario.DTO.entrada.LoginEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -36,5 +37,5 @@ public interface IUsuarioService {
 
     AuthResponse loginUser(LoginEntradaDto loginEntradaDto);
 
-
+    UsuarioDtoSalida actualizarUsuario(Long id, ActualizarUsuarioDto dto) throws ResourceNotFoundException;
 }

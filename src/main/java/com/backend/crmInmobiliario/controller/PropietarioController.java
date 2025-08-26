@@ -23,7 +23,7 @@ import java.util.List;
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/propietario")
-@CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+@CrossOrigin(origins = "https://tuinmo.net")
 public class PropietarioController {
 
     private final PropietarioService propietarioService;
@@ -72,7 +72,7 @@ public class PropietarioController {
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+    @CrossOrigin(origins = "https://tuinmo.net")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<PropietarioSalidaDto>> getPropietariosByUsername(@PathVariable String username) {
         List<PropietarioSalidaDto> propietarios =propietarioService.buscarPropietariosPorUsuario(username);

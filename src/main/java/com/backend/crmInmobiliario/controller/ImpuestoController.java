@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+@CrossOrigin(origins = "https://tuinmo.net")
 @RestController
 @AllArgsConstructor
 @RequestMapping("api/impuesto")

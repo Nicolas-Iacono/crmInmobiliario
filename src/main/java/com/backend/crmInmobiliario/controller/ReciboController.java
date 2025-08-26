@@ -18,7 +18,7 @@ import java.util.List;
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/recibo")
-@CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+@CrossOrigin(origins = "https://tuinmo.net")
 public class ReciboController {
 
     private final ReciboService reciboService;

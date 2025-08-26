@@ -1,5 +1,6 @@
 package com.backend.crmInmobiliario.entity;
 
+import com.backend.crmInmobiliario.utils.CryptoAttributeConverter;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,7 +22,13 @@ public class Usuario  implements UserDetails {
     private String password;
     private String nombreNegocio;
     private String email;
-
+    private String matricula;
+    private String razonSocial;
+    private String localidad;
+    private String partido;
+    private String provincia;
+    private String cuit;
+    private String telefono;
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL)
     private ImageUrls logoInmobiliaria;
 
@@ -40,6 +47,12 @@ public class Usuario  implements UserDetails {
 
     @OneToMany(mappedBy = "usuario")
     private List<Garante> garantes;
+
+    private String googleId;
+    private String googleEmail;
+
+    @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private UsuarioGoogleAccount googleAccount;
 
     @ManyToMany(fetch = FetchType.EAGER, targetEntity = Role.class, cascade = {CascadeType.MERGE, CascadeType.PERSIST})
     @JoinTable(

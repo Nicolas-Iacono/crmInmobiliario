@@ -17,7 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+@CrossOrigin(origins = "https://tuinmo.net")
 @RestController
 @AllArgsConstructor
 
@@ -79,7 +79,7 @@ public class Inquilino {
     }
 
     @GetMapping("/{username}")
-    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+    @CrossOrigin(origins = "https://tuinmo.net")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<InquilinoSalidaDto>> getInquilinoByUsername(@PathVariable String username) {
         List<InquilinoSalidaDto> inquilinos = inquilinoService.buscarInquilinoPorUsuario(username);

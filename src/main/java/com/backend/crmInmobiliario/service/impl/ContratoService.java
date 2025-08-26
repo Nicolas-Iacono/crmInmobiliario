@@ -17,8 +17,11 @@ import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.*;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IContratoService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import okhttp3.*;
 import org.hibernate.Hibernate;
 import org.hibernate.collection.spi.PersistentBag;
 import org.modelmapper.ModelMapper;
@@ -26,24 +29,29 @@ import org.modelmapper.convention.MatchingStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class ContratoService implements IContratoService {
 
     private final Logger LOGGER = LoggerFactory.getLogger(ContratoService.class);
+    private static final int MAX_EMBEDDING_CHARS = 12_000;
+
+    private static boolean has(Object v) { return v != null && !v.toString().trim().isEmpty(); }
+    private static String opt(Object v) { return v == null ? "" : v.toString().trim(); }
+    private static void kv(StringBuilder sb, String key, Object val) { if (has(val)) sb.append(" | ").append(key).append("=").append(opt(val)); }
+    private static String cap(String s) { return s.length() > MAX_EMBEDDING_CHARS ? s.substring(0, MAX_EMBEDDING_CHARS) : s; }
 
     private ContratoRepository contratoRepository;
     private ModelMapper modelMapper;
@@ -62,6 +70,8 @@ public class ContratoService implements IContratoService {
     private AguaRepository aguaRepository;
     private LuzRepository luzRepository;
     private MunicipalRepository municipalRepository;
+    private NotaRepository notaRepository;
+    private ReciboRepository reciboRepository;
 //    private PdfContratoRepository pdfContratoRepository;
 
     public ContratoService(ContratoRepository contratoRepository,
@@ -73,7 +83,9 @@ public class ContratoService implements IContratoService {
                            GasRepository gasRepository,
                            AguaRepository aguaRepository,
                            LuzRepository luzRepository,
-                           MunicipalRepository municipalRepository
+                           MunicipalRepository municipalRepository,
+                           NotaRepository notaRepository,
+                           ReciboRepository reciboRepository
 //                           UsuarioRepository usuarioRepository,
                          ) {
 
@@ -88,6 +100,8 @@ public class ContratoService implements IContratoService {
         this.gasRepository = gasRepository;
         this.municipalRepository = municipalRepository;
         this.usuarioRepository = usuarioRepository;
+        this.notaRepository = notaRepository;
+        this.reciboRepository = reciboRepository;
 //        this.pdfContratoRepository = pdfContratoRepository;
         configureMapping();
     }
@@ -238,9 +252,59 @@ public class ContratoService implements IContratoService {
         Contrato contratoEnCreacion = modelMapper.map(contratoEntradaDto, Contrato.class);
 
         asignarEntidadesRelacionadas(contratoEntradaDto, contratoEnCreacion, usuario, propietario, inquilino, propiedad, garantes);
-
+// Seteos manuales de campos críticos
+        contratoEnCreacion.setMontoAlquiler(contratoEntradaDto.getMontoAlquiler());
+        contratoEnCreacion.setMultaXDia(contratoEntradaDto.getMultaXDia());
+        contratoEnCreacion.setMontoAlquilerLetras(contratoEntradaDto.getMontoAlquilerLetras());
+        contratoEnCreacion.setActualizacion(contratoEntradaDto.getActualizacion());
+        contratoEnCreacion.setDuracion(contratoEntradaDto.getDuracion());
+        contratoEnCreacion.setDestino(contratoEntradaDto.getDestino());
+        contratoEnCreacion.setIndiceAjuste(contratoEntradaDto.getIndiceAjuste());
         // Persistir el contrato
         Contrato contratoPersistido = contratoRepository.save(contratoEnCreacion);
+        // Intentar embeddings + Supabase (no bloquea la creación)
+        try {
+            // Aseguramos inicializar colecciones lazy si las vamos a leer
+            Hibernate.initialize(contratoPersistido.getGarantes());
+            Hibernate.initialize(contratoPersistido.getRecibos());
+            if (contratoPersistido.getRecibos() != null) {
+                for (Recibo r : contratoPersistido.getRecibos()) Hibernate.initialize(r.getImpuestos());
+            }
+            Long userId = contratoPersistido.getUsuario().getId();
+            Long propietrioId = contratoPersistido.getPropietario().getId();
+            Long inquilinoId = contratoPersistido.getInquilino().getId();
+            Long propiedadId = contratoPersistido.getPropiedad().getId_propiedad();
+
+            List<Long> garantesIds = Optional.ofNullable(contratoPersistido.getGarantes())
+                    .orElseGet(Collections::emptyList)
+                    .stream().map(Garante::getId).toList();
+
+            List<Long> reciboIds = Optional.ofNullable(contratoPersistido.getRecibos())
+                    .orElseGet(Collections::emptyList)
+                    .stream().map(Recibo::getId).toList();
+
+            List<Long> notasIds = Optional.ofNullable(contratoPersistido.getNotas())
+                    .orElseGet(Collections::emptyList)
+                    .stream().map(Nota::getId).toList();
+
+            String contenido = buildContenidoContrato(contratoPersistido);
+            List<Float> embedding = generarEmbedding(contenido); // text-embedding-3-small → 1536 dims
+            guardarEnSupabase(   contratoPersistido.getId_contrato(),
+                    contenido,
+                    embedding,
+                    userId,
+                    propietrioId,
+                    inquilinoId,
+                    propiedadId,
+                    reciboIds,
+                    notasIds,
+                    garantesIds);
+            LOGGER.info("Embedding guardado en Supabase para contrato {}", contratoPersistido.getId_contrato());
+        } catch (Exception e) {
+            LOGGER.error("No se pudo guardar embedding en Supabase (contrato {}): {}",
+                    contratoPersistido.getId_contrato(), e.getMessage());
+        }
+
 
         // Cambiar el estado del contrato a activo
         if (!cambiarEstadoContrato(contratoPersistido.getId_contrato())) {
@@ -253,6 +317,280 @@ public class ContratoService implements IContratoService {
 
         return modelMapper.map(contratoPersistido, ContratoSalidaDto.class);
     }
+    private String buildContenidoContrato(Contrato c) {
+        StringBuilder sb = new StringBuilder();
+
+        // ===== Resumen contrato =====
+        sb.append("CONTRATO|")
+                .append("id=").append(c.getId_contrato())
+                .append(" | nombre=").append(opt(c.getNombreContrato()))
+                .append(" | activo=").append(c.isActivo() ? "si" : "no")
+                .append(" | destino=").append(opt(c.getDestino()))
+                .append(" | montoAlquiler=").append(opt(c.getMontoAlquiler()))
+                .append(" | duracionMeses=").append(opt(c.getDuracion()))
+                .append(" | actualizacionMeses=").append(opt(c.getActualizacion()))
+                .append(" | inicio=").append(opt(c.getFecha_inicio()))
+                .append(" | fin=").append(opt(c.getFecha_fin()))
+                .append(" | usuario_id=").append(opt(c.getUsuario().getId()))
+                .append(" | propietario_id=").append(opt(c.getPropietario().getId()))
+                .append(" | inquilino_id=").append(opt(c.getInquilino().getId()))
+                .append(" | propiedad_id=").append(opt(c.getPropiedad().getId_propiedad()))
+                .append(" | garantes_id=").append(
+                        Optional.ofNullable(c.getGarantes()).orElseGet(List::of).stream()
+                                .map(g -> String.valueOf(g.getId()))
+                                .collect(Collectors.joining(",")))
+                .append(" | recibos_id=").append(
+                        Optional.ofNullable(c.getRecibos()).orElseGet(List::of).stream()
+                                .map(g -> String.valueOf(g.getId()))
+                                .collect(Collectors.joining(",")))
+                .append(" | notas_id=").append(
+                        Optional.ofNullable(c.getNotas()).orElseGet(List::of).stream()
+                                .map(g -> String.valueOf(g.getId()))
+                                .collect(Collectors.joining(",")))
+                .append('\n');
+
+        // ===== Propiedad =====
+        if (c.getPropiedad() != null) {
+            var p = c.getPropiedad();
+            StringBuilder line = new StringBuilder("PROPIEDAD|");
+            kv(line, "id", p.getId_propiedad());
+            kv(line, "tipo", p.getTipo());
+            kv(line, "direccion", p.getDireccion());
+            kv(line, "localidad", p.getLocalidad());
+            kv(line, "partido", p.getPartido());
+            kv(line, "provincia", p.getProvincia());
+            kv(line, "inventario", p.getInventario());
+            line.append(" | disponible=").append(p.isDisponibilidad() ? "si" : "no");
+            sb.append(line).append('\n');
+        }
+
+        // ===== Inquilino detallado =====
+        if (c.getInquilino() != null) {
+            var i = c.getInquilino();
+            StringBuilder line = new StringBuilder("INQUILINO|");
+            kv(line, "nombre", i.getNombre());
+            kv(line, "apellido", i.getApellido());
+            kv(line, "pronombre", i.getPronombre());
+            kv(line, "nacionalidad", i.getNacionalidad());
+            kv(line, "estado_civil", i.getEstadoCivil());
+            kv(line, "direccion_residencial", i.getDireccionResidencial());
+            kv(line, "telefono", i.getTelefono());
+            kv(line, "email", i.getEmail());
+            // PII opcional:
+            // kv(line, "dni", i.getDni()); kv(line, "cuit", i.getCuit());
+            sb.append(line).append('\n');
+        }
+
+        // ===== Propietario detallado =====
+        if (c.getPropietario() != null) {
+            var pr = c.getPropietario();
+            StringBuilder line = new StringBuilder("PROPIETARIO|");
+            kv(line, "nombre", pr.getNombre());
+            kv(line, "apellido", pr.getApellido());
+            kv(line, "pronombre", pr.getPronombre());
+            kv(line, "nacionalidad", pr.getNacionalidad());
+            kv(line, "estado_civil", pr.getEstadoCivil());
+            kv(line, "direccion_residencial", pr.getDireccionResidencial());
+            kv(line, "telefono", pr.getTelefono());
+            kv(line, "email", pr.getEmail());
+            // PII opcional:
+            // kv(line, "dni", pr.getDni()); kv(line, "cuit", pr.getCuit());
+            sb.append(line).append('\n');
+        }
+
+        // ===== Servicios contractuales =====
+        sb.append("SERVICIOS|")
+                .append("agua=").append(opt(c.getAguaEmpresa())).append(" ").append(opt(c.getAguaPorcentaje())).append("%")
+                .append(" | gas=").append(opt(c.getGasEmpresa())).append(" ").append(opt(c.getGasPorcentaje())).append("%")
+                .append(" | luz=").append(opt(c.getLuzEmpresa())).append(" ").append(opt(c.getLuzPorcentaje())).append("%")
+                .append(" | municipal=").append(opt(c.getMunicipalEmpresa())).append(" ").append(opt(c.getMunicipalPorcentaje())).append("%")
+                .append('\n');
+
+        // ===== Garantes detallados =====
+        if (c.getGarantes() != null && !c.getGarantes().isEmpty()) {
+            for (var g : c.getGarantes()) {
+                StringBuilder line = new StringBuilder("GARANTE|");
+                kv(line, "id", g.getId());
+                kv(line, "nombre", g.getNombre());
+                kv(line, "apellido", g.getApellido());
+                kv(line, "pronombre", g.getPronombre());
+                kv(line, "nacionalidad", g.getNacionalidad());
+                kv(line, "telefono", g.getTelefono());
+                kv(line, "email", g.getEmail());
+                kv(line, "direccion", g.getDireccion());
+                // Laboral/empresa
+                kv(line, "cargo_actual", g.getCargoActual());
+                kv(line, "sector_actual", g.getSectorActual());
+                kv(line, "nombre_empresa", g.getNombreEmpresa());
+                kv(line, "cuit_empresa", g.getCuitEmpresa());
+                kv(line, "legajo", g.getLegajo());
+                // Garantía / inmueble
+                kv(line, "tipo_garantia", g.getTipoGarantia());
+                kv(line, "tipo_propiedad", g.getTipoPropiedad());
+                kv(line, "partida_inmobiliaria", g.getPartidaInmobiliaria());
+                kv(line, "info_catastral", g.getInfoCatastral());
+                kv(line, "estado_ocupacion", g.getEstadoOcupacion());
+                // Informes
+                kv(line, "informe_dominio", g.getInformeDominio());
+                kv(line, "informe_inhibicion", g.getInformeInhibicion());
+                // PII opcional:
+                // kv(line, "dni", g.getDni()); kv(line, "cuit", g.getCuit());
+                sb.append(line).append('\n');
+            }
+        }
+
+        // ===== Recibos + Impuestos detallados (fuera del bloque de garantes) =====
+        if (c.getRecibos() != null && !c.getRecibos().isEmpty()) {
+            sb.append("RECIBOS_TOTAL=").append(c.getRecibos().size()).append('\n');
+
+            String recibosTxt = c.getRecibos().stream()
+                    .limit(10)
+                    .map(r -> {
+                        String impuestosTxt =
+                                (r.getImpuestos() == null || r.getImpuestos().isEmpty())
+                                        ? "sin_impuestos"
+                                        : r.getImpuestos().stream()
+                                        .map(i -> "{" +
+                                                "empresa=" + opt(i.getEmpresa()) +
+                                                ", tipo=" + opt(i.getTipoImpuesto()) +
+                                                ", porcentaje=" + opt(i.getPorcentaje()) + "%" +
+                                                ", montoAPagar=" + opt(i.getMontoAPagar()) +
+                                                ", fechaFactura=" + opt(i.getFechaFactura()) +
+                                                // si tu getter es isEstadoPago() o getEstadoPago(), opt(...) lo maneja
+                                                ", estadoPago=" + (has(i) ? opt(i.isEstadoPago()) : "") +
+                                                "}")
+                                        .collect(Collectors.joining(", "));
+
+                        return "RECIBO|" +
+                                "id=" + opt(r.getId()) +
+                                " | numero=" + opt(r.getNumeroRecibo()) +
+                                " | periodo=" + opt(r.getPeriodo()) +
+                                " | montoTotal=" + opt(r.getMontoTotal()) +
+                                " | emision=" + opt(r.getFechaEmision()) +
+                                " | vencimiento=" + opt(r.getFechaVencimiento()) +
+                                " | concepto=" + opt(r.getConcepto()) +
+                                " | estado=" + opt(r.getEstado()) +
+                                " | impuestos=[" + impuestosTxt + "]";
+                    })
+                    .collect(Collectors.joining("\n"));
+
+            sb.append(recibosTxt).append('\n');
+        }
+
+        // ===== Notas =====
+        if (c.getNotas() != null && !c.getNotas().isEmpty()) {
+            String notasTxt = c.getNotas().stream()
+                    .limit(10)
+                    .map(n -> "NOTA|" +
+                            "id=" + opt(n.getId()) +           // si tu entidad es getId_nota(), cambiá por getId_nota()
+                            " | tipo=" + opt(n.getTipo()) +
+                            " | fecha=" + opt(n.getFechaCreacion()) +
+                            " | estado=" + opt(n.getEstado()) +
+                            " | prioridad=" + opt(n.getPrioridad()) +
+                            " | motivo=" + opt(n.getMotivo()) +
+                            " | contenido=" + opt(n.getContenido()) +
+                            " | observaciones=" + opt(n.getObservaciones()))
+                    .collect(Collectors.joining("\n"));
+            sb.append(notasTxt).append('\n');
+        }
+
+        return cap(sb.toString());
+    }
+
+
+
+    private List<Float> generarEmbedding(String texto) throws IOException {
+        OkHttpClient client = new OkHttpClient();
+        ObjectMapper mapper = new ObjectMapper();
+
+        String json = mapper.writeValueAsString(Map.of(
+                "model", "text-embedding-3-small",
+                "input", texto
+        ));
+
+        Request request = new Request.Builder()
+                .url("https://api.openai.com/v1/embeddings")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Authorization", "Bearer " + System.getenv("OPENAI_APIKEY"))
+                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Error OpenAI: " + response);
+            }
+            JsonNode root = mapper.readTree(response.body().string());
+            JsonNode vector = root.path("data").get(0).path("embedding");
+
+            List<Float> result = new ArrayList<>();
+            for (JsonNode num : vector) {
+                result.add(num.floatValue());
+            }
+            return result;
+        }
+    }
+    private void guardarEnSupabase(
+            Long idContrato,
+            String contenido,
+            List<Float> embedding,
+            Long userId,
+            Long propietarioId,
+            Long inquilinoId,
+            Long propiedadId,
+            List<Long> reciboIds,
+            List<Long> notaIds,
+            List<Long> garantesIds
+    ) throws IOException {
+        OkHttpClient client = new OkHttpClient();
+        ObjectMapper mapper = new ObjectMapper();
+
+        // Convertir listas a formato Postgres ARRAY: {1,2,3}
+        String recibosArray = listToPgArray(reciboIds);
+        String notasArray = listToPgArray(notaIds);
+        String garantesArray = listToPgArray(garantesIds);
+
+        Map<String, Object> registro = Map.of(
+                "id_contrato", idContrato,
+                "contenido", contenido,
+                "embedding", embedding,
+                "user_id", userId,             // 👈 corregido
+                    "id_propietario", propietarioId,
+                "id_inquilino", inquilinoId,
+                "id_propiedad", propiedadId,
+                "ids_recibos", recibosArray,
+                "ids_notas", notasArray,
+                "ids_garantes", garantesArray
+        );
+
+        String json = mapper.writeValueAsString(List.of(registro)); // Supabase espera array de objetos
+
+        Request request = new Request.Builder()
+                .url(System.getenv("SUPABASE_URL") + "/rest/v1/contratos_embeddings")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=representation")
+                .addHeader("apikey", System.getenv("SUPABASE_ANON_KEY"))
+                .addHeader("Authorization", "Bearer " + System.getenv("SUPABASE_SERVICE_ROLE_KEY"))
+                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                String errorBody = response.body() != null ? response.body().string() : "sin cuerpo";
+                throw new IOException("Error Supabase (" + response.code() + "): " + errorBody);
+            }
+            LOGGER.info("Contrato insertado en Supabase con éxito (id={})", idContrato);
+        }
+    }
+
+    /**
+     * Convierte una lista de Long en un array PostgreSQL (ej: {1,2,3})
+     */
+    private String listToPgArray(List<Long> lista) {
+        if (lista == null || lista.isEmpty()) return "{}";
+        return "{" + lista.stream().map(String::valueOf).collect(Collectors.joining(",")) + "}";
+    }
+
+
     @Transactional
     private void validarContratoEntrada(ContratoEntradaDto dto) {
         if (dto.getNombreUsuario() == null || dto.getNombreUsuario().isEmpty()) {
@@ -266,6 +604,8 @@ public class ContratoService implements IContratoService {
         }
         // Validaciones adicionales aquí...
     }
+
+
     @Transactional
     private List<Garante> obtenerGarantesPorIds(List<Long> garantesIds) throws ResourceNotFoundException {
         List<Garante> garantes = new ArrayList<>();
@@ -402,23 +742,44 @@ public class ContratoService implements IContratoService {
     @Transactional
     @Override
     public void eliminarContrato(Long id) throws ResourceNotFoundException {
-        Contrato contrato = contratoRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado con el id: " + id));
+        Logger logger = LoggerFactory.getLogger(ContratoService.class);
+        logger.debug("Iniciando eliminación del contrato con ID: {}", id);
 
+        // Buscar el contrato
+        Contrato contrato = contratoRepository.findById(id)
+                .orElseThrow(() -> {
+                    logger.warn("Contrato no encontrado con ID: {}", id);
+                    return new ResourceNotFoundException("Contrato no encontrado con el id: " + id);
+                });
+
+        // Verificar si está activo
         if (contrato.isActivo()) {
+            logger.warn("Intento de eliminar contrato activo: {}", id);
             throw new IllegalStateException("No se puede eliminar un contrato activo");
         }
 
-        // Desvincular garantes si existen
-        List<Garante> garantes = contrato.getGarantes();
-        if (garantes != null && !garantes.isEmpty()) {
-            for (Garante garante : garantes) {
-                garante.setContrato(null);
-                garanteRepository.save(garante);
-            }
-        }
-        contratoRepository.delete(contrato);
+        try {
+            logger.debug("Eliminando garantes del contrato {}", id);
+            garanteRepository.deleteByContratoId(id);
 
+            logger.debug("Eliminando notas del contrato {}", id);
+            notaRepository.deleteByContratoId(id);
+
+            logger.debug("Eliminando recibos del contrato {}", id);
+            reciboRepository.deleteByContratoId(id);
+
+            logger.debug("Eliminando contrato {}", id);
+            contratoRepository.delete(contrato);
+
+            logger.info("Contrato eliminado correctamente con ID: {}", id);
+
+        } catch (DataIntegrityViolationException dive) {
+            logger.error("Violación de integridad al eliminar contrato con ID: {}", id, dive);
+            throw new RuntimeException("Violación de integridad: " + dive.getMessage());
+        } catch (Exception e) {
+            logger.error("Error general al eliminar contrato con ID: {}", id, e);
+            throw new RuntimeException("Error general al eliminar el contrato: " + e.getMessage());
+        }
     }
     @Transactional
     @Override

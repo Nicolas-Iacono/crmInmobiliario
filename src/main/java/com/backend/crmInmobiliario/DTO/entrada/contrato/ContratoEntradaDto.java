@@ -52,7 +52,7 @@ public class ContratoEntradaDto {
     private int municipalPorcentaje;
 
     private int actualizacion;
-    private double montoAlquiler;
+    private Double montoAlquiler;
 
     private String indiceAjuste;
     private String montoAlquilerLetras;

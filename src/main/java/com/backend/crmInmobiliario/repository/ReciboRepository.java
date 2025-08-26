@@ -2,7 +2,9 @@ package com.backend.crmInmobiliario.repository;
 
 import com.backend.crmInmobiliario.entity.Contrato;
 import com.backend.crmInmobiliario.entity.Recibo;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,4 +17,10 @@ public interface ReciboRepository extends JpaRepository<Recibo,Long> {
     Optional<Recibo> findReciboByIdWithImpuestos(@Param("id") Long id);
 
 
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM Recibo r WHERE r.contrato.id = :idContrato")
+    void deleteByContratoId(@Param("idContrato") Long idContrato);
+
+//    List<Recibo> findByContratoId(Long contratoId);
 }

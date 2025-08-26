@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-
+@CrossOrigin(origins = "https://tuinmo.net")
 @RestController
 @RequestMapping("/api/notas")
 @RequiredArgsConstructor
@@ -68,7 +68,7 @@ public class NotaController {
         return ResponseEntity.noContent().build();
     }
 
-    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+    @CrossOrigin(origins = "https://tuinmo.net")
     @PostMapping("/{id}/imagenes")
     public ResponseEntity<?> subirImagenesANota(@PathVariable Long id,
                                                      @RequestParam("files") MultipartFile[] archivos) {
@@ -82,7 +82,7 @@ public class NotaController {
                     .body("Error al subir las imágenes: " + e.getMessage());
         }
     }
-    @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
+    @CrossOrigin(origins = "https://tuinmo.net")
     @DeleteMapping("/{idNota}/imagenes/{idImagen}")
     public ResponseEntity<?> eliminarImagen(
             @PathVariable Long idNota,

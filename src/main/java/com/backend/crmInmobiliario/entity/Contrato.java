@@ -78,7 +78,8 @@ public class Contrato {
 
 
     private int actualizacion;
-    private double montoAlquiler;
+    @Column(name = "monto_alquiler", nullable = false)
+    private Double montoAlquiler;
     private String montoAlquilerLetras;
     private Double multaXDia;
     private boolean activo;
@@ -87,10 +88,10 @@ public class Contrato {
     private Long tiempoRestante;
     private String destino;
 
-    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY)
     private List<Recibo> recibos;
 
-    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY)
     private List<Nota> notas;
 
 

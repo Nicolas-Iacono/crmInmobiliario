@@ -182,10 +182,26 @@ public class PropiedadService implements IPropiedadService {
     @Override
     @Transactional
     public void eliminarPropiedad(Long id) throws ResourceNotFoundException {
-        Propiedad propiedad = propiedadRepository.findById(id)
+        // 1) Traer con imágenes cargadas
+        Propiedad p = propiedadRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encontró la propiedad con el id proporcionado."));
-        propiedadRepository.deleteById(id);
-        System.out.println("propiedad eliminada: " + propiedad);
+
+        // 2) Romper relación con el propietario para que no la re-persistan al flush
+        Propietario prop = p.getPropietario();
+        if (prop != null && prop.getPropiedades() != null) {
+            prop.getPropiedades().remove(p); // <- clave
+        }
+        p.setPropietario(null);
+
+        // 3) Cargar y cortar hijos (lado dueño) antes de clear
+        p.getImagenes().forEach(img -> img.setPropiedad(null));
+        p.getImagenes().clear();
+
+        // 4) Borrar y forzar flush para ver los DELETE ya
+        propiedadRepository.delete(p);
+        propiedadRepository.flush();
+
+        System.out.println("Propiedad eliminada: " + id);
     }
 
     @Override

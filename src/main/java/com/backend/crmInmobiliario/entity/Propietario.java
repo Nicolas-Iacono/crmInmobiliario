@@ -26,7 +26,7 @@ public class Propietario extends Persona{
     @JsonIgnore
     private Usuario usuario;
 
-    @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     private List<Propiedad> propiedades;
 //
