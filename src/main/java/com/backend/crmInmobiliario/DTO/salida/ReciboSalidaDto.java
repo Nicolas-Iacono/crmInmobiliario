@@ -23,7 +23,7 @@ public class ReciboSalidaDto {
     private BigDecimal montoTotal;
     private int numeroRecibo;
     private Boolean estado;
-
+    private String nombreContrato;
 
     // Lista de impuestos asociados, ya convertidos a DTO de salida
     private List<ImpuestosGeneralSalidaDto> impuestos;

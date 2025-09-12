@@ -95,25 +95,33 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
         LOGGER.info("UsuarioEntradaDto: " + JsonPrinter.toString(admin));
 
-        Usuario usuarioEntidad = modelMapper.map(admin, Usuario.class);
+        // ⛔️ sacar este map que explota:
+        // Usuario usuarioEntidad = modelMapper.map(admin, Usuario.class);
 
-        // Encriptar password si aplica
+        // ✅ map manual y explícito
+        Usuario usuarioEntidad = new Usuario();
+        usuarioEntidad.setUsername(admin.getUsername());
         usuarioEntidad.setPassword(passwordEncoder.encode(admin.getPassword()));
+        usuarioEntidad.setNombreNegocio(admin.getNombreNegocio());
+        usuarioEntidad.setEmail(admin.getEmail());
+        usuarioEntidad.setMatricula(admin.getMatricula());
+        usuarioEntidad.setRazonSocial(admin.getRazonSocial());
+        usuarioEntidad.setLocalidad(admin.getLocalidad());
+        usuarioEntidad.setPartido(admin.getPartido());
+        usuarioEntidad.setProvincia(admin.getProvincia());
+        usuarioEntidad.setCuit(admin.getCuit());
+        usuarioEntidad.setTelefono(admin.getTelefono());
 
-        // Buscar o crear rol ADMIN
         Role adminRole = roleRepository.findByRol(RolesCostantes.ADMIN)
                 .orElseGet(() -> roleRepository.save(new Role(RolesCostantes.ADMIN)));
-
         usuarioEntidad.setRoles(Collections.singleton(adminRole));
 
         if (usuarioEntidad.getLogoInmobiliaria() != null) {
             usuarioEntidad.getLogoInmobiliaria().setNota(null);
-            usuarioEntidad.getLogoInmobiliaria().setPropiedad(null); // por si acaso
+            usuarioEntidad.getLogoInmobiliaria().setPropiedad(null);
         }
-        Usuario usuarioPersistido = usuarioRepository.save(usuarioEntidad);
 
-        // Si necesitas generar un token, hacelo aquí
-        // String jwt = jwtUtil.createToken(usuarioPersistido.getUsername(), usuarioPersistido.getRoles());
+        Usuario usuarioPersistido = usuarioRepository.save(usuarioEntidad);
 
         return modelMapper.map(usuarioPersistido, TokenDtoSalida.class);
     }

@@ -47,6 +47,17 @@ public class PropiedadController {
                     .body(new ApiResponse<>("El propietario no se encuentra en la base de datos", null));
         }
     }
+
+
+    @PutMapping("/propiedad/{id}/asignar-propietario/{propietarioId}")
+    public ResponseEntity<?> asignarPropietario(@PathVariable Long id, @PathVariable Long propietarioId) {
+        return ResponseEntity.ok(propiedadService.asignarPropietario(id, propietarioId));
+    }
+
+    @PutMapping("/propiedad/{id}/quitar-propietario")
+    public ResponseEntity<?> quitarPropietario(@PathVariable Long id) {
+        return ResponseEntity.ok(propiedadService.quitarPropietario(id));
+    }
     @CrossOrigin(origins = "https://tuinmo.net")
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<PropiedadSoloSalidaDto>>> allPropiedades(){

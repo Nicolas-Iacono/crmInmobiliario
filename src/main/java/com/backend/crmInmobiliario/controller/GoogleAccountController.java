@@ -58,9 +58,7 @@ public class GoogleAccountController {
                     .body(Map.of("error", "Token sin userId"));
         }
 
-        ClientRegistration google = (clientRegistrationRepository instanceof InMemoryClientRegistrationRepository)
-                ? ((InMemoryClientRegistrationRepository) clientRegistrationRepository).findByRegistrationId("google")
-                : null;
+        ClientRegistration google = clientRegistrationRepository.findByRegistrationId("google");
         if (google == null) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Registro OAuth2 'google' no encontrado"));
@@ -71,18 +69,30 @@ public class GoogleAccountController {
                 .build()
                 .toUriString(); // e.g. http://localhost:8080
 
-        String redirectUri = UriComponentsBuilder.fromHttpUrl(baseUrl)
-                .path("/login/oauth2/code/")
-                .path(google.getRegistrationId())
-                .build()
-                .toUriString(); // http://localhost:8080/login/oauth2/code/google
+        String redirectUri;
+        String regRedirect = google.getRedirectUri();
+        if (regRedirect != null && !regRedirect.isBlank()) {
+            redirectUri = UriComponentsBuilder
+                    .fromUriString(regRedirect)
+                    .buildAndExpand(Map.of(
+                            "baseUrl", baseUrl,
+                            "registrationId", google.getRegistrationId()))
+                    .toUriString();
+        } else {
+            redirectUri = UriComponentsBuilder.fromHttpUrl(baseUrl)
+                    .path("/login/oauth2/code/")
+                    .path(google.getRegistrationId())
+                    .build()
+                    .toUriString();
+        }
 
         // firmamos el state con userId + nonce y expiración corta (5m)
         String nonce = java.util.UUID.randomUUID().toString();
 
         String state = jwtUtil.createStateToken(String.valueOf(userId), nonce, 5 * 60_000);
 
-        String scopes = String.join(" ", google.getScopes());
+        String scopes = String.join(" ", google.getScopes())
+                + " https://www.googleapis.com/auth/calendar.readonly";
         String authUrl = UriComponentsBuilder
                 .fromUriString(google.getProviderDetails().getAuthorizationUri())
                 .queryParam("client_id", google.getClientId())
@@ -90,6 +100,7 @@ public class GoogleAccountController {
                 .queryParam("response_type", "code")
                 .queryParam("scope", scopes)            // tiene espacios -> hay que encodear
                 .queryParam("state", state)
+                .queryParam("include_granted_scopes", "true")
                 .queryParam("access_type", "offline")
                 .queryParam("prompt", "consent")
                 .encode(StandardCharsets.UTF_8)         // <-- CLAVE (o usa .build(true))

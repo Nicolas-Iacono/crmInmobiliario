@@ -99,18 +99,14 @@ public class PropiedadService implements IPropiedadService {
 
     @Override
     @Transactional
-    public PropiedadSalidaDto crearPropiedad(PropiedadEntradaDto propiedadEntradaDto, Long propietarioId) throws ResourceNotFoundException {
+    public PropiedadSalidaDto crearPropiedad(PropiedadEntradaDto propiedadEntradaDto, Long propietarioId)
+            throws ResourceNotFoundException {
 
         String nombreUsuario = propiedadEntradaDto.getNombreUsuario();
 
         Usuario usuario = usuarioRepository.findUserByUsername(nombreUsuario)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
-        // Buscar el propietario con propietarioId
-        Propietario propietario = propietarioRepository.findById(propietarioId)
-                .orElseThrow(() -> new ResourceNotFoundException("Propietario no encontrado"));
-
-        // Crear la propiedad con los datos del DTO
         Propiedad propiedad = new Propiedad();
         propiedad.setDireccion(propiedadEntradaDto.getDireccion());
         propiedad.setLocalidad(propiedadEntradaDto.getLocalidad());
@@ -119,24 +115,41 @@ public class PropiedadService implements IPropiedadService {
         propiedad.setTipo(propiedadEntradaDto.getTipo());
         propiedad.setInventario(propiedadEntradaDto.getInventario());
         propiedad.setDisponibilidad(propiedadEntradaDto.getDisponibilidad());
-        // Asignar el propietario ya encontrado
-        propiedad.setPropietario(propietario);
         propiedad.setUsuario(usuario);
 
-        // Guardar la propiedad en la base de datos
+        // asignar propietario solo si viene
+        if (propiedadEntradaDto.getId_propietario() != null) {
+            Propietario propietario = propietarioRepository.findById(propiedadEntradaDto.getId_propietario())
+                    .orElseThrow(() -> new ResourceNotFoundException("Propietario no encontrado"));
+
+            if (!propietario.getUsuario().getId().equals(usuario.getId())) {
+                throw new IllegalArgumentException("El propietario no pertenece al mismo usuario");
+            }
+
+            propiedad.setPropietario(propietario);
+        }
+
         Propiedad propiedadAPersistir = propiedadRepository.save(propiedad);
 
         boolean propiedadActiva = cambiarDisponibilidadPropiedad(propiedadAPersistir.getId_propiedad());
         if (!propiedadActiva) {
-            throw new RuntimeException("No se pudo activar el contrato");
+            throw new RuntimeException("No se pudo activar la propiedad");
         }
-        // Mapear la entidad guardada al DTO de salida
+
+        // mapear la entidad al DTO de salida
         PropiedadSalidaDto propiedadSalidaDto = modelMapper.map(propiedadAPersistir, PropiedadSalidaDto.class);
-        PropietarioContratoDtoSalida propietarioSalidaDto = modelMapper.map(propiedadAPersistir.getPropietario(), PropietarioContratoDtoSalida.class);
-        propiedadSalidaDto.setPropietarioSalidaDto(propietarioSalidaDto);
+
+        if (propiedadAPersistir.getPropietario() != null) {
+            PropietarioContratoDtoSalida propietarioSalidaDto =
+                    modelMapper.map(propiedadAPersistir.getPropietario(), PropietarioContratoDtoSalida.class);
+            propiedadSalidaDto.setPropietarioSalidaDto(propietarioSalidaDto);
+        } else {
+            propiedadSalidaDto.setPropietarioSalidaDto(null);
+        }
 
         return propiedadSalidaDto;
     }
+
     @Transactional
     @Override
     public Boolean cambiarDisponibilidadPropiedad(Long id) throws ResourceNotFoundException {
@@ -155,8 +168,33 @@ public class PropiedadService implements IPropiedadService {
                 .map(propiedad -> modelMapper.map(propiedad, PropiedadSalidaDto.class))
                 .toList();
     }
+    @Transactional
+    public PropiedadSalidaDto asignarPropietario(Long propiedadId, Long propietarioId) throws ResourceNotFoundException {
+        Propiedad p = propiedadRepository.findById(propiedadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Propiedad no encontrada"));
+        Propietario prop = propietarioRepository.findById(propietarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Propietario no encontrado"));
 
+        if (!prop.getUsuario().getId().equals(p.getUsuario().getId())) {
+            throw new IllegalArgumentException("El propietario no pertenece al mismo usuario");
+        }
 
+        p.setPropietario(prop);
+        Propiedad saved = propiedadRepository.save(p);
+
+        return modelMapper.map(saved, PropiedadSalidaDto.class);
+    }
+    @Transactional
+    public PropiedadSalidaDto quitarPropietario(Long propiedadId) throws ResourceNotFoundException {
+        Propiedad p = propiedadRepository.findById(propiedadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Propiedad no encontrada"));
+        p.setPropietario(null);
+        Propiedad saved = propiedadRepository.save(p);
+
+        PropiedadSalidaDto out = modelMapper.map(saved, PropiedadSalidaDto.class);
+        out.setPropietarioSalidaDto(null);
+        return out;
+    }
     @Override
     @Transactional
     public PropiedadSalidaDto buscarPropiedadPorId(Long id)throws ResourceNotFoundException {

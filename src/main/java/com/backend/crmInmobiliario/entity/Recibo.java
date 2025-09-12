@@ -52,12 +52,15 @@ public class Recibo {
     @OneToMany(mappedBy = "recibo", cascade = CascadeType.ALL, fetch = FetchType.LAZY,  orphanRemoval = true)
     private List<Impuesto> impuestos = new ArrayList<>();
 
-    private Boolean estado;
+    private Boolean estado = Boolean.FALSE;
+
+
 
     @PrePersist
     public void prePersist() {
         if (this.fechaVencimiento == null) {
             this.fechaVencimiento = LocalDate.now().plusDays(15);
         }
+        if (this.estado == null) this.estado = Boolean.FALSE;
     }
 }

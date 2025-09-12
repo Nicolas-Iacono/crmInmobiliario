@@ -1,13 +1,11 @@
 package com.backend.crmInmobiliario.config;
 
+import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
 import com.backend.crmInmobiliario.DTO.salida.ImpuestosGeneralSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
-import com.backend.crmInmobiliario.entity.Contrato;
-import com.backend.crmInmobiliario.entity.Garante;
-import com.backend.crmInmobiliario.entity.Impuesto;
-import com.backend.crmInmobiliario.entity.Recibo;
+import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.utils.GaranteConverter;
 import org.hibernate.collection.spi.PersistentBag;
 import org.modelmapper.Conditions;
@@ -35,6 +33,22 @@ public class ModelMapperConfig {
             modelMapper.createTypeMap(PersistentBag.class, List.class)
                     .setConverter(context -> new ArrayList<>((PersistentBag) context.getSource()));
         }
+
+        modelMapper.typeMap(UserAdminEntradaDto.class, Usuario.class)
+                .addMappings(m -> {
+                    m.map(UserAdminEntradaDto::getUsername,     Usuario::setUsername);
+                    m.map(UserAdminEntradaDto::getPassword,     Usuario::setPassword); // la encriptás luego
+                    m.map(UserAdminEntradaDto::getNombreNegocio,Usuario::setNombreNegocio);
+                    m.map(UserAdminEntradaDto::getEmail,        Usuario::setEmail);
+                    m.map(UserAdminEntradaDto::getMatricula,    Usuario::setMatricula);
+                    m.map(UserAdminEntradaDto::getRazonSocial,  Usuario::setRazonSocial);
+                    m.map(UserAdminEntradaDto::getLocalidad,    Usuario::setLocalidad);
+                    m.map(UserAdminEntradaDto::getPartido,      Usuario::setPartido);
+                    m.map(UserAdminEntradaDto::getProvincia,    Usuario::setProvincia);
+                    m.map(UserAdminEntradaDto::getCuit,         Usuario::setCuit);
+                    m.map(UserAdminEntradaDto::getTelefono,     Usuario::setTelefono);
+                    // No mapeamos nada relacionado con UserDetails (enabled, etc.)
+                });
 
         // ✅ Converter personalizado para Garante
         modelMapper.addConverter(garanteConverter);

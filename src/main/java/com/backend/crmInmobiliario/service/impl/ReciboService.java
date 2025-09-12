@@ -13,6 +13,7 @@ import com.backend.crmInmobiliario.repository.ContratoRepository;
 import com.backend.crmInmobiliario.repository.InquilinoRepository;
 import com.backend.crmInmobiliario.repository.ReciboRepository;
 import com.backend.crmInmobiliario.service.IReciboService;
+import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.hibernate.collection.spi.PersistentBag;
@@ -244,6 +245,26 @@ public class ReciboService implements IReciboService {
         return modelMapper.map(reciboActualizado, ReciboSalidaDto.class);
     }
 
+    @PostConstruct
+    void initMapper() {
+        modelMapper.typeMap(Recibo.class, ReciboSalidaDto.class)
+                .addMappings(m -> {
+                    m.map(src -> src.getContrato().getId_contrato(), ReciboSalidaDto::setContratoId);
+                    m.map(src -> src.getContrato().getNombreContrato(), ReciboSalidaDto::setNombreContrato);
+                });
+    }
+
+    @Transactional
+    public List<ReciboSalidaDto> recibosDelUsuario(Long userId,
+                                                   Boolean estado,
+                                                   Long contratoId,
+                                                   String q) {
+        List<Recibo> recibos = reciboRepository.search(userId, estado, contratoId, q);
+
+        return recibos.stream()
+                .map(r -> modelMapper.map(r, ReciboSalidaDto.class))
+                .toList();
+    }
 
 //    @Override
 //    @Transactional

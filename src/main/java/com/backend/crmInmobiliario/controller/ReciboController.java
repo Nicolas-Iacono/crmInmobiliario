@@ -7,6 +7,7 @@ import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ReciboService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import com.backend.crmInmobiliario.utils.ApiResponseRecibo;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -69,5 +70,16 @@ public class ReciboController {
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping("/estado")
+    public ResponseEntity<ApiResponseRecibo<List<ReciboSalidaDto>>> listarPorEstado(
+            @RequestParam Long userId,
+            @RequestParam(required = false) Boolean estado,
+            @RequestParam(required = false) Long contratoId,
+            @RequestParam(required = false) String q
+    ) {
+        var data = reciboService.recibosDelUsuario(userId, estado, contratoId, q);
+        return ResponseEntity.ok(new ApiResponseRecibo<>(true, "OK", data));
     }
 }

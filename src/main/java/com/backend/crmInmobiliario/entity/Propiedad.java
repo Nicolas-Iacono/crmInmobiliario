@@ -34,7 +34,7 @@ public class Propiedad {
 
 
     @ManyToOne
-    @JoinColumn(name = "propietario_id", nullable = false)
+    @JoinColumn(name = "propietario_id", nullable = true)
     @ToString.Exclude
     private Propietario propietario;
 

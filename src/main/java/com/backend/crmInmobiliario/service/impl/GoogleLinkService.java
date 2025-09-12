@@ -120,13 +120,25 @@ public class GoogleLinkService {
      */
     public void unlink(Long userId) {
         googleRepo.findByUsuarioId(userId).ifPresent(uga -> {
-            // limpiar referencia en Usuario
             Usuario usuario = uga.getUsuario();
             if (usuario != null) {
+                // limpiar campos “cacheados” en Usuario
                 usuario.setGoogleId(null);
                 usuario.setGoogleEmail(null);
+
+                // romper la asociación 1:1 para que orphanRemoval elimine el hijo
+                usuario.setGoogleAccount(null);
+                // por prolijidad, romper también el lado dueño
+                uga.setUsuario(null);
+
+                // guardar el padre; por orphanRemoval se elimina la fila hija
+                usuarioRepo.save(usuario);
+            } else {
+                // fallback si viniera sin usuario (raro)
+                googleRepo.delete(uga);
             }
-            googleRepo.delete(uga);
+            // forzar el delete ya mismo (opcional pero útil para testear)
+            googleRepo.flush();
         });
     }
 
