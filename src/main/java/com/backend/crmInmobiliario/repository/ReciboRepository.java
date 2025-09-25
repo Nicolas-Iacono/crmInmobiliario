@@ -19,10 +19,10 @@ public interface ReciboRepository extends JpaRepository<Recibo,Long> {
     Optional<Recibo> findReciboByIdWithImpuestos(@Param("id") Long id);
 
 
-    @Modifying
     @Transactional
-    @Query("DELETE FROM Recibo r WHERE r.contrato.id = :idContrato")
-    void deleteByContratoId(@Param("idContrato") Long idContrato);
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from Recibo r where r.contrato.id = :idContrato")
+    int deleteByContratoId(@Param("idContrato") Long idContrato);
 
     @Query("""
            SELECT r FROM Recibo r

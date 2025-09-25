@@ -63,7 +63,7 @@ public class GoogleLinkService {
                                      String scope,
                                      String accessToken,
                                      Instant accessTokenExp,
-                                     String refreshTokenEncrypted,
+                                     String refreshToken,
                                      Boolean emailVerified,
                                      String locale) {
 
@@ -100,8 +100,8 @@ public class GoogleLinkService {
         uga.setAccessTokenExpiresAt(accessTokenExp == null ? null : Date.from(accessTokenExp));
 
         // ⚠️ No pisar el refresh token si Google no envió uno nuevo
-        if (refreshTokenEncrypted != null && !refreshTokenEncrypted.isBlank()) {
-            uga.setRefreshTokenEncrypted(refreshTokenEncrypted); // tu @Converter lo cifra en BD
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            uga.setRefreshToken(refreshToken); // tu @Converter lo cifra en BD
         }
 
         uga.setEmailVerified(emailVerified);

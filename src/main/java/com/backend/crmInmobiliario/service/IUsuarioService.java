@@ -7,14 +7,14 @@ import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.List;
 
 @Service
-public interface IUsuarioService {
-
+public interface IUsuarioService extends UserDetailsService  {
 
     List<UsuarioDtoSalida> listarUsuarios();
 
@@ -38,4 +38,6 @@ public interface IUsuarioService {
     AuthResponse loginUser(LoginEntradaDto loginEntradaDto);
 
     UsuarioDtoSalida actualizarUsuario(Long id, ActualizarUsuarioDto dto) throws ResourceNotFoundException;
+
+    void deleteAccountByUsername(String username);
 }

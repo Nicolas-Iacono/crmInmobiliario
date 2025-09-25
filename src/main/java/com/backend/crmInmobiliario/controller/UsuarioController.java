@@ -1,8 +1,13 @@
 package com.backend.crmInmobiliario.controller;
 
+import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.backend.crmInmobiliario.DTO.AuthResponse;
 import com.backend.crmInmobiliario.DTO.entrada.LoginEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.jwt.ErrorResponse;
+import com.backend.crmInmobiliario.DTO.entrada.jwt.RefreshRequest;
+import com.backend.crmInmobiliario.DTO.entrada.jwt.RefreshResponse;
 import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
 import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
@@ -12,28 +17,34 @@ import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IUsuarioService;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import com.backend.crmInmobiliario.utils.JwtUtil;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/usuario")
 @CrossOrigin(origins = "https://tuinmo.net")
 @PreAuthorize("denyAll()")
 public class UsuarioController {
+    private JwtUtil jwtUtil;
     private IUsuarioService userService;
     private ImagenService imagenService;
     private UsuarioRepository usuarioRepository;
-    public UsuarioController(IUsuarioService userService, ImagenService imagenService,UsuarioRepository usuarioRepository) {
+    public UsuarioController(JwtUtil jwtUtil,     IUsuarioService userService, ImagenService imagenService,UsuarioRepository usuarioRepository) {
         this.userService = userService;
         this.imagenService = imagenService;
         this.usuarioRepository = usuarioRepository;
+        this.jwtUtil = jwtUtil;
     }
 
     @PreAuthorize("permitAll()")
@@ -128,6 +139,38 @@ public class UsuarioController {
         }
     }
 
+    @PreAuthorize("#username == authentication.name or hasRole('ADMIN')")
+    @DeleteMapping("/{username}")
+    public ResponseEntity<Void> deleteByUsername(@PathVariable String username) {
+        userService.deleteAccountByUsername(username);
+        return ResponseEntity.noContent().build();
+    }
+    @CrossOrigin(origins = "https://tuinmo.net")
+    @PreAuthorize("permitAll()")
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshRequest req) {
+        try {
+            DecodedJWT jwt = jwtUtil.validateRefreshToken(req.getRefreshToken());
+            String username = jwt.getSubject();
+
+            // Cargamos authorities frescos
+            UserDetails ud = userService.loadUserByUsername(username);
+            String authorities = ud.getAuthorities()
+                    .stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.joining(","));
+
+            String newAccess = jwtUtil.createAccessToken(username, authorities);
+
+            return ResponseEntity.ok(new RefreshResponse(newAccess, null, "Bearer", 15 * 60));
+        } catch (com.auth0.jwt.exceptions.TokenExpiredException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ErrorResponse("refresh_token_expired"));
+        } catch (JWTVerificationException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ErrorResponse("refresh_token_invalid"));
+        }
+    }
 
 
 }

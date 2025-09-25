@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -52,5 +53,19 @@ public class ContratoSalidaDto {
 
     private String contratoPdf;
     private UsuarioDtoSalida usuarioDtoSalida;
+    /** % comisión por contrato (una sola vez al firmar) */
+    private BigDecimal comisionContratoPorc;
+    /** % comisión mensual */
+    private BigDecimal comisionMensualPorc;
+
+    /** monto = alquiler * meses * (comisionContratoPorc/100) */
+    private BigDecimal comisionContratoMonto;
+    /** monto = alquiler * (comisionMensualPorc/100) */
+    private BigDecimal comisionMensualMonto;
+    /** monto = alquiler - comisionMensualMonto */
+    private BigDecimal montoMensualPropietario;
+
+
+
 
 }

@@ -1,18 +1,16 @@
 package com.backend.crmInmobiliario.service.impl;
 
+import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoComisionUpdateDto;
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
+//import com.backend.crmInmobiliario.DTO.entrada.planesYSuscripcion.PlanLimitsDto;
+import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoComisionDtoSalida;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
-import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoActualizacionDtoSalida;
-import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
-import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaSinGaranteDto;
-import com.backend.crmInmobiliario.DTO.salida.contrato.LatestContratosSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.contrato.*;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.entity.*;
-import com.backend.crmInmobiliario.entity.impuestos.Agua;
-import com.backend.crmInmobiliario.entity.impuestos.Gas;
-import com.backend.crmInmobiliario.entity.impuestos.Luz;
-import com.backend.crmInmobiliario.entity.impuestos.Municipal;
+import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
+import com.backend.crmInmobiliario.exception.ContractLimitExceededException;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.*;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
@@ -23,19 +21,20 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import okhttp3.*;
 import org.hibernate.Hibernate;
-import org.hibernate.collection.spi.PersistentBag;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
@@ -44,7 +43,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ContratoService implements IContratoService {
-
+    @Value("${app.contracts.trial-limit:3}")
+    private int trialLimit;
     private final Logger LOGGER = LoggerFactory.getLogger(ContratoService.class);
     private static final int MAX_EMBEDDING_CHARS = 12_000;
 
@@ -52,7 +52,7 @@ public class ContratoService implements IContratoService {
     private static String opt(Object v) { return v == null ? "" : v.toString().trim(); }
     private static void kv(StringBuilder sb, String key, Object val) { if (has(val)) sb.append(" | ").append(key).append("=").append(opt(val)); }
     private static String cap(String s) { return s.length() > MAX_EMBEDDING_CHARS ? s.substring(0, MAX_EMBEDDING_CHARS) : s; }
-
+//    private  SubscriptionService subscriptionService;
     private ContratoRepository contratoRepository;
     private ModelMapper modelMapper;
 
@@ -72,9 +72,12 @@ public class ContratoService implements IContratoService {
     private MunicipalRepository municipalRepository;
     private NotaRepository notaRepository;
     private ReciboRepository reciboRepository;
+    private ImpuestoRepository impuestoRepository;
 //    private PdfContratoRepository pdfContratoRepository;
 
-    public ContratoService(ContratoRepository contratoRepository,
+    public ContratoService(
+                           ImpuestoRepository impuestoRepository,
+                           ContratoRepository contratoRepository,
                            GaranteRepository garanteRepository,
                            ModelMapper modelMapper,
                            InquilinoRepository inquilinoRepository,
@@ -86,7 +89,9 @@ public class ContratoService implements IContratoService {
                            MunicipalRepository municipalRepository,
                            NotaRepository notaRepository,
                            ReciboRepository reciboRepository
-//                           UsuarioRepository usuarioRepository,
+//                           SubscriptionService subscriptionService
+//                         UsuarioRepository usuarioRepository,
+
                          ) {
 
         this.contratoRepository = contratoRepository;
@@ -102,6 +107,8 @@ public class ContratoService implements IContratoService {
         this.usuarioRepository = usuarioRepository;
         this.notaRepository = notaRepository;
         this.reciboRepository = reciboRepository;
+        this.impuestoRepository = impuestoRepository;
+//        this.subscriptionService = subscriptionService;
 //        this.pdfContratoRepository = pdfContratoRepository;
         configureMapping();
     }
@@ -134,12 +141,15 @@ public class ContratoService implements IContratoService {
                 .addMapping(Contrato::getTiempoRestante, ContratoSalidaSinGaranteDto::setTiempoRestante)
                 .addMapping(Contrato::getRecibos, ContratoSalidaSinGaranteDto::setRecibos);
 
+
         modelMapper.typeMap(Contrato.class, LatestContratosSalidaDto.class)
                 .addMapping(Contrato::getUsuario, LatestContratosSalidaDto::setUsuarioDtoSalida);
 
         modelMapper.typeMap(ContratoModificacionDto.class, ContratoSalidaDto.class)
                 .addMapping(ContratoModificacionDto::getPdfContratoTexto, ContratoSalidaDto::setContratoPdf)
-                .addMapping(ContratoModificacionDto::getMontoAlquiler, ContratoSalidaDto::setMontoAlquiler);
+                .addMapping(ContratoModificacionDto::getMontoAlquiler, ContratoSalidaDto::setMontoAlquiler)
+                .addMapping(ContratoModificacionDto::getComisionMensualPorc, ContratoSalidaDto::setComisionMensualPorc)
+                .addMapping(ContratoModificacionDto::getComisionContratoPorc, ContratoSalidaDto::setComisionContratoPorc);
 
     }
 
@@ -149,6 +159,41 @@ public class ContratoService implements IContratoService {
     public Integer enumerarContratos(String username) {
         return contratoRepository.countByUsuarioUsername(username);
     }
+
+    @Transactional
+    public ContratoComisionDtoSalida actualizarComisiones(ContratoComisionUpdateDto dto) {
+        Contrato c = contratoRepository.findById(dto.getIdContrato())
+                .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado"));
+
+        if (dto.getComisionContratoPorc() != null) {
+            validarPorc(dto.getComisionContratoPorc());
+            c.setComisionContratoPorc(dto.getComisionContratoPorc().setScale(2, RoundingMode.HALF_UP));
+        }
+        if (dto.getComisionMensualPorc() != null) {
+            validarPorc(dto.getComisionMensualPorc());
+            c.setComisionMensualPorc(dto.getComisionMensualPorc().setScale(2, RoundingMode.HALF_UP));
+        }
+
+        contratoRepository.save(c);
+
+        // Armamos salida plana (sin entidades perezosas)
+        ContratoComisionDtoSalida out = new ContratoComisionDtoSalida();
+        out.setComisionContratoPorc(c.getComisionContratoPorc());
+        out.setComisionMensualPorc(c.getComisionMensualPorc());
+        out.setComisionContratoMonto(c.getComisionContratoMonto());               // @Transient en tu entidad
+        out.setComisionMensualMonto(c.getComisionMensualMonto());                 // @Transient en tu entidad
+        out.setMontoMensualPropietario(c.getLiquidacionPropietarioMensual());     // @Transient en tu entidad
+        return out;
+    }
+
+    private void validarPorc(BigDecimal p) {
+        if (p.compareTo(BigDecimal.ZERO) < 0 || p.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new IllegalArgumentException("El porcentaje debe estar entre 0 y 100");
+        }
+    }
+
+
+
 
     @Override
     @Transactional
@@ -169,10 +214,31 @@ public class ContratoService implements IContratoService {
         // Guardar los cambios
         Contrato contratoActualizado = contratoRepository.save(contratoBuscado);
 
-        // Crear manualmente el DTO de salida
+        java.math.BigDecimal alquiler   = java.math.BigDecimal.valueOf(contratoActualizado.getMontoAlquiler());
+        java.math.BigDecimal meses      = java.math.BigDecimal.valueOf(contratoBuscado.getDuracion() != 0 ? contratoBuscado.getDuracion() : 0);
+        java.math.BigDecimal pctContrato= pct(contratoActualizado.getComisionContratoPorc());   // helper de abajo
+        java.math.BigDecimal pctMensual = pct(contratoActualizado.getComisionMensualPorc());    // helper de abajo
+
+        java.math.BigDecimal comisionContratoMonto  = (contratoBuscado.getDuracion() > 0)
+                ? alquiler.multiply(meses).multiply(pctContrato)
+                : java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal comisionMensualMonto   = alquiler.multiply(pctMensual);
+        java.math.BigDecimal montoMensualPropietario= alquiler.subtract(comisionMensualMonto);
+
         ContratoSalidaDto dto = new ContratoSalidaDto();
         dto.setId(contratoActualizado.getId_contrato());
         dto.setMontoAlquiler(contratoActualizado.getMontoAlquiler());
+        dto.setDuracion(contratoBuscado.getDuracion());
+
+        // porcentajes actuales del contrato
+        dto.setComisionContratoPorc(contratoActualizado.getComisionContratoPorc());
+        dto.setComisionMensualPorc(contratoActualizado.getComisionMensualPorc());
+
+        // montos recalculados
+        dto.setComisionContratoMonto(comisionContratoMonto);
+        dto.setComisionMensualMonto(comisionMensualMonto);
+        dto.setMontoMensualPropietario(montoMensualPropietario);
 
         return dto;
     }
@@ -221,6 +287,44 @@ public class ContratoService implements IContratoService {
                 })
                 .toList();
     }
+    @Transactional
+    @Override
+    public Long verificarFinalizacionContrato(Long id) throws ResourceNotFoundException {
+        Contrato c = contratoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado"));
+
+        LocalDate fin = c.getFecha_fin();
+        if (fin == null) {
+            // si no hay fecha fin, lo podés computar a partir de inicio + duración
+            LocalDate inicio = c.getFecha_inicio();
+            if (inicio == null || c.getDuracion() <= 0) return null;
+            fin = inicio.plusMonths(c.getDuracion());
+        }
+
+        LocalDate hoy = LocalDate.now();
+        if (!fin.isAfter(hoy)) {
+            return 0L; // vencido
+        }
+        long dias = ChronoUnit.DAYS.between(hoy, fin);
+        return dias;
+    }
+
+//    public void ensureCanCreateOrActivate(Long usuarioId) {
+//        PlanLimitsDto limits = subscriptionService.getLimits(usuarioId);
+//        boolean ilimitado = limits.getContractLimit() == -1;
+//
+//        if (!ilimitado) {
+//            long usados = contratoRepository.countActivosByUsuario(usuarioId);
+//            int limit = limits.getContractLimit();
+//
+//            if (usados >= limit) {
+//                String planName = limits.getPlanName();
+//                throw new ContractLimitExceededException(String.format(
+//                        "Alcanzaste tu límite de %d contratos del plan '%s'. " +
+//                                "Actualizá tu suscripción para continuar.", limit, planName));
+//            }
+//        }
+//    }
 
     @Transactional
     @Override
@@ -233,6 +337,8 @@ public class ContratoService implements IContratoService {
         Usuario usuario = usuarioRepository.findUserByUsername(nombreUsuario)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
+
+//        ensureCanCreateOrActivate(usuario.getId());
 
         Propietario propietario = propietarioRepository.findById(contratoEntradaDto.getId_propietario())
                 .orElseThrow(() -> new ResourceNotFoundException("Propietario no encontrado"));
@@ -260,6 +366,13 @@ public class ContratoService implements IContratoService {
         contratoEnCreacion.setDuracion(contratoEntradaDto.getDuracion());
         contratoEnCreacion.setDestino(contratoEntradaDto.getDestino());
         contratoEnCreacion.setIndiceAjuste(contratoEntradaDto.getIndiceAjuste());
+        contratoEnCreacion.setComisionContratoPorc(
+                contratoEntradaDto.getComisionContratoPorc() != null ? contratoEntradaDto.getComisionContratoPorc() : java.math.BigDecimal.ZERO
+        );
+        contratoEnCreacion.setComisionMensualPorc(
+                contratoEntradaDto.getComisionMensualPorc() != null ? contratoEntradaDto.getComisionMensualPorc() : java.math.BigDecimal.ZERO
+        );
+
         // Persistir el contrato
         Contrato contratoPersistido = contratoRepository.save(contratoEnCreacion);
         // Intentar embeddings + Supabase (no bloquea la creación)
@@ -529,6 +642,7 @@ public class ContratoService implements IContratoService {
             return result;
         }
     }
+
     private void guardarEnSupabase(
             Long idContrato,
             String contenido,
@@ -553,7 +667,7 @@ public class ContratoService implements IContratoService {
                 "id_contrato", idContrato,
                 "contenido", contenido,
                 "embedding", embedding,
-                "user_id", userId,             // 👈 corregido
+                "user_id", userId,             // 
                     "id_propietario", propietarioId,
                 "id_inquilino", inquilinoId,
                 "id_propiedad", propiedadId,
@@ -684,7 +798,7 @@ public class ContratoService implements IContratoService {
                         Hibernate.initialize(contrato.getRecibos());
                     }
                     for (Recibo recibo : contrato.getRecibos()) {
-                        Hibernate.initialize(recibo.getImpuestos()); // 💥 ESTE es el que te falta
+                        Hibernate.initialize(recibo.getImpuestos()); // 
                     }
                     Long tiempoRestante = null;
                     try {
@@ -765,6 +879,9 @@ public class ContratoService implements IContratoService {
             logger.debug("Eliminando notas del contrato {}", id);
             notaRepository.deleteByContratoId(id);
 
+            logger.debug("Eliminando impuestos del contrato {}", id);
+            impuestoRepository.deleteByContratoId(id);
+
             logger.debug("Eliminando recibos del contrato {}", id);
             reciboRepository.deleteByContratoId(id);
 
@@ -813,7 +930,7 @@ public class ContratoService implements IContratoService {
         LocalDate fechaInicio = contrato.getFecha_inicio();
         System.out.println("Fecha inicio: " + fechaInicio);
         if (fechaInicio == null) {
-            return new ContratoActualizacionDtoSalida(null, 0, 0, false, "❌ El contrato no tiene fecha de inicio asignada");
+            return new ContratoActualizacionDtoSalida(null, 0, 0, false, " El contrato no tiene fecha de inicio asignada");
         }
         int periodoActualizacion = contrato.getActualizacion(); // ej: cada 6 meses
 
@@ -829,7 +946,7 @@ public class ContratoService implements IContratoService {
                     0,
                     0,
                     true,
-                    "⚠️ ¡El contrato ya debería haberse actualizado!"
+                    " ¡El contrato ya debería haberse actualizado!"
             );
         }
 
@@ -841,14 +958,10 @@ public class ContratoService implements IContratoService {
                 diferencia.getMonths(),
                 diferencia.getDays(),
                 false,
-                "📅 Contrato pendiente de actualización"
+                " Contrato pendiente de actualización"
         );
     }
-    @Transactional
-    @Override
-    public Long verificarFinalizacionContrato(Long id) throws ResourceNotFoundException {
-        return null;
-    }
+
     @Transactional
     @Override
     @Scheduled(cron = "0 0 0 * * ?")
@@ -883,7 +996,40 @@ public class ContratoService implements IContratoService {
     }
 
 
+    private java.math.BigDecimal montoComisionContrato(Contrato c) {
+        if (c.getMontoAlquiler() == null || c.getDuracion() <= 0) {
+            return java.math.BigDecimal.ZERO;
+        }
 
+        // Convertimos Double -> BigDecimal
+        java.math.BigDecimal alquiler = java.math.BigDecimal.valueOf(c.getMontoAlquiler());
+
+        java.math.BigDecimal meses = java.math.BigDecimal.valueOf(c.getDuracion());
+        java.math.BigDecimal porcentaje = pct(c.getComisionContratoPorc());
+
+        return alquiler.multiply(meses).multiply(porcentaje);
+    }
+
+
+    private java.math.BigDecimal montoComisionMensual(Contrato c) {
+        if (c.getMontoAlquiler() == null) return java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal alquiler = java.math.BigDecimal.valueOf(c.getMontoAlquiler());
+        java.math.BigDecimal porcentaje = pct(c.getComisionMensualPorc());
+
+        return alquiler.multiply(porcentaje);
+    }
+
+    private java.math.BigDecimal montoMensualPropietario(Contrato c) {
+        if (c.getMontoAlquiler() == null) return java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal alquiler = java.math.BigDecimal.valueOf(c.getMontoAlquiler());
+        return alquiler.subtract(montoComisionMensual(c));
+    }
+
+    private java.math.BigDecimal pct(java.math.BigDecimal p) {
+        return (p == null ? java.math.BigDecimal.ZERO : p)
+                .divide(java.math.BigDecimal.valueOf(100));
+    }
 
 }
-

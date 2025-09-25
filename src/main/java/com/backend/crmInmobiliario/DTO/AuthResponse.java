@@ -12,6 +12,5 @@ public record AuthResponse(
         String jwt,
         boolean status
 
-
 ) {
 }

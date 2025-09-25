@@ -1,6 +1,6 @@
 package com.backend.crmInmobiliario.entity;
 
-import com.backend.crmInmobiliario.utils.CryptoAttributeConverter;
+import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -88,7 +88,12 @@ public class Usuario  implements UserDetails {
         return true;
     }
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "plan_id")
+    private Plan plan;
 
+    @Column(name = "es_admin", nullable = false)
+    private boolean esAdmin = false;
     // Getters y setters
 }
 

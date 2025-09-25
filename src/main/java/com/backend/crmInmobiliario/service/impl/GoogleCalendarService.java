@@ -140,7 +140,7 @@ public class GoogleCalendarService {
             return acc.getAccessToken();
         }
 
-        if (acc.getRefreshTokenEncrypted() == null || acc.getRefreshTokenEncrypted().isBlank()) {
+        if (acc.getRefreshToken() == null || acc.getRefreshToken().isBlank()) {
             throw new IllegalStateException("No hay refresh token para renovar el access token de Google");
         }
 
@@ -148,7 +148,7 @@ public class GoogleCalendarService {
         form.add("client_id", clientId);
         form.add("client_secret", clientSecret);
         form.add("grant_type", "refresh_token");
-        form.add("refresh_token", acc.getRefreshTokenEncrypted());
+        form.add("refresh_token", acc.getRefreshToken());
 
         Map<String,Object> resp = googleOAuth.post()
                 .uri("/token")

@@ -43,10 +43,12 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.GET, "/usuario/check-username").permitAll()
-                        .requestMatchers("/auth/**", "/oauth2/**", "/google/**").permitAll()
+                        .requestMatchers("/api/user/**","/auth/**", "/oauth2/**", "/google/**").permitAll()
+
                         // Permitir endpoints usados en el flujo de vinculación con Google
                         .requestMatchers("/rest/oauth2-credential/**", "/oauth/google/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/user/all").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/presupuestos/usuario/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtTokenValidator, BasicAuthenticationFilter.class)
                 .build();

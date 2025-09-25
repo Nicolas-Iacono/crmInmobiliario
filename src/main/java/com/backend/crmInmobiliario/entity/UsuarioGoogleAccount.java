@@ -51,7 +51,7 @@ public class UsuarioGoogleAccount {
 
     // REFRESH TOKEN: cifrado/ ofuscado en repositorio/AttributeConverter
     @Column(name = "refresh_token", length = 2048)
-    private String refreshTokenEncrypted;
+    private String refreshToken;
 
     @Column(name = "email_verified")
     private Boolean emailVerified;
@@ -59,8 +59,7 @@ public class UsuarioGoogleAccount {
     @Column(name = "locale", length = 16)
     private String locale;
 
+    @Column(name = "linked_at")
     @Temporal(TemporalType.TIMESTAMP)
-    @Column(name = "linked_at", nullable = false)
-    private Date linkedAt = new Date();
-
+    private Date linkedAt;
 }

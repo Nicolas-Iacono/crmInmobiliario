@@ -1,11 +1,9 @@
 package com.backend.crmInmobiliario.controller;
 
+import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoComisionUpdateDto;
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
-import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoActualizacionDtoSalida;
-import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
-import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaSinGaranteDto;
-import com.backend.crmInmobiliario.DTO.salida.contrato.LatestContratosSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.contrato.*;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ContratoService;
 import com.backend.crmInmobiliario.service.impl.GaranteService;
@@ -31,6 +29,12 @@ public class ContratoController {
     private final static Logger LOGGER = LoggerFactory.getLogger(ContratoController.class);
     private final GaranteService garanteService;
     private final ContratoService contratoService;
+
+    @PutMapping("/comisiones")
+    public ResponseEntity<ContratoComisionDtoSalida> actualizarComisiones(
+            @RequestBody ContratoComisionUpdateDto dto) {
+        return ResponseEntity.ok(contratoService.actualizarComisiones(dto));
+    }
 
     @Transactional
     @GetMapping("/enum/{username}")
@@ -97,6 +101,7 @@ public class ContratoController {
         ApiResponse<ContratoActualizacionDtoSalida> response = new ApiResponse<>("actualizacion", actualizacion);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
+
     @Transactional
     @PostMapping("/finalizar/{id}")
     public ResponseEntity<String> FinalizarContrato(@PathVariable Long id) {
@@ -108,6 +113,7 @@ public class ContratoController {
             return ResponseEntity.status(404).body(e.getMessage());
         }
     }
+
     @Transactional
     @GetMapping("/{username}")
     @PreAuthorize("permitAll()")
@@ -115,6 +121,7 @@ public class ContratoController {
         List<ContratoSalidaDto> contratos = contratoService.buscarContratoPorUsuario(username);
         return ResponseEntity.ok(contratos);
     }
+
     @Transactional
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<ApiResponse<?>> eliminarContrato(@PathVariable Long id) {
@@ -155,8 +162,9 @@ public class ContratoController {
                     .body(new ApiResponse<>("❌ Error al eliminar el contrato de forma forzada: " + e.getMessage(), null));
         }
     }
+
     @Transactional
-    @PatchMapping("/{id}/updateContract")
+    @PutMapping("/{id}/updateContract")
     public ResponseEntity<ApiResponse<ContratoSalidaDto>> actualizarPdfContrato(@PathVariable Long id, @RequestBody ContratoModificacionDto updateDto) throws ResourceNotFoundException {
         ContratoSalidaDto contratoActualizado = contratoService.guardarContratoPdf(id, updateDto);
         ApiResponse<ContratoSalidaDto> response = new ApiResponse<>(true, "Contrato actualizado con éxito", contratoActualizado);

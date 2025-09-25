@@ -10,6 +10,7 @@ import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
@@ -94,6 +95,14 @@ public class Contrato {
     @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY)
     private List<Nota> notas;
 
+    @Column(name = "comision_contrato_porc", precision = 5, scale = 2, nullable = false)
+    private BigDecimal comisionContratoPorc = BigDecimal.ZERO;
+
+    @Column(name = "comision_mensual_porc", precision = 5, scale = 2, nullable = false)
+    private BigDecimal comisionMensualPorc = BigDecimal.ZERO;
+
+    @Column(name = "suscrito", nullable = false)
+    private boolean suscrito = true; // cuenta sólo si está activo
 
     public boolean isActivo() {
         return activo;
@@ -101,5 +110,36 @@ public class Contrato {
 
     public void setActivo(boolean activo) {
         this.activo = activo;
+    }
+
+    @Transient
+    public BigDecimal getComisionContratoMonto() {
+        if (montoAlquiler == null || duracion <= 0) return BigDecimal.ZERO;
+        BigDecimal alquiler = BigDecimal.valueOf(montoAlquiler);
+        BigDecimal base = alquiler.multiply(BigDecimal.valueOf(duracion));
+        return base.multiply(nullSafePercent(comisionContratoPorc));
+    }
+
+
+    /** Monto de comisión mensual (sobre montoAlquiler) */
+    @Transient
+    public BigDecimal getComisionMensualMonto() {
+        if (montoAlquiler == null) return BigDecimal.ZERO;
+        BigDecimal alquiler = BigDecimal.valueOf(montoAlquiler);
+        return alquiler.multiply(nullSafePercent(comisionMensualPorc));
+    }
+
+    /** Monto a liquidar al propietario cada mes = alquiler - comisión mensual */
+    @Transient
+    public BigDecimal getLiquidacionPropietarioMensual() {
+        if (montoAlquiler == null) return BigDecimal.ZERO;
+        BigDecimal alquiler = BigDecimal.valueOf(montoAlquiler);
+        return alquiler.subtract(getComisionMensualMonto());
+    }
+
+    private BigDecimal nullSafePercent(BigDecimal p) {
+        BigDecimal v = (p == null ? BigDecimal.ZERO : p);
+        // pasa de 3.5 a 0.035
+        return v.divide(BigDecimal.valueOf(100));
     }
 }

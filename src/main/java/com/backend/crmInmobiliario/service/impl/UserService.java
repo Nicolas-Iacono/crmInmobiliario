@@ -18,6 +18,7 @@ import com.backend.crmInmobiliario.utils.JsonPrinter;
 import com.backend.crmInmobiliario.utils.JwtUtil;
 import com.backend.crmInmobiliario.utils.RolesCostantes;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -221,12 +222,22 @@ public class UserService implements IUsuarioService, UserDetailsService {
         Long userId = usuarioRepository.findUserByUsername(username)
                 .map(Usuario::getId)
                 .orElse(null);
+
         String accesToken = (userId != null)
-                ? jwtUtil.createToken(authentication, userId)
-                : jwtUtil.createToken(authentication);
-        AuthResponse authResponse = new AuthResponse(username, "usuario creado correctamente", accesToken, true);
+                ? jwtUtil.createAccessToken(authentication, userId)
+                : jwtUtil.createAccessToken(authentication);
+
+
+        AuthResponse authResponse = new AuthResponse(username,
+                "usuario logueado correctamente",
+                accesToken,
+                true
+                );
+
         return authResponse;
     }
+
+
 
 
 
@@ -283,5 +294,13 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
         Usuario usuarioActualizado = usuarioRepository.save(usuario);
         return modelMapper.map(usuarioActualizado, UsuarioDtoSalida.class);
+    }
+
+
+    @Override
+    @Transactional
+    public void deleteAccountByUsername(String username) {
+        int deleted = usuarioRepository.deleteByUsername(username);
+        if (deleted == 0) throw new EntityNotFoundException("Usuario no encontrado");
     }
 }

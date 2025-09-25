@@ -1,9 +1,11 @@
 package com.backend.crmInmobiliario.config.filter;
 
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.backend.crmInmobiliario.utils.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,18 +41,49 @@ public class JwtTokenValidator extends OncePerRequestFilter {
         if (jwtToken != null && jwtToken.startsWith("Bearer ")) {
             jwtToken = jwtToken.substring(7);
 
-            DecodedJWT decodedJWT = jwtUtil.validateToken(jwtToken);
+            try {
+                DecodedJWT decodedJWT = jwtUtil.validateAccessToken(jwtToken);
 
-            String username = jwtUtil.extractUsername(decodedJWT);
-            String stringAuthorities = jwtUtil.getSpecifClaim(decodedJWT, "authorities").asString();
+                String username = jwtUtil.extractUsername(decodedJWT);
+                String stringAuthorities = jwtUtil.getSpecifClaim(decodedJWT, "authorities").asString();
+                Collection<? extends GrantedAuthority> authorities =
+                        AuthorityUtils.commaSeparatedStringToAuthorityList(
+                                stringAuthorities != null ? stringAuthorities : ""
+                        );
 
-            Collection<? extends GrantedAuthority> authorities = AuthorityUtils.commaSeparatedStringToAuthorityList(stringAuthorities);
+                Authentication authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            SecurityContext context = SecurityContextHolder.getContext();
-            Authentication authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
-            context.setAuthentication(authentication);
-            SecurityContextHolder.setContext(context);
+                // seguir la cadena si todo ok
+                filterChain.doFilter(request, response);
+                return;
+
+            } catch (com.auth0.jwt.exceptions.TokenExpiredException e) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"token_expired\"}");
+                return;
+
+            } catch (JWTVerificationException e) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"invalid_token\"}");
+                return;
+            }
         }
+
+        // si no hay token, igual dejamos pasar (para endpoints permitAll)
         filterChain.doFilter(request, response);
+    }
+
+    private String resolveBearer(HttpServletRequest req) {
+        String h = req.getHeader(HttpHeaders.AUTHORIZATION);
+        return (h != null && h.startsWith("Bearer ")) ? h.substring(7) : null;
+    }
+
+    private String resolveCookie(HttpServletRequest req, String name) {
+        if (req.getCookies() == null) return null;
+        for (Cookie c : req.getCookies()) if (name.equals(c.getName())) return c.getValue();
+        return null;
     }
 }

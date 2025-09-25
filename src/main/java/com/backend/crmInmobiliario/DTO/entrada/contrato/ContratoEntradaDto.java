@@ -4,10 +4,14 @@ package com.backend.crmInmobiliario.DTO.entrada.contrato;
 import com.backend.crmInmobiliario.utils.CustomLocalDateDeserializer;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
@@ -62,4 +66,12 @@ public class ContratoEntradaDto {
     private String destino;
 
     private String nombreUsuario;
+
+    @DecimalMin(value = "0.00") @DecimalMax(value = "100.00")
+    @Digits(integer = 3, fraction = 2)
+    private BigDecimal comisionContratoPorc;
+
+    @DecimalMin(value = "0.00") @DecimalMax(value = "100.00")
+    @Digits(integer = 3, fraction = 2)
+    private BigDecimal comisionMensualPorc;
 }

@@ -21,9 +21,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RestController
-@RequestMapping("/oauth/google")
+@RequestMapping("/api/oauth/google")
 @RequiredArgsConstructor
 public class GoogleAccountController {
 
@@ -91,8 +93,14 @@ public class GoogleAccountController {
 
         String state = jwtUtil.createStateToken(String.valueOf(userId), nonce, 5 * 60_000);
 
-        String scopes = String.join(" ", google.getScopes())
-                + " https://www.googleapis.com/auth/calendar.readonly";
+        String scopes = Stream.concat(
+                google.getScopes().stream(),
+                Stream.of(
+                        "https://www.googleapis.com/auth/calendar.readonly",
+                        "https://www.googleapis.com/auth/documents",
+                        "https://www.googleapis.com/auth/drive.file"
+                )
+        ).distinct().collect(Collectors.joining(" "));
         String authUrl = UriComponentsBuilder
                 .fromUriString(google.getProviderDetails().getAuthorizationUri())
                 .queryParam("client_id", google.getClientId())

@@ -1,11 +1,9 @@
 package com.backend.crmInmobiliario.service;
 
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.ContratoComisionDtoSalida;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
-import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoActualizacionDtoSalida;
-import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
-import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaSinGaranteDto;
-import com.backend.crmInmobiliario.DTO.salida.contrato.LatestContratosSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.contrato.*;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -37,6 +35,5 @@ public interface IContratoService {
     Integer enumerarContratos(String username)throws  ResourceNotFoundException;
 
     ContratoSalidaDto actualizarMontoAlquiler(ContratoModificacionDto contratoModificacionDto) throws  ResourceNotFoundException;
-
 
 }

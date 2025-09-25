@@ -31,4 +31,9 @@ public interface ContratoRepository extends JpaRepository<Contrato, Long> {
 
 
     int countByUsuarioUsername(String username);
+
+    @Query("select count(c) from Contrato c where c.usuario.id=:usuarioId and c.activo=true")
+    long countActivosByUsuario(@Param("usuarioId") Long usuarioId);
 }
+
+
