@@ -22,6 +22,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -56,6 +58,24 @@ public class UsuarioController {
                 new ApiResponse<>("Lista de usuarios: ", usuariosSalidaDtos);
         return  ResponseEntity.status(HttpStatus.OK).body(response);
     }
+
+    @PostMapping("/registrar")
+    @CrossOrigin(origins = "https://tuinmo.net")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<TokenDtoSalida> registrarUsuario(@RequestBody @Valid UserAdminEntradaDto userAdminEntradaDto){
+
+        return new ResponseEntity<>(userService.registrarUsuario(userAdminEntradaDto), HttpStatus.CREATED);
+    }
+
+    @PostMapping("/registrar-super-admin")
+    @CrossOrigin(origins = "https://tuinmo.net")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<TokenDtoSalida> registrarSuperAdmin(@RequestBody @Valid UserAdminEntradaDto userAdminEntradaDto){
+
+        return new ResponseEntity<>(userService.registrarUsuarioSuperAdmin(userAdminEntradaDto), HttpStatus.CREATED);
+    }
+
+
     @PostMapping("/registrar-admin")
     @CrossOrigin(origins = "https://tuinmo.net")
     @PreAuthorize("permitAll()")
@@ -124,7 +144,7 @@ public class UsuarioController {
                     .body(new ApiResponse<>("Error inesperado", null));
         }
     }
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<?> actualizarUsuario(@PathVariable Long id, @RequestBody ActualizarUsuarioDto dto) {
         try {
@@ -139,7 +159,7 @@ public class UsuarioController {
         }
     }
 
-    @PreAuthorize("#username == authentication.name or hasRole('ADMIN')")
+    @PreAuthorize("#username == authentication.name or hasAnyRole('ADMIN','SUPER_ADMIN')")
     @DeleteMapping("/{username}")
     public ResponseEntity<Void> deleteByUsername(@PathVariable String username) {
         userService.deleteAccountByUsername(username);
@@ -155,12 +175,14 @@ public class UsuarioController {
 
             // Cargamos authorities frescos
             UserDetails ud = userService.loadUserByUsername(username);
-            String authorities = ud.getAuthorities()
-                    .stream()
-                    .map(GrantedAuthority::getAuthority)
-                    .collect(Collectors.joining(","));
 
-            String newAccess = jwtUtil.createAccessToken(username, authorities);
+            Authentication auth = new UsernamePasswordAuthenticationToken(
+                    ud, null, ud.getAuthorities()
+            );
+
+            String newAccess = jwtUtil.createAccessToken(auth, ud instanceof com.backend.crmInmobiliario.entity.Usuario usuario
+                    ? usuario.getId()
+                    : null);
 
             return ResponseEntity.ok(new RefreshResponse(newAccess, null, "Bearer", 15 * 60));
         } catch (com.auth0.jwt.exceptions.TokenExpiredException e) {

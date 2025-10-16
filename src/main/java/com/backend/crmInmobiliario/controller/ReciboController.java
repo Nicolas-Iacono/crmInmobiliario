@@ -35,11 +35,12 @@ public class ReciboController {
 //                    .body(new ApiResponse<>("El contrato no se encontro", null));
 //        }
 //    }
-    @PostMapping("/create")
-    public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @RequestBody ReciboEntradaDto reciboEntradaDto) throws ResourceNotFoundException {
-        ReciboSalidaDto reciboSalidaDto = reciboService.crearRecibo(reciboEntradaDto);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Recibo creado correctamente", reciboSalidaDto));
-    }
+@PostMapping(value = "/create", consumes = "multipart/form-data")
+public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @ModelAttribute ReciboEntradaDto reciboEntradaDto)
+        throws ResourceNotFoundException {
+    ReciboSalidaDto reciboSalidaDto = reciboService.crearRecibo(reciboEntradaDto);
+    return ResponseEntity.ok(new ApiResponse<>(true, "Recibo creado correctamente", reciboSalidaDto));
+}
     @GetMapping("/{id}") // Usa /{id} para indicar un parámetro en la URL
     public ResponseEntity<ApiResponse<ReciboSalidaDto>> buscarReciboPorId(@PathVariable Long id) throws ResourceNotFoundException {
         ReciboSalidaDto reciboSalidaDto = reciboService.buscarReciboPorId(id);

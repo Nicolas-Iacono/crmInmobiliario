@@ -4,6 +4,7 @@ import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoComisionUpdateDt
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.*;
+import com.backend.crmInmobiliario.exception.ContractLimitExceededException;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ContratoService;
 import com.backend.crmInmobiliario.service.impl.GaranteService;
@@ -72,16 +73,27 @@ public class ContratoController {
     public ResponseEntity<ApiResponse<ContratoSalidaDto>> crearContrato(@Valid @RequestBody ContratoEntradaDto contratoEntradaDto) {
         LOGGER.info("Recibiendo solicitud para crear contrato: {}", contratoEntradaDto);
         try {
-            LOGGER.info("Contrato creado exitosamente");
             ContratoSalidaDto contratoSalidaDto = contratoService.crearContrato(contratoEntradaDto);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(new ApiResponse<>("Contrato creado correctamente.", contratoSalidaDto));
+
+        } catch (ContractLimitExceededException e) {
+            LOGGER.warn("Límite de contratos alcanzado: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+
         } catch (ResourceNotFoundException e) {
             LOGGER.error("Error al crear contrato: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ApiResponse<>("no se pudo crear el contrato", null));
+                    .body(new ApiResponse<>("No se pudo crear el contrato", null));
+
+        } catch (Exception e) {
+            LOGGER.error("Error inesperado al crear contrato: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al crear contrato", null));
         }
     }
+
     @Transactional
     @GetMapping("/verificar-contrato/{id}")
     public ResponseEntity<?> VerificarFinalizacionContrato(@PathVariable Long id) {
@@ -175,5 +187,16 @@ public class ContratoController {
     @PreAuthorize("permitAll()")
     public List<LatestContratosSalidaDto> getLatestContratos() {
         return contratoService.getLatestContratos();
+    }
+
+
+    @GetMapping("/buscar-por-nombre")
+    public ResponseEntity<ContratoSalidaDto> obtenerContratoPorNombre(@RequestParam String nombre) {
+        try {
+            ContratoSalidaDto dto = contratoService.buscarContratoPorNombre(nombre);
+            return ResponseEntity.ok(dto);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
     }
 }

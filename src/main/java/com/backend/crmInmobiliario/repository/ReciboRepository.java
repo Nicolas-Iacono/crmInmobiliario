@@ -57,6 +57,32 @@ public interface ReciboRepository extends JpaRepository<Recibo,Long> {
             @Param("q") String q                      // nombre contiene o null
     );
 
+
+    @Query("""
+        SELECT r
+        FROM Recibo r
+        WHERE r.contrato.inquilino.usuario.id = :userId
+    """)
+    List<Recibo> findByInquilinoUsuarioId(@Param("userId") Long userId);
+
+
+    @Query("""
+    SELECT r FROM Recibo r
+    JOIN r.contrato c
+    JOIN c.inquilino i
+    WHERE i.id = :inquilinoId
+    """)
+    List<Recibo> findByInquilinoId(@Param("inquilinoId") Long inquilinoId);
+
+        @Query("""
+    SELECT r FROM Recibo r
+    LEFT JOIN FETCH r.contrato c
+    LEFT JOIN FETCH c.inquilino i
+    LEFT JOIN FETCH r.impuestos
+    WHERE i.id = :inquilinoId
+    """)
+    List<Recibo> findByInquilinoIdConTodo(@Param("inquilinoId") Long inquilinoId);
+
     // conteos útiles
     long countByContratoUsuarioId(Long userId);
 

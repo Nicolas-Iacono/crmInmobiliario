@@ -14,11 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 public class PropietarioSalidaDto {
     private Long id;
-
-    private String username;
-    private String password;
-    private String nombreNegocio;
-
     private String pronombre;
     private String nombre;
     private String apellido;

@@ -2,38 +2,67 @@ package com.backend.crmInmobiliario.entity.planesYSuscripciones;
 
 import com.backend.crmInmobiliario.entity.Usuario;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "subscription")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@ToString
 public class Subscription {
+
+
+    public enum Status {
+        TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID, INCOMPLETE, INCOMPLETE_EXPIRED
+    }
+
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usuario_id", nullable = false, unique = true)
-    private Usuario usuario; // monousuario: una subs por usuario
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
+
+
+    @ManyToOne
     @JoinColumn(name = "plan_id", nullable = false)
     private Plan plan;
 
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable=false)
-    private Status status;     // ACTIVE, TRIALING, PAST_DUE, CANCELED
+    Subscription.Status status;
 
-    private Instant trialEndsAt;        // Free trial o período promocional
-    private Instant currentPeriodEnd;   // fin del mes actual
-    private Boolean cancelAtPeriodEnd;  // true si cancela al final del ciclo
 
-    // IDs del procesador de pagos
-    private String externalCustomerId;
     private String externalSubscriptionId;
+    private String externalCustomerId;
 
-    private Instant createdAt;
-    private Instant updatedAt;
 
-    public enum Status { TRIALING, ACTIVE, PAST_DUE, CANCELED }
+    private LocalDateTime createdAt;
+    private LocalDateTime currentPeriodEnd;
+    private LocalDateTime updatedAt;
+    private LocalDateTime trialEndsAt;
+
+    @Column(name = "cancel_at_period_end")
+    private Boolean cancelAtPeriodEnd;
+
+
+
+
 }
+
+
+

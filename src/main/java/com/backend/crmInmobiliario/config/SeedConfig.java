@@ -15,8 +15,9 @@ public class SeedConfig {
     CommandLineRunner seedPlans(PlanRepository repo) {
         return args -> {
             upsert(repo, "FREE", "Free", BigDecimal.ZERO, 3, true);
-            upsert(repo, "STARTER", "Starter", new BigDecimal("9"), 20, true);
-            upsert(repo, "PRO", "Pro", new BigDecimal("24"), 45, true);
+            upsert(repo, "PLAN-PRO", "Pro", new BigDecimal("15000"), 10, true);
+            upsert(repo, "PLAN-PROF", "Pro+", new BigDecimal("25000"), 20, true);
+            upsert(repo, "PLAN-SUP", "Superior", new BigDecimal("35000"), 30, true);
         };
     }
 
@@ -24,7 +25,7 @@ public class SeedConfig {
         var p = repo.findByCode(code).orElseGet(Plan::new);
         p.setCode(code);
         p.setName(name);
-        p.setPriceUsd(price);
+        p.setPriceArs(price);
         p.setContractLimit(limit);
         p.setActive(active);
         repo.save(p);

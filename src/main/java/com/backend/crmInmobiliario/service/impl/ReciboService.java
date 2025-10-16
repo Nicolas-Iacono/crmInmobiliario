@@ -12,7 +12,9 @@ import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.ContratoRepository;
 import com.backend.crmInmobiliario.repository.InquilinoRepository;
 import com.backend.crmInmobiliario.repository.ReciboRepository;
+import com.backend.crmInmobiliario.repository.notificacionesPush.PushSubscriptionRepository;
 import com.backend.crmInmobiliario.service.IReciboService;
+import com.backend.crmInmobiliario.service.impl.notificacionesPush.PushNotificationService;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -23,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,12 +40,17 @@ public class ReciboService implements IReciboService {
     private ReciboRepository reciboRepository;
     private ContratoRepository contratoRepository;
     private InquilinoRepository inquilinoRepository;
-
-    public ReciboService(ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository) {
+    private PushNotificationService pushNotificationService;
+    private PushSubscriptionRepository pushSubscriptionRepository;
+    private ImagenService imagenService;
+    public ReciboService(ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository) {
         this.modelMapper = modelMapper;
         this.reciboRepository = reciboRepository;
         this.contratoRepository = contratoRepository;
         this.inquilinoRepository = inquilinoRepository;
+        this.pushNotificationService = pushNotificationService;
+        this.pushSubscriptionRepository = pushSubscriptionRepository;
+        this.imagenService = imagenService;
         configureMapping();
     }
 
@@ -106,6 +114,18 @@ public class ReciboService implements IReciboService {
         return recibosSalidaDto;
     }
 
+
+    public List<ReciboSalidaDto> obtenerPorInquilino(Long userId) {
+        var inquilino = inquilinoRepository.findByUsuarioCuentaInquilinoId(userId)
+                .orElseThrow(() -> new RuntimeException("No se encontró inquilino para este usuario"));
+
+        List<Recibo> recibos = reciboRepository.findByInquilinoIdConTodo(inquilino.getId());
+        List<ReciboSalidaDto> dtos = recibos.stream()
+                .map(r -> modelMapper.map(r, ReciboSalidaDto.class))
+                .toList();
+        return dtos;
+    }
+
     @Override
     @Transactional // Importante para la consistencia de la transacción
     public ReciboSalidaDto crearRecibo(ReciboEntradaDto reciboEntradaDto) throws ResourceNotFoundException {
@@ -146,10 +166,37 @@ public class ReciboService implements IReciboService {
         Recibo reciboGuardado = reciboRepository.save(recibo);
         LOGGER.info("Recibo guardado con ID: " + reciboGuardado.getId());
 
+        try {
+            Inquilino inquilino = contrato.getInquilino();
+            if (inquilino != null && inquilino.getUsuarioCuentaInquilino() != null) {
+                Usuario usuarioInquilino = inquilino.getUsuarioCuentaInquilino();
+                List<PushSubscription> subs = pushSubscriptionRepository.findByUserId(usuarioInquilino.getId());
+
+                for (PushSubscription sub : subs) {
+                    pushNotificationService.enviarNotificacion(
+                            sub,
+                            "🏠 Nuevo recibo disponible",
+                            String.format("Tu recibo del contrato '%s' ya está disponible para descargar.",
+                                    contrato.getNombreContrato())
+                    );
+                }
+
+                LOGGER.info("✅ Notificación enviada al usuario inquilino ID: {}", usuarioInquilino.getId());
+            } else {
+                LOGGER.warn("⚠️ No se encontró el usuarioCuentaInquilino para el contrato ID: {}", contrato.getId_contrato());
+            }
+        } catch (Exception e) {
+            LOGGER.error("❌ Error al enviar notificación push: {}", e.getMessage(), e);
+        }
+
+
+
         // 5. Mapear a DTO de salida
         ReciboSalidaDto reciboSalidaDto = modelMapper.map(reciboGuardado, ReciboSalidaDto.class);
         LOGGER.info("Proceso de creación de recibo completado exitosamente");
         return reciboSalidaDto;
+
+
     }
 
     // Método para convertir ImpuestoEntradaDto a Impuesto (como se definió anteriormente)
@@ -158,6 +205,7 @@ public class ReciboService implements IReciboService {
         if (dto.getTipoImpuesto() == null || dto.getTipoImpuesto().trim().isEmpty()) {
             throw new IllegalArgumentException("El tipo de impuesto no puede ser nulo o vacío");
         }
+
         LOGGER.info("---------------------------------------------------------------------------------------");
         LOGGER.info("TIPO IMPUESTO: " + dto.getTipoImpuesto());
         LOGGER.info("---------------------------------------------------------------------------------------");
@@ -206,7 +254,14 @@ public class ReciboService implements IReciboService {
         impuesto.setMontoAPagar(dto.getMontoAPagar());
         impuesto.setFechaFactura(dto.getFechaFactura());
         impuesto.setEstadoPago(dto.getEstadoPago());
-
+        if (dto.getArchivoFactura() != null && !dto.getArchivoFactura().isEmpty()) {
+            try {
+                String urlFactura = imagenService.subirPdfAFactura(dto.getArchivoFactura());
+                impuesto.setUrlFactura(urlFactura);
+            } catch (IOException e) {
+                LOGGER.error("Error al subir la factura PDF: {}", e.getMessage());
+            }
+        }
         return impuesto;
     }
 

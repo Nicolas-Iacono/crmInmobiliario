@@ -27,7 +27,8 @@ public abstract class Impuesto {
     private Double montoAPagar;
     private LocalDate fechaFactura;
     private boolean estadoPago;
-
+    @Column(name = "url_factura")
+    private String urlFactura;
 
     @JsonBackReference // Anotación en la entidad "hijo"
     @ManyToOne(fetch = FetchType.LAZY)

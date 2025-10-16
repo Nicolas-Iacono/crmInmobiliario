@@ -38,6 +38,10 @@ public class ImagenService implements IImageUrlsService {
     private final NotaRepository notaRepository;
     private final UsuarioRepository usuarioRepository;
 
+
+
+
+
     @Transactional
     public byte[] convertirImagenExternamente(MultipartFile archivo) throws IOException {
         HttpHeaders headers = new HttpHeaders();
@@ -336,4 +340,48 @@ public List<ImgUrlSalidaDto> subirImagenesYAsociarAPropiedad(Long propiedadId, M
     }
 
 
+    @Transactional
+    public String subirPdfAFactura(MultipartFile archivo) throws IOException {
+        if (archivo == null || archivo.isEmpty()) {
+            throw new IllegalArgumentException("El archivo PDF está vacío o no fue proporcionado.");
+        }
+
+        // 🧩 Validar tipo MIME
+        String contentType = archivo.getContentType();
+        if (contentType == null ||
+                (!contentType.equalsIgnoreCase("application/pdf") &&
+                        !archivo.getOriginalFilename().toLowerCase().endsWith(".pdf"))) {
+            throw new IllegalArgumentException("Solo se permiten archivos PDF válidos.");
+        }
+
+        // 🧩 Validar tamaño máximo (por ejemplo, 10 MB)
+        long maxSizeBytes = 25 * 1024 * 1024;
+        if (archivo.getSize() > maxSizeBytes) {
+            throw new IllegalArgumentException("El archivo supera el tamaño máximo permitido (25 MB).");
+        }
+
+        // Resto del código...
+        String SUPABASE_URL = "https://kksdxwqcgrbemlpgjifr.supabase.co";
+        String BUCKET = "documentos";
+        String API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtrc2R4d3FjZ3JiZW1scGdqaWZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4MzM4NDEsImV4cCI6MjA2MDQwOTg0MX0.1VxlR2YSdnwvVkAZ0df8eZo3PBiMr90sbr9PgTQhQ-U";
+
+        String nombreArchivo = "facturas/" + UUID.randomUUID() + "_" + archivo.getOriginalFilename();
+        String STORAGE_ENDPOINT = SUPABASE_URL + "/storage/v1/object/" + BUCKET + "/" + nombreArchivo;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setBearerAuth(API_KEY);
+
+        HttpEntity<byte[]> request = new HttpEntity<>(archivo.getBytes(), headers);
+        RestTemplate restTemplate = new RestTemplate();
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                STORAGE_ENDPOINT, HttpMethod.PUT, request, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return SUPABASE_URL + "/storage/v1/object/public/" + BUCKET + "/" + nombreArchivo;
+        } else {
+            throw new IOException("No se pudo subir el PDF a Supabase. Código: " + response.getStatusCode());
+        }
+    }
 }

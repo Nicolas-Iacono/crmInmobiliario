@@ -1,6 +1,9 @@
 package com.backend.crmInmobiliario.controller;
 
 import com.backend.crmInmobiliario.DTO.entrada.PropietarioEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
+import com.backend.crmInmobiliario.DTO.modificacion.PropietarioDtoModificacion;
+import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
@@ -98,4 +101,18 @@ public class PropietarioController {
 //                    .body("Error al subir las imágenes: " + e.getMessage());
 //        }
 //    }
+
+
+    @Transactional
+    @PutMapping("/update")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<PropietarioSalidaDto>> editarPropietario(@RequestBody PropietarioDtoModificacion propietarioDtoModificacion) {
+        try {
+            PropietarioSalidaDto propietarioSalidaDto = propietarioService.editarPropietario(propietarioDtoModificacion);
+            return ResponseEntity.ok(new ApiResponse<>("propietario editado correctamente.", propietarioSalidaDto));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>("El propietario no se encuentra en la DB", null));
+        }
+    }
 }

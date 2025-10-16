@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.service.impl;
 import com.backend.crmInmobiliario.DTO.AuthResponse;
 import com.backend.crmInmobiliario.DTO.entrada.LoginEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.LoginInquilinoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
@@ -13,6 +14,7 @@ import com.backend.crmInmobiliario.exception.UsernameAlreadyExistsException;
 import com.backend.crmInmobiliario.repository.USER_REPO.RoleRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IUsuarioService;
+import com.backend.crmInmobiliario.service.impl.nodeMailer.EmailService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
 import com.backend.crmInmobiliario.utils.JsonPrinter;
 import com.backend.crmInmobiliario.utils.JwtUtil;
@@ -50,6 +52,8 @@ public class UserService implements IUsuarioService, UserDetailsService {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
+    private EmailService emailService;
+
     private JwtUtil jwtUtil;
 
     private PasswordEncoder passwordEncoder;
@@ -59,13 +63,14 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
     private ModelMapper modelMapper;
 
-    public UserService(UsuarioRepository usuarioRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder, EntityManager entityManager, RoleRepository roleRepository, ModelMapper modelMapper) {
+    public UserService(EmailService emailService, UsuarioRepository usuarioRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder, EntityManager entityManager, RoleRepository roleRepository, ModelMapper modelMapper) {
         this.usuarioRepository = usuarioRepository;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
         this.entityManager = entityManager;
         this.roleRepository = roleRepository;
         this.modelMapper = modelMapper;
+        this.emailService = emailService;
         configureMapping();
     }
 
@@ -89,6 +94,46 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
     @Transactional
     @Override
+    public TokenDtoSalida registrarUsuario(UserAdminEntradaDto usuario ) {
+        if (usuarioRepository.existsByUsername(usuario.getUsername())) {
+            throw new UsernameAlreadyExistsException("El username ya se encuentra registrado");
+        }
+
+        LOGGER.info("UsuarioEntradaDto: " + JsonPrinter.toString(usuario));
+
+        // ⛔️ sacar este map que explota:
+        // Usuario usuarioEntidad = modelMapper.map(admin, Usuario.class);
+
+        // ✅ map manual y explícito
+        Usuario usuarioEntidad = new Usuario();
+        usuarioEntidad.setUsername(usuario.getUsername());
+        usuarioEntidad.setPassword(passwordEncoder.encode(usuario.getPassword()));
+        usuarioEntidad.setNombreNegocio(usuario.getNombreNegocio());
+        usuarioEntidad.setEmail(usuario.getEmail());
+        usuarioEntidad.setMatricula(usuario.getMatricula());
+        usuarioEntidad.setRazonSocial(usuario.getRazonSocial());
+        usuarioEntidad.setLocalidad(usuario.getLocalidad());
+        usuarioEntidad.setPartido(usuario.getPartido());
+        usuarioEntidad.setProvincia(usuario.getProvincia());
+        usuarioEntidad.setCuit(usuario.getCuit());
+        usuarioEntidad.setTelefono(usuario.getTelefono());
+
+        Role adminRole = roleRepository.findByRol(RolesCostantes.SUPER_ADMIN)
+                .orElseGet(() -> roleRepository.save(new Role(RolesCostantes.SUPER_ADMIN)));
+        usuarioEntidad.setRoles(Collections.singleton(adminRole));
+
+        if (usuarioEntidad.getLogoInmobiliaria() != null) {
+            usuarioEntidad.getLogoInmobiliaria().setNota(null);
+            usuarioEntidad.getLogoInmobiliaria().setPropiedad(null);
+        }
+
+        Usuario usuarioPersistido = usuarioRepository.save(usuarioEntidad);
+
+        return modelMapper.map(usuarioPersistido, TokenDtoSalida.class);
+    }
+
+    @Transactional
+    @Override
     public TokenDtoSalida registrarUsuarioAdmin(UserAdminEntradaDto admin) {
         if (usuarioRepository.existsByUsername(admin.getUsername())) {
             throw new UsernameAlreadyExistsException("El username ya se encuentra registrado");
@@ -96,8 +141,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
         LOGGER.info("UsuarioEntradaDto: " + JsonPrinter.toString(admin));
 
-        // ⛔️ sacar este map que explota:
-        // Usuario usuarioEntidad = modelMapper.map(admin, Usuario.class);
+
 
         // ✅ map manual y explícito
         Usuario usuarioEntidad = new Usuario();
@@ -124,8 +168,57 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
         Usuario usuarioPersistido = usuarioRepository.save(usuarioEntidad);
 
+        try {
+            emailService.enviarConfirmacionRegistro(
+                    usuarioPersistido.getUsername(),
+                    usuarioPersistido.getEmail()
+            );
+            LOGGER.info("Email de confirmación enviado a: " + usuarioPersistido.getEmail());
+        } catch (Exception e) {
+            LOGGER.error("Error al enviar email de confirmación: ", e);
+        }
         return modelMapper.map(usuarioPersistido, TokenDtoSalida.class);
     }
+    @Transactional
+    @Override
+    public TokenDtoSalida registrarUsuarioSuperAdmin(UserAdminEntradaDto superAdmin ) {
+        if (usuarioRepository.existsByUsername(superAdmin.getUsername())) {
+            throw new UsernameAlreadyExistsException("El username ya se encuentra registrado");
+        }
+
+        LOGGER.info("UsuarioEntradaDto: " + JsonPrinter.toString(superAdmin));
+
+        // ⛔️ sacar este map que explota:
+        // Usuario usuarioEntidad = modelMapper.map(admin, Usuario.class);
+
+        // ✅ map manual y explícito
+        Usuario usuarioEntidad = new Usuario();
+        usuarioEntidad.setUsername(superAdmin.getUsername());
+        usuarioEntidad.setPassword(passwordEncoder.encode(superAdmin.getPassword()));
+        usuarioEntidad.setNombreNegocio(superAdmin.getNombreNegocio());
+        usuarioEntidad.setEmail(superAdmin.getEmail());
+        usuarioEntidad.setMatricula(superAdmin.getMatricula());
+        usuarioEntidad.setRazonSocial(superAdmin.getRazonSocial());
+        usuarioEntidad.setLocalidad(superAdmin.getLocalidad());
+        usuarioEntidad.setPartido(superAdmin.getPartido());
+        usuarioEntidad.setProvincia(superAdmin.getProvincia());
+        usuarioEntidad.setCuit(superAdmin.getCuit());
+        usuarioEntidad.setTelefono(superAdmin.getTelefono());
+
+        Role adminRole = roleRepository.findByRol(RolesCostantes.SUPER_ADMIN)
+                .orElseGet(() -> roleRepository.save(new Role(RolesCostantes.SUPER_ADMIN)));
+        usuarioEntidad.setRoles(Collections.singleton(adminRole));
+
+        if (usuarioEntidad.getLogoInmobiliaria() != null) {
+            usuarioEntidad.getLogoInmobiliaria().setNota(null);
+            usuarioEntidad.getLogoInmobiliaria().setPropiedad(null);
+        }
+
+        Usuario usuarioPersistido = usuarioRepository.save(usuarioEntidad);
+
+        return modelMapper.map(usuarioPersistido, TokenDtoSalida.class);
+    }
+
 
 
     @Override
@@ -223,9 +316,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
                 .map(Usuario::getId)
                 .orElse(null);
 
-        String accesToken = (userId != null)
-                ? jwtUtil.createAccessToken(authentication, userId)
-                : jwtUtil.createAccessToken(authentication);
+        String accesToken = jwtUtil.createAccessToken(authentication, userId);
 
 
         AuthResponse authResponse = new AuthResponse(username,
@@ -235,6 +326,30 @@ public class UserService implements IUsuarioService, UserDetailsService {
                 );
 
         return authResponse;
+    }
+
+    @Override
+    public AuthResponse loginInquilino(LoginInquilinoEntradaDto loginEntradaDto) {
+
+        String email = loginEntradaDto.getEmail();
+        String password = loginEntradaDto.getPassword();
+
+        Authentication authentication = this.authenticate(email, password);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // Buscamos el ID del usuario para incluirlo en el JWT
+        Long userId = usuarioRepository.findByEmail(email)
+                .map(Usuario::getId)
+                .orElse(null);
+
+        String accessToken = jwtUtil.createAccessToken(authentication, userId);
+
+        return new AuthResponse(
+                email,
+                "Inquilino logueado correctamente",
+                accessToken,
+                true
+        );
     }
 
 
@@ -250,13 +365,16 @@ public class UserService implements IUsuarioService, UserDetailsService {
         if (!passwordEncoder.matches(password, userDetails.getPassword())) {
             throw new BadCredentialsException("contraseña incorrecta.");
         }
-        return new UsernamePasswordAuthenticationToken(username, userDetails.getPassword(), userDetails.getAuthorities());
+        return new UsernamePasswordAuthenticationToken(
+                userDetails, null, userDetails.getAuthorities()
+        );
     }
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        Usuario user = usuarioRepository.findUserByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("El usuario " + username + " no existe"));
+    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
+        Usuario user = usuarioRepository.findUserByUsername(usernameOrEmail)
+                .or(() -> usuarioRepository.findByEmail(usernameOrEmail))
+                .orElseThrow(() -> new UsernameNotFoundException("El usuario " + usernameOrEmail + " no existe"));
 
         List<SimpleGrantedAuthority> authorityList = new ArrayList<>();
         user.getRoles().forEach(role -> authorityList.add(new SimpleGrantedAuthority("ROLE_" + role.getRol())));

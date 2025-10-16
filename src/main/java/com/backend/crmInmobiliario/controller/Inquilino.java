@@ -1,19 +1,29 @@
 package com.backend.crmInmobiliario.controller;
 
+import com.backend.crmInmobiliario.DTO.AuthResponse;
 import com.backend.crmInmobiliario.DTO.entrada.InquilinoEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.LoginInquilinoEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.RegistroInquilinoDto;
+import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
+import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import com.backend.crmInmobiliario.service.IUserInquilinoService;
+import com.backend.crmInmobiliario.service.IUsuarioService;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.service.impl.InquilinoService;
+import com.backend.crmInmobiliario.service.impl.ReciboService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import com.backend.crmInmobiliario.utils.JwtUtil;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -21,19 +31,66 @@ import java.util.List;
 @RestController
 @AllArgsConstructor
 
+
 @RequestMapping("/api/inquilino")
 public class Inquilino {
 
     private final InquilinoService inquilinoService;
     private final ImagenService imagenService;
+    private final IUserInquilinoService userInquilinoService;
+    private final IUsuarioService userService;
+    private final JwtUtil jwtUtil;
+    private final ReciboService reciboService;
+
+    @CrossOrigin(origins = "https://tuinmo.net")
+    @PreAuthorize("permitAll()")
+    @PostMapping("/register")
+    public ResponseEntity<TokenDtoSalida> registrar(@RequestBody RegistroInquilinoDto dto) {
+        TokenDtoSalida response = userInquilinoService.registrarInquilino(dto);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/login")
+    @CrossOrigin(origins = "https://tuinmo.net")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<AuthResponse> login (@RequestBody LoginInquilinoEntradaDto loginEntradaDto){
+        return new ResponseEntity<>(this.userService.loginInquilino(loginEntradaDto), HttpStatus.OK);
+    }
+
+    @GetMapping("/recibos")
+    public ResponseEntity<List<ReciboSalidaDto>> obtenerRecibos(Authentication auth) {
+        Long userId = jwtUtil.extractUserIdFromAuth(auth);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<ReciboSalidaDto> recibos = reciboService.obtenerPorInquilino(userId);
+        return ResponseEntity.ok(recibos);
+    }
+
+    @Transactional
+    @PutMapping("/update")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<InquilinoSalidaDto>> editarInquilino(@RequestBody InquilinoDtoModificacion inquilinoDtoModificacion) {
+        try {
+            InquilinoSalidaDto inquilinoSalidaDto = inquilinoService.editarInquilino(inquilinoDtoModificacion);
+            return ResponseEntity.ok(new ApiResponse<>("Inquilino editado correctamente.", inquilinoSalidaDto));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>("El inquilino no se encuentra en la DB", null));
+        }
+    }
+
 
     @Transactional
     @GetMapping("/enum/{username}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public Integer enumeraInquilinosr(@PathVariable String username) {
         Integer inquilinos = inquilinoService.enumerarInquilinos(username);
         return inquilinos;
     }
     @PostMapping("/create")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<InquilinoSalidaDto>> crearInquilino(@Valid @RequestBody InquilinoEntradaDto inquilinoEntradaDto) {
         try {
             InquilinoSalidaDto inquilinoSalidaDto = inquilinoService.crearInquilino(inquilinoEntradaDto);
@@ -46,6 +103,7 @@ public class Inquilino {
     }
 
     @GetMapping("/all")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<InquilinoSalidaDto>>> allInquilinos(){
         List<InquilinoSalidaDto> inquilinosSalidaDtos = inquilinoService.listarInquilinos();
         ApiResponse<List<InquilinoSalidaDto>> response =

@@ -59,7 +59,7 @@ public class Contrato {
     @JoinColumn(name = "id_propiedad", nullable = false)
     private Propiedad propiedad;
 
-    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY,cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY,cascade = CascadeType.PERSIST)
     private List<Garante> garantes;
 
 

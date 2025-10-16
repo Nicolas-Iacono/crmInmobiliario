@@ -15,6 +15,7 @@ import java.util.Optional;
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario,Long> {
 
+    Optional<Usuario> findByUsername(String username);
 
     @Query("SELECT u FROM Usuario u WHERE u.username = :username")
     Optional<Usuario> findUserByUsername(@Param("username") String username);
@@ -34,4 +35,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM Usuario u WHERE u.username = :username")  // <-- "Usuario" es la entidad
     int deleteByUsername(@Param("username") String username);
+
+
+    boolean existsByEmail(String email);
 }

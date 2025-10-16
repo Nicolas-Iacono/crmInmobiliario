@@ -18,10 +18,16 @@ import java.util.List;
 public class Inquilino extends Persona{
 
     @ManyToOne
-    @ToString.Exclude
-    @JsonIgnore
     @JoinColumn(name = "usuario_id")
-    private Usuario usuario;
+    @ToString.Exclude
+    @JsonIgnore // ⛔ evita ciclos en JSON
+    private Usuario usuario; // propietario del sistema
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_cuenta_id")
+    @ToString.Exclude
+    @JsonIgnore // ⛔ evita recursión con usuarioCuentaInquilino
+    private Usuario usuarioCuentaInquilino;
 //
 //    @OneToMany(mappedBy = "inquilino", cascade = CascadeType.ALL, orphanRemoval = true)
 //    private List<ImageUrls> imagenes = new ArrayList<>();

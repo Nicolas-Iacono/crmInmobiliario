@@ -1,6 +1,7 @@
 package com.backend.crmInmobiliario.service;
 
 import com.backend.crmInmobiliario.DTO.entrada.PropietarioEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.PropietarioDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 
@@ -14,4 +15,5 @@ public interface IPropietarioService {
 
     List<PropietarioSalidaDto> buscarPropietariosPorUsuario(String username);
     Integer enumerarPropietarios(String username);
+    PropietarioSalidaDto editarPropietario(PropietarioDtoModificacion propietarioDtoModificacion ) throws ResourceNotFoundException;
 }

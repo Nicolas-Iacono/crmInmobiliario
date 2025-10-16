@@ -9,5 +9,6 @@ import java.util.Optional;
 public interface PlanRepository extends JpaRepository<Plan, Long> {
     Optional<Plan> findByCodeAndActiveTrue(String code);
     Optional<Plan> findByCode(String code);
-    List<Plan> findAllByActiveTrueOrderByPriceUsdAsc();
+    List<Plan> findAllByActiveTrueOrderByPriceArsAsc();
+    Optional<Plan> findByExternalPlanId(String externalPlanId);
 }

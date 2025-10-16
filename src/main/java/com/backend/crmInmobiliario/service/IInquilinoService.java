@@ -1,6 +1,7 @@
 package com.backend.crmInmobiliario.service;
 
 import com.backend.crmInmobiliario.DTO.entrada.InquilinoEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 
@@ -17,4 +18,5 @@ public interface IInquilinoService {
 
     Integer enumerarInquilinos(String username);
 
+    InquilinoSalidaDto editarInquilino(InquilinoDtoModificacion inquilinoDtoModificacion) throws ResourceNotFoundException;
 }

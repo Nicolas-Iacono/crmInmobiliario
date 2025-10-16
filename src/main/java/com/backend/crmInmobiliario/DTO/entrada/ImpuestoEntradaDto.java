@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.DTO.entrada;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 
@@ -21,4 +22,6 @@ public class ImpuestoEntradaDto {
     private Double montoAPagar;
     private LocalDate fechaFactura;
     private Boolean estadoPago;
+    private MultipartFile archivoFactura;
+
 }

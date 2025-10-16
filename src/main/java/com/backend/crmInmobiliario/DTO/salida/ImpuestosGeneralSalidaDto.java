@@ -19,7 +19,7 @@ public class ImpuestosGeneralSalidaDto {
     private Double montoAPagar;
     private LocalDate fechaFactura;
     private Boolean estadoPago;
-
+    private String urlFactura;
 
 
 }

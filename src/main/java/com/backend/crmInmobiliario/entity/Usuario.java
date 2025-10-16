@@ -1,9 +1,11 @@
 package com.backend.crmInmobiliario.entity;
 
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -56,9 +58,10 @@ public class Usuario  implements UserDetails {
 
     @ManyToMany(fetch = FetchType.EAGER, targetEntity = Role.class, cascade = {CascadeType.MERGE, CascadeType.PERSIST})
     @JoinTable(
-            name="users_roles",
+            name = "users_roles",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "rol_id"))
+    @ToString.Exclude
     private Set<Role> roles = new HashSet<>();
 
     @Override
@@ -90,10 +93,23 @@ public class Usuario  implements UserDetails {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_id")
+    @ToString.Exclude
+    @JsonIgnore
     private Plan plan;
 
     @Column(name = "es_admin", nullable = false)
     private boolean esAdmin = false;
+
+    @OneToOne
+    @JoinColumn(name = "inquilino_id")
+    @ToString.Exclude
+    @JsonIgnore // 🔥 evita ciclo con Inquilino
+    private Inquilino inquilino;
+
+
+
     // Getters y setters
+
+
 }
 

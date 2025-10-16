@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.service;
 import com.backend.crmInmobiliario.DTO.AuthResponse;
 import com.backend.crmInmobiliario.DTO.entrada.LoginEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.LoginInquilinoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
@@ -20,6 +21,10 @@ public interface IUsuarioService extends UserDetailsService  {
 
     TokenDtoSalida registrarUsuarioAdmin(UserAdminEntradaDto admin);
 
+    TokenDtoSalida registrarUsuario(UserAdminEntradaDto usuario );
+
+    TokenDtoSalida registrarUsuarioSuperAdmin(UserAdminEntradaDto superAdmin );
+
 //    TokenSalidaDto createUser(UserDTO usuario) throws DataIntegrityViolationException;
 //
 //    TokenSalidaDto createUserAdmin(UserAdminEntradaDto userAdminEntradaDto) throws DataIntegrityViolationException;
@@ -36,6 +41,8 @@ public interface IUsuarioService extends UserDetailsService  {
 //    TokenDtoSalida registrarAdmin(UserAdminEntradaDto userAdminEntradaDto);
 
     AuthResponse loginUser(LoginEntradaDto loginEntradaDto);
+
+    AuthResponse loginInquilino(LoginInquilinoEntradaDto loginInquilinoEntradaDto);
 
     UsuarioDtoSalida actualizarUsuario(Long id, ActualizarUsuarioDto dto) throws ResourceNotFoundException;
 

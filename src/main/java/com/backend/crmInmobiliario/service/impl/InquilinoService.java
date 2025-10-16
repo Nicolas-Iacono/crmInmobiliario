@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.entrada.InquilinoEntradaDto;
 //import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.entity.Inquilino;
@@ -112,6 +113,29 @@ public class InquilinoService implements IInquilinoService {
 
     @Override
     @Transactional
+    public InquilinoSalidaDto editarInquilino(InquilinoDtoModificacion inquilinoDtoModificacion) throws ResourceNotFoundException {
+
+        Inquilino inquilino = inquilinoRepository.findById(inquilinoDtoModificacion.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontro el inquilino con el id proporcionado!!"));
+
+
+        inquilino.setNombre(inquilinoDtoModificacion.getNombre());
+        inquilino.setApellido(inquilinoDtoModificacion.getApellido());
+        inquilino.setDni(inquilinoDtoModificacion.getDni());
+        inquilino.setCuit(inquilinoDtoModificacion.getCuit());
+        inquilino.setEmail(inquilinoDtoModificacion.getEmail());
+        inquilino.setTelefono(inquilinoDtoModificacion.getTelefono());
+        inquilino.setDireccionResidencial(inquilinoDtoModificacion.getDireccionResidencial());
+
+        Inquilino inquilinoToSave = inquilinoRepository.save(inquilino);
+        InquilinoSalidaDto inquilinoSalidaDto = modelMapper.map(inquilinoToSave, InquilinoSalidaDto.class);
+
+        return inquilinoSalidaDto;
+    }
+
+
+    @Override
+    @Transactional
     public void eliminarInquilino(Long id) throws ResourceNotFoundException {
         Inquilino inquilino = inquilinoRepository.findById(id)
                 .orElseThrow(()->new ResourceNotFoundException("No se encontro el inquilino con el id proporcionado!!"));
@@ -126,6 +150,15 @@ public class InquilinoService implements IInquilinoService {
                 .map(inquilino -> modelMapper.map(inquilino, InquilinoSalidaDto.class))
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public InquilinoSalidaDto buscarInquilinoPorCuenta(String username) {
+        Inquilino inquilino = inquilinoRepository.findByUsuarioCuentaInquilinoUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró inquilino para este usuario"));
+
+        return modelMapper.map(inquilino, InquilinoSalidaDto.class);
+    }
+
 
     @Override
     @Transactional

@@ -2,6 +2,8 @@ package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.entrada.PropietarioEntradaDto;
 //import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
+import com.backend.crmInmobiliario.DTO.modificacion.PropietarioDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.entity.Inquilino;
@@ -156,6 +158,29 @@ public class PropietarioService implements IPropietarioService {
     @Transactional
     public Integer enumerarPropietarios(String username) {
         return propietarioRepository.countByUsuarioUsername(username);
+    }
+
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public PropietarioSalidaDto editarPropietario(PropietarioDtoModificacion propietarioDtoModificacion ) throws ResourceNotFoundException {
+
+        Propietario propietario = propietarioRepository.findById(propietarioDtoModificacion.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontro el inquilino con el id proporcionado!!"));
+
+
+        propietario.setNombre(propietarioDtoModificacion.getNombre());
+        propietario.setApellido(propietarioDtoModificacion.getApellido());
+        propietario.setDni(propietarioDtoModificacion.getDni());
+        propietario.setCuit(propietarioDtoModificacion.getCuit());
+        propietario.setEmail(propietarioDtoModificacion.getEmail());
+        propietario.setTelefono(propietarioDtoModificacion.getTelefono());
+        propietario.setDireccionResidencial(propietarioDtoModificacion.getDireccionResidencial());
+
+        Propietario propietarioToSave = propietarioRepository.save(propietario);
+        PropietarioSalidaDto propietarioSalidaDto = modelMapper.map(propietarioToSave, PropietarioSalidaDto.class);
+
+        return propietarioSalidaDto;
     }
 }
 

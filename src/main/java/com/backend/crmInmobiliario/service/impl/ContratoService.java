@@ -10,15 +10,20 @@ import com.backend.crmInmobiliario.DTO.salida.contrato.*;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
+import com.backend.crmInmobiliario.entity.planesYSuscripciones.Subscription;
 import com.backend.crmInmobiliario.exception.ContractLimitExceededException;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.*;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
+import com.backend.crmInmobiliario.repository.pagosYSuscripciones.PlanRepository;
+import com.backend.crmInmobiliario.repository.pagosYSuscripciones.SubscriptionRepository;
 import com.backend.crmInmobiliario.service.IContratoService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.transaction.annotation.Transactional;
 import okhttp3.*;
 import org.hibernate.Hibernate;
 import org.modelmapper.ModelMapper;
@@ -31,7 +36,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-
+import org.springframework.security.core.context.SecurityContextHolder;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -62,10 +67,13 @@ public class ContratoService implements IContratoService {
 
     private PropiedadRepository propiedadRepository;
 
+    private IngresoMensualService ingresoMensualService;
+
     private GaranteRepository garanteRepository;
     @Autowired
     private UsuarioRepository usuarioRepository;
-
+    private SubscriptionRepository subscriptionRepository;
+    private PlanRepository planRepository;
     private GasRepository gasRepository;
     private AguaRepository aguaRepository;
     private LuzRepository luzRepository;
@@ -78,6 +86,8 @@ public class ContratoService implements IContratoService {
     public ContratoService(
                            ImpuestoRepository impuestoRepository,
                            ContratoRepository contratoRepository,
+                           SubscriptionRepository subscriptionRepository,
+                           PlanRepository planRepository,
                            GaranteRepository garanteRepository,
                            ModelMapper modelMapper,
                            InquilinoRepository inquilinoRepository,
@@ -88,12 +98,14 @@ public class ContratoService implements IContratoService {
                            LuzRepository luzRepository,
                            MunicipalRepository municipalRepository,
                            NotaRepository notaRepository,
-                           ReciboRepository reciboRepository
-//                           SubscriptionService subscriptionService
+                           ReciboRepository reciboRepository,
+//                         SubscriptionService subscriptionService
 //                         UsuarioRepository usuarioRepository,
+                           IngresoMensualService ingresoMensualService
 
                          ) {
-
+        this.subscriptionRepository = subscriptionRepository;
+        this.planRepository = planRepository;
         this.contratoRepository = contratoRepository;
         this.modelMapper = modelMapper;
         this.inquilinoRepository = inquilinoRepository;
@@ -108,6 +120,7 @@ public class ContratoService implements IContratoService {
         this.notaRepository = notaRepository;
         this.reciboRepository = reciboRepository;
         this.impuestoRepository = impuestoRepository;
+        this.ingresoMensualService = ingresoMensualService;
 //        this.subscriptionService = subscriptionService;
 //        this.pdfContratoRepository = pdfContratoRepository;
         configureMapping();
@@ -151,6 +164,8 @@ public class ContratoService implements IContratoService {
                 .addMapping(ContratoModificacionDto::getComisionMensualPorc, ContratoSalidaDto::setComisionMensualPorc)
                 .addMapping(ContratoModificacionDto::getComisionContratoPorc, ContratoSalidaDto::setComisionContratoPorc);
 
+        modelMapper.typeMap(Contrato.class, ContratoBasicoDto.class)
+                .addMapping(Contrato::getPdfContratoTexto, ContratoBasicoDto::setContratoPdf);
     }
 
 
@@ -326,7 +341,7 @@ public class ContratoService implements IContratoService {
 //        }
 //    }
 
-    @Transactional
+    @Transactional(noRollbackFor = ContractLimitExceededException.class)
     @Override
     public ContratoSalidaDto crearContrato(ContratoEntradaDto contratoEntradaDto) throws ResourceNotFoundException {
 
@@ -338,6 +353,7 @@ public class ContratoService implements IContratoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
 
+        validarLimiteDeContratos();
 //        ensureCanCreateOrActivate(usuario.getId());
 
         Propietario propietario = propietarioRepository.findById(contratoEntradaDto.getId_propietario())
@@ -427,7 +443,7 @@ public class ContratoService implements IContratoService {
         // Actualizar la disponibilidad de la propiedad
         propiedad.setDisponibilidad(false);
         propiedadRepository.save(propiedad);
-
+        ingresoMensualService.generarParaContrato(contratoPersistido);
         return modelMapper.map(contratoPersistido, ContratoSalidaDto.class);
     }
     private String buildContenidoContrato(Contrato c) {
@@ -696,6 +712,9 @@ public class ContratoService implements IContratoService {
         }
     }
 
+
+
+
     /**
      * Convierte una lista de Long en un array PostgreSQL (ej: {1,2,3})
      */
@@ -781,6 +800,66 @@ public class ContratoService implements IContratoService {
         contrato.setLuzPorcentaje(contratoEntradaDto.getLuzPorcentaje());
         contrato.setMunicipalPorcentaje(contratoEntradaDto.getMunicipalPorcentaje());
         contrato.setGasPorcentaje(contratoEntradaDto.getGasPorcentaje());
+    }
+
+    private void validarLimiteDeContratos() {
+        // 🔹 1. Obtener autenticación actual
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new RuntimeException("No hay usuario autenticado");
+        }
+
+        // 🔹 2. Obtener userId desde los detalles
+        Long usuarioId = null;
+        if (auth.getDetails() instanceof Map<?,?> details && details.get("userId") != null) {
+            usuarioId = ((Number) details.get("userId")).longValue();
+        }
+
+        if (usuarioId == null) {
+            throw new RuntimeException("No se encontró userId en el token JWT");
+        }
+
+        // 🔹 3. Si es SUPER_ADMIN → sin límite
+        boolean isSuperAdmin = auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(r -> r.equals("ROLE_SUPER_ADMIN"));
+
+        if (isSuperAdmin) {
+            return; // ✅ no se aplica ningún límite
+        }
+
+        // 🔹 4. Buscar la suscripción
+        Optional<Subscription> optSub = subscriptionRepository.findByUsuarioId(usuarioId);
+
+        int limite;
+        String nombrePlan;
+
+        if (optSub.isPresent() && optSub.get().getPlan() != null) {
+            Plan plan = optSub.get().getPlan();
+            limite = plan.getContractLimit();
+            nombrePlan = plan.getName();
+
+            // Si la suscripción no está activa → usar FREE
+            if (optSub.get().getStatus() != Subscription.Status.ACTIVE) {
+                limite = 3;
+                nombrePlan = "FREE";
+            }
+        } else {
+            // Sin suscripción → plan FREE
+            Plan free = planRepository.findByCode("FREE")
+                    .orElseThrow(() -> new ResourceNotFoundException("Plan FREE no encontrado"));
+            limite = free.getContractLimit();
+            nombrePlan = free.getName();
+        }
+
+        // 🔹 5. Validar si superó el límite
+        long usados = contratoRepository.countActivosByUsuario(usuarioId);
+        if (limite >= 0 && usados >= limite) {
+            throw new ContractLimitExceededException(String.format(
+                    "Alcanzaste tu límite de %d contratos del plan '%s'. " +
+                            "Actualizá tu suscripción para crear más.", limite, nombrePlan));
+        }
     }
 
 
@@ -873,8 +952,8 @@ public class ContratoService implements IContratoService {
         }
 
         try {
-            logger.debug("Eliminando garantes del contrato {}", id);
-            garanteRepository.deleteByContratoId(id);
+//            logger.debug("Eliminando garantes del contrato {}", id);
+//            garanteRepository.deleteByContratoId(id);
 
             logger.debug("Eliminando notas del contrato {}", id);
             notaRepository.deleteByContratoId(id);
@@ -994,6 +1073,37 @@ public class ContratoService implements IContratoService {
                 })
                 .collect(Collectors.toList());
     }
+    @Transactional(readOnly = true)
+    public ContratoBasicoDto obtenerContratoBasicoPorInquilino(String username) {
+
+        // Buscar inquilino según el usuario real que inició sesión
+        var inquilino = inquilinoRepository.findByUsuarioCuentaInquilinoUsernameOrEmail(username)
+                .orElseThrow(() -> new RuntimeException("No se encontró inquilino para este usuario"));
+        System.out.println("🔎 Username recibido del token: " + username);
+        System.out.println("🔎 Inquilino encontrado: " + inquilino);
+
+        // Buscar contrato asociado a ese inquilino
+        var contrato = contratoRepository.findByInquilinoId(inquilino.getId())
+                .orElseThrow(() -> new RuntimeException("No se encontró contrato para este inquilino"));
+
+        // Mapear a DTO (solo lectura)
+        ContratoBasicoDto dto = new ContratoBasicoDto();
+        dto.setNombreContrato(contrato.getNombreContrato());
+        dto.setId(contrato.getId_contrato());
+        dto.setFechaInicio(contrato.getFecha_inicio());
+        dto.setFechaFin(contrato.getFecha_fin());
+        dto.setDireccionPropiedad(contrato.getPropiedad().getDireccion());
+        dto.setContratoPdf(contrato.getPdfContratoTexto());
+        dto.setDuracion(contrato.getDuracion());
+        dto.setNombreInquilino(contrato.getInquilino().getNombre());
+        dto.setApellidoInquilino(contrato.getInquilino().getApellido());
+
+
+        return dto;
+    }
+
+
+
 
 
     private java.math.BigDecimal montoComisionContrato(Contrato c) {
@@ -1030,6 +1140,28 @@ public class ContratoService implements IContratoService {
     private java.math.BigDecimal pct(java.math.BigDecimal p) {
         return (p == null ? java.math.BigDecimal.ZERO : p)
                 .divide(java.math.BigDecimal.valueOf(100));
+    }
+
+    @Transactional(readOnly = true)
+    public ContratoSalidaDto buscarContratoPorNombre(String nombreContrato) throws ResourceNotFoundException {
+        Contrato contrato = contratoRepository.findByNombreContratoCompleto(nombreContrato)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró contrato con el nombre: " + nombreContrato));
+
+        // Inicializamos las colecciones lazy
+        Hibernate.initialize(contrato.getGarantes());
+        Hibernate.initialize(contrato.getRecibos());
+        contrato.getRecibos().forEach(recibo -> Hibernate.initialize(recibo.getImpuestos()));
+
+        // 🔹 Primero hacemos el mapeo
+        ContratoSalidaDto contratoDto = modelMapper.map(contrato, ContratoSalidaDto.class);
+
+        // 🔹 Luego seteamos el logo manualmente si existe
+        Usuario usuario = contrato.getUsuario();
+        if (usuario != null && usuario.getLogoInmobiliaria() != null && contratoDto.getUsuarioDtoSalida() != null) {
+            contratoDto.getUsuarioDtoSalida().setLogo(usuario.getLogoInmobiliaria().getImageUrl());
+        }
+
+        return contratoDto;
     }
 
 }
