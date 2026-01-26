@@ -89,6 +89,10 @@ public class Contrato {
     private Long tiempoRestante;
     private String destino;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado", nullable = false)
+    private ContratoEstado estado = ContratoEstado.INACTIVO;
+
     @OneToMany(mappedBy = "contrato", fetch = FetchType.LAZY)
     private List<Recibo> recibos;
 

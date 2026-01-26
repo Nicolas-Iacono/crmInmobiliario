@@ -29,6 +29,7 @@ public class ContratoSalidaSinGaranteDto {
     private double montoAlquiler;
     private int duracion;
     private boolean activo;
+    private String estado;
 
     private String aguaEmpresa;
     private int aguaPorcentaje;

@@ -1,6 +1,7 @@
 package com.backend.crmInmobiliario.service;
 
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoRenovacionDtoEntrada;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoComisionDtoSalida;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.*;
@@ -29,6 +30,10 @@ public interface IContratoService {
     Long verificarFinalizacionContrato(Long id) throws ResourceNotFoundException;
 
     void verificarAlertasContratos();
+
+    List<ContratoVencimientoAlertaDto> obtenerAlertasVencimiento(int diasAviso);
+
+    ContratoSalidaDto renovarContrato(ContratoRenovacionDtoEntrada dto) throws ResourceNotFoundException;
 
     List<LatestContratosSalidaDto> getLatestContratos();
 

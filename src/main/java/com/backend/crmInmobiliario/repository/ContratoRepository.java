@@ -31,6 +31,7 @@ public interface ContratoRepository extends JpaRepository<Contrato, Long> {
     @Query("SELECT c FROM Contrato c LEFT JOIN FETCH c.garantes WHERE c.id = :id")
     Contrato findContratoByIdWithGarantes(@Param("id") Long id);
 
+    List<Contrato> findByActivoTrue();
 
     int countByUsuarioUsername(String username);
 
@@ -51,5 +52,4 @@ public interface ContratoRepository extends JpaRepository<Contrato, Long> {
     Optional<Contrato> findByNombreContratoCompleto(@Param("nombre") String nombre);
 
 }
-
 
