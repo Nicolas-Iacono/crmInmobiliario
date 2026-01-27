@@ -39,6 +39,7 @@ public class Propiedad {
     private Propietario propietario;
 
     @OneToMany(mappedBy = "propiedad", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
     private List<ImageUrls> imagenes = new ArrayList<>();
 
     @ManyToOne

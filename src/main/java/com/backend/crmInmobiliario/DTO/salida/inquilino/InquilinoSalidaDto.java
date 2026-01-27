@@ -22,9 +22,8 @@ public class InquilinoSalidaDto {
     private String cuit;
     private String nacionalidad;
     private String estadoCivil;
-
+    private Long usuarioCuentaId;
 //    private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
-
     private UsuarioDtoSalida usuarioDtoSalida;
-
+    private boolean activo;
 }

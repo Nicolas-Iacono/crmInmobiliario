@@ -11,10 +11,12 @@ import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.PlanRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.SubscriptionRepository;
 import com.backend.crmInmobiliario.service.impl.mercadoPago.SubscriptionManagementService;
+import com.backend.crmInmobiliario.service.impl.mp2.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,13 +27,20 @@ import java.util.List;
 @RequestMapping("/api/subscriptions")
 @RequiredArgsConstructor
 public class SubscriptionController {
-
+    private final SubscriptionManagementService subscriptionService;
     private final SubscriptionManagementService service;
     private final PlanRepository plans;
     private final ContratoRepository contratos;
     private final SubscriptionRepository subsRepo;
     private final UsuarioRepository usuarioRepository;
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+
+    @GetMapping("/sync-plans")
+    public ResponseEntity<String> syncPlans() {
+        subscriptionService.sincronizarPlanesUsuarios();
+        return ResponseEntity.ok("Sincronización completada ✅");
+    }
 
     @GetMapping("/plans")
     public List<Plan> listPlans() {
@@ -75,6 +84,19 @@ public class SubscriptionController {
         logger.info("Plan: {}", req.getPlanCode().trim());
         return service.initCheckout(user.getId(), req.getPlanCode().trim());
     }
+
+    @PostMapping("/cancel")
+    public void cancelNow(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No autenticado");
+        }
+
+        var user = usuarioRepository.findUserByUsername(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado"));
+
+        service.cancelNow(user.getId());
+    }
+
 
 //    @PostMapping("/change-plan")
 //    public void changePlan(Authentication authentication, @RequestBody ChangePlanRequest req) {

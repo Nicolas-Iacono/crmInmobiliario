@@ -8,16 +8,24 @@ import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.IImageUrlsService;
 import com.backend.crmInmobiliario.service.INotaService;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+
 @CrossOrigin(origins = "https://tuinmo.net")
 @RestController
 @RequestMapping("/api/notas")
@@ -29,6 +37,22 @@ public class NotaController {
 
     private final INotaService notaService;
     private final ImagenService imagenService;
+    private final ObjectMapper objectMapper;
+
+    private Long getUserId(Authentication authentication) {
+        if (authentication == null || authentication.getDetails() == null) return null;
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> details = (Map<String, Object>) authentication.getDetails();
+
+        Object raw = details.get("userId");
+        if (raw == null) return null;
+        if (raw instanceof Long l) return l;
+        if (raw instanceof Integer i) return i.longValue();
+        if (raw instanceof String s) return Long.parseLong(s);
+        return null;
+    }
+
     // 🔹 1. Listar todas las notas
     @GetMapping("/listar")
     public ResponseEntity<List<NotaSalidaDto>> listarNotas() {
@@ -39,7 +63,7 @@ public class NotaController {
     // 🔹 2. Crear una nota
 
     @PostMapping("/crear")
-    public ResponseEntity<NotaSalidaDto> crearNota(@Valid @RequestBody NotaEntradaDto notaEntradaDto) throws ResourceNotFoundException {
+    public ResponseEntity<NotaSalidaDto> crearNota(@Valid @RequestBody NotaEntradaDto notaEntradaDto) throws ResourceNotFoundException, IOException {
         LOGGER.info("POST /api/notas");
         System.out.println("DTO recibido: " + notaEntradaDto);
         return ResponseEntity.ok(notaService.crearNota(notaEntradaDto));
@@ -98,4 +122,39 @@ public class NotaController {
                     .body("Error al eliminar la imagen: " + e.getMessage());
         }
     }
+
+
+    @PostMapping(value = "/crear-con-imagenes", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<NotaSalidaDto> crearConImagenes(
+            @RequestPart("data") String dataJson,
+            @RequestPart(value = "imagenes", required = false) MultipartFile[] imagenes
+    ) throws Exception {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = getUserId(authentication);
+
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        NotaEntradaDto dto = objectMapper.readValue(dataJson, NotaEntradaDto.class);
+
+        return ResponseEntity.ok(
+                notaService.crearNotaConImagenes(userId, authentication, dto, imagenes)
+        );
+    }
+
+
+    @GetMapping("/por-contrato/{contratoId}")
+    public ResponseEntity<List<NotaSalidaDto>> obtenerNotasPorContrato(
+            @PathVariable Long contratoId,
+            Authentication auth
+    ) throws ResourceNotFoundException {
+
+        Long userId = getUserId(auth); // tu forma actual (ej: del JWT o principal)
+
+        return ResponseEntity.ok(
+                notaService.listarNotasPorContrato(userId, auth, contratoId)
+        );
+    }
+
 }

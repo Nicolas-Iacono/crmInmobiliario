@@ -37,6 +37,7 @@ public class LuzService implements ILuzService {
     @Override
     public ImpuestoLuzSalidaDto crearImpuestoLuz(ImpuestoLuzEntradaDto impuestoLuzEntradaDto) throws ResourceNotFoundException {
         Luz luzServicio = new Luz();
+        luzServicio.setMontoBase(impuestoLuzEntradaDto.getMontoBase());
         luzServicio.setEmpresa(impuestoLuzEntradaDto.getEmpresa());
         luzServicio.setPorcentaje(impuestoLuzEntradaDto.getPorcentaje());
         luzServicio.setDescripcion(impuestoLuzEntradaDto.getDescripcion());

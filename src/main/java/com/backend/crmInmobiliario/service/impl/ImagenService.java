@@ -7,11 +7,14 @@ import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.utils.MultipartInputStreamFileResource;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.IImageUrlsService;
+import com.backend.crmInmobiliario.utils.RolesCostantes;
 import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -129,10 +132,71 @@ public class ImagenService implements IImageUrlsService {
 
 
     }
+
+    private Authentication currentAuthOrThrow() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getDetails() == null) {
+            throw new RuntimeException("No autenticado");
+        }
+        return auth;
+    }
+
+    private Long currentUserIdOrThrow(Authentication auth) {
+        @SuppressWarnings("unchecked")
+        var details = (java.util.Map<String, Object>) auth.getDetails();
+
+        Object raw = details.get("userId");
+        if (raw == null) throw new RuntimeException("JWT sin userId");
+
+        if (raw instanceof Long l) return l;
+        if (raw instanceof Integer i) return i.longValue();
+        if (raw instanceof String s) return Long.parseLong(s);
+
+        throw new RuntimeException("userId inválido en JWT: " + raw.getClass());
+    }
+
+    private boolean hasRole(Authentication auth, String role) {
+        return auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(role));
+    }
+
+    private void validarAccesoNota(Long userId, Authentication auth, Nota nota) {
+        Contrato contrato = nota.getContrato();
+        if (contrato == null) throw new RuntimeException("Nota sin contrato");
+
+        // INQUILINO
+        if (hasRole(auth, "ROLE_" + RolesCostantes.INQUILINO_USER)) {
+            if (contrato.getInquilino() == null ||
+                    contrato.getInquilino().getUsuarioCuentaInquilino() == null ||
+                    !contrato.getInquilino().getUsuarioCuentaInquilino().getId().equals(userId)) {
+                throw new RuntimeException("No tenés permiso para subir imágenes a esta nota (inquilino).");
+            }
+            return;
+        }
+
+        // PROPIETARIO
+        if (hasRole(auth, "ROLE_" + RolesCostantes.PROPIETARIO_USER)) {
+            if (contrato.getPropietario() == null ||
+                    contrato.getPropietario().getUsuarioCuentaPropietario() == null ||
+                    !contrato.getPropietario().getUsuarioCuentaPropietario().getId().equals(userId)) {
+                throw new RuntimeException("No tenés permiso para subir imágenes a esta nota (propietario).");
+            }
+            return;
+        }
+
+        // INMOBILIARIA / ADMIN
+        if (contrato.getUsuario() == null || !contrato.getUsuario().getId().equals(userId)) {
+            throw new RuntimeException("No tenés permiso para subir imágenes a esta nota (inmobiliaria).");
+        }
+    }
     @Transactional
     @Override
     public List<ImgUrlSalidaDto> subirImagenesYAsociarANota(Long notaId, MultipartFile[] archivos) throws IOException, ResourceNotFoundException {
+
         Nota notaBuscada = notaRepository.findById(notaId).orElseThrow(() -> new ResourceNotFoundException("No se encontro la nota con el ID " + notaId));
+
+        Authentication auth = currentAuthOrThrow();
+        Long userId = currentUserIdOrThrow(auth);
+        validarAccesoNota(userId, auth, notaBuscada);
 
         List<ImgUrlSalidaDto> nuevasImagenesDTO = new ArrayList<>();
 

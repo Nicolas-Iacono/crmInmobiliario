@@ -1,0 +1,6 @@
+package com.backend.crmInmobiliario.entity;
+
+public enum TipoNotificacion {
+    CONTRATO_POR_VENCER,
+    CONTRATO_VENCIDO
+}

@@ -5,6 +5,7 @@ import com.backend.crmInmobiliario.DTO.salida.*;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteContratoDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
+import com.backend.crmInmobiliario.entity.EstadoContrato;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,6 +13,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -30,18 +32,18 @@ public class ContratoSalidaDto {
     private Double montoAlquiler;
     private int duracion;
     private boolean activo;
-
+    private String estado;
     private String aguaEmpresa;
-    private int aguaPorcentaje;
+    private BigDecimal aguaPorcentaje;
 
     private String luzEmpresa;
-    private int luzPorcentaje;
+    private BigDecimal luzPorcentaje;
 
     private String gasEmpresa;
-    private int gasPorcentaje;
+    private BigDecimal gasPorcentaje;
 
     private String municipalEmpresa;
-    private int municipalPorcentaje;
+    private BigDecimal municipalPorcentaje;
     private List<ReciboSalidaDto> recibos;
 
     private String indiceAjuste;
@@ -49,7 +51,7 @@ public class ContratoSalidaDto {
     private Double multaXDia;
     private Long tiempoRestante;
     private String destino;
-
+    private String tipoGarantia;
 
     private String contratoPdf;
     private UsuarioDtoSalida usuarioDtoSalida;
@@ -64,7 +66,8 @@ public class ContratoSalidaDto {
     private BigDecimal comisionMensualMonto;
     /** monto = alquiler - comisionMensualMonto */
     private BigDecimal montoMensualPropietario;
-
+    private Set<EstadoContrato> estados;
+    private boolean vencido;
 
 
 

@@ -12,5 +12,4 @@ public class PresupuestoEntradaDto {
     private String porcentajeSello;    // ej "1.2"
     private int duracion;              // meses
     private Double gastosExtras;       // opcional
-    private String nombreUsuario;
 }

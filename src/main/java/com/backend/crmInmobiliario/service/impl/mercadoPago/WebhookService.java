@@ -9,19 +9,23 @@ import com.backend.crmInmobiliario.repository.pagosYSuscripciones.PlanRepository
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.SubscriptionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
-
+@Slf4j
 @Service
 public class WebhookService {
+    @Value("${mp.access.token}")
+    private String mpAccessToken;
 
     @Value("${mp.service.url:https://mpserviceapp-production.up.railway.app/}")
     private String mpServiceUrl;
@@ -30,13 +34,14 @@ public class WebhookService {
     private final SubscriptionRepository subscriptionRepository;
     private final UsuarioRepository usuarioRepository;
     private final PlanRepository planRepository;
-
-    public WebhookService(RestTemplate restTemplate, SubscriptionRepository subscriptionRepository,
+    private PaymentService paymentService;
+    public WebhookService(PaymentService paymentService, RestTemplate restTemplate, SubscriptionRepository subscriptionRepository,
                           UsuarioRepository usuarioRepository, PlanRepository planRepository) {
         this.restTemplate = restTemplate;
         this.subscriptionRepository = subscriptionRepository;
         this.usuarioRepository = usuarioRepository;
         this.planRepository = planRepository;
+        this.paymentService = paymentService;
     }
 
     /**
@@ -51,16 +56,27 @@ public class WebhookService {
 
     // Método privado que contiene la lógica real
     private void handleNotification(String type, String dataId) {
+
+        System.out.println("🚀 Procesando Webhook:");
+        System.out.println(" - Type recibido: " + type);
+        System.out.println(" - Data ID: " + dataId);
+
         // Normalizamos el tipo para manejar las variaciones de MP
         String normalizedType = type.toLowerCase();
 
         // Si es una notificación de Suscripción (Preapproval) o Pago
         if (normalizedType.contains("preapproval")) {
+            System.out.println("🟢 Tipo detectado: preapproval → ejecutando processPreapproval");
             // Esto cubre: "preapproval" y "subscription_preapproval"
             processPreapproval(dataId);
         } else if (normalizedType.equals("payment")) {
+            System.out.println("🟣 Tipo detectado: payment → ejecutando processPayment");
             // Cubre el caso de notificación de pago
             processPayment(dataId);
+        }
+        else if (normalizedType.equals("subscription_authorized_payment")) {
+                System.out.println("💰 Tipo detectado: subscription_authorized_payment → ejecutando processAuthorizedPayment");
+                processAuthorizedPayment(dataId);
         } else {
             System.out.println("Webhook - Tipo de notificación de MP no manejado: " + type);
         }
@@ -71,38 +87,73 @@ public class WebhookService {
      * Si el pago está asociado a una preaprobación, llama a processPreapproval.
      * @param paymentId ID del pago
      */
+//    private void processPayment(String paymentId) {
+//        try {
+//            // 1. Consultar el detalle del pago a través del microservicio de Node.js
+//            String url = mpServiceUrl + "/api/mp/payments/" + paymentId;
+//            Map<String, Object> mpPayment = restTemplate.getForObject(url, Map.class);
+//            if (mpPayment == null) return;
+//
+//            // 2. Verificar si este pago pertenece a una suscripción (preapproval_id)
+//            // MP usa 'external_reference' si tú lo configuraste en la creación del pago
+//            String preapprovalId = (String) mpPayment.get("external_reference");
+//
+//            // Si el pago no usa external_reference, buscamos en metadata (MP puede meterlo ahí)
+//            if (preapprovalId == null || preapprovalId.isEmpty()) {
+//                Map<String, Object> metadata = (Map<String, Object>) mpPayment.get("metadata");
+//                if (metadata != null && metadata.containsKey("preapproval_id")) {
+//                    preapprovalId = String.valueOf(metadata.get("preapproval_id"));
+//                }
+//            }
+//
+//            if (preapprovalId != null && !preapprovalId.isEmpty()) {
+//                System.out.println("Pago (" + paymentId + ") asociado a Preapproval (" + preapprovalId + "). Procesando como Preapproval...");
+//                processPreapproval(preapprovalId);
+//            } else {
+//                // Esto podría ser un pago único, no relacionado con suscripciones
+//                System.out.println("Pago (" + paymentId + ") recibido. No asociado a ninguna suscripción (external_reference/metadata faltante).");
+//            }
+//
+//        } catch (Exception e) {
+//            System.err.println("Error al procesar el pago Webhook MP " + paymentId + ": " + e.getMessage());
+//        }
+//    }
+
     private void processPayment(String paymentId) {
         try {
-            // 1. Consultar el detalle del pago a través del microservicio de Node.js
+            // 1️⃣ Consultar el detalle del pago a través del microservicio Node.js
             String url = mpServiceUrl + "/api/mp/payments/" + paymentId;
             Map<String, Object> mpPayment = restTemplate.getForObject(url, Map.class);
             if (mpPayment == null) return;
 
-            // 2. Verificar si este pago pertenece a una suscripción (preapproval_id)
-            // MP usa 'external_reference' si tú lo configuraste en la creación del pago
-            String preapprovalId = (String) mpPayment.get("external_reference");
+            System.out.println("📦 Datos de pago recibidos: " + mpPayment);
 
-            // Si el pago no usa external_reference, buscamos en metadata (MP puede meterlo ahí)
+            // 2️⃣ Intentar obtener el preapproval_id real
+            String preapprovalId = (String) mpPayment.get("preapproval_id"); // ✅ este es el correcto
+
+            // 3️⃣ Fallbacks si no vino explícitamente
             if (preapprovalId == null || preapprovalId.isEmpty()) {
+                // A veces Mercado Pago lo manda en metadata
                 Map<String, Object> metadata = (Map<String, Object>) mpPayment.get("metadata");
                 if (metadata != null && metadata.containsKey("preapproval_id")) {
                     preapprovalId = String.valueOf(metadata.get("preapproval_id"));
                 }
             }
 
-            if (preapprovalId != null && !preapprovalId.isEmpty()) {
-                System.out.println("Pago (" + paymentId + ") asociado a Preapproval (" + preapprovalId + "). Procesando como Preapproval...");
-                processPreapproval(preapprovalId);
-            } else {
-                // Esto podría ser un pago único, no relacionado con suscripciones
-                System.out.println("Pago (" + paymentId + ") recibido. No asociado a ninguna suscripción (external_reference/metadata faltante).");
+            // 4️⃣ Si sigue sin aparecer, NO usar external_reference (porque es el userId)
+            if (preapprovalId == null || preapprovalId.isEmpty()) {
+                System.out.println("⚠️ Pago (" + paymentId + ") sin preapproval_id, no se procesará como suscripción.");
+                return;
             }
 
+            // 5️⃣ Procesar correctamente la suscripción
+            System.out.println("💳 Pago (" + paymentId + ") asociado a Preapproval (" + preapprovalId + "). Procesando...");
+            processPreapproval(preapprovalId);
+
         } catch (Exception e) {
-            System.err.println("Error al procesar el pago Webhook MP " + paymentId + ": " + e.getMessage());
+            System.err.println("❌ Error al procesar el pago Webhook MP " + paymentId + ": " + e.getMessage());
         }
     }
-
 
     /**
      * REQUISITO 2B: Consulta la API de MP para obtener los detalles del evento
@@ -120,39 +171,84 @@ public class WebhookService {
                 return;
             }
 
+            System.out.println("-----------------------------------------------------------------------------------------------------------------------------");
+            System.out.println("📦 Datos recibidos de MP (" + preapprovalId + "):");
+            mp.forEach((k, v) -> System.out.println(" - " + k + ": " + v));
+
             // 2️⃣ Extraer datos relevantes
             externalReference = (String) mp.get("external_reference");
             String mpStatus = (String) mp.get("status");
             String nextPaymentDateStr = (String) mp.get("next_payment_date");
             String externalPlanId = (String) mp.get("preapproval_plan_id");
             String reason = (String) mp.get("reason");
+            String planCodeDetected = null;
+            if (reason != null) {
+                if (reason.contains("PLAN-")) {
+                    planCodeDetected = reason.substring(reason.indexOf("PLAN-")).trim().split(" ")[0].trim().toUpperCase();
+                } else if (reason.contains("-")) {
+                    planCodeDetected = reason.substring(reason.lastIndexOf('-') + 1).trim().toUpperCase();
+                }
+            }
+            System.out.println("🧠 Plan detectado preliminarmente desde reason: " + planCodeDetected);
+            // 🧠 LOG EXTRA PARA VER CAMPOS CLAVE
+            System.out.println("🧠 externalReference=" + externalReference
+                    + " | mpStatus=" + mpStatus
+                    + " | nextPaymentDate=" + nextPaymentDateStr
+                    + " | externalPlanId=" + externalPlanId
+                    + " | reason=" + reason);
+            System.out.println("-----------------------------------------------------------------------------------------------------------------------------");
 
             Subscription.Status finalStatus = mapStatus(mpStatus);
 
-            // 3️⃣ Buscar si ya existe por externalSubscriptionId
             Optional<Subscription> subOpt = subscriptionRepository.findByExternalSubscriptionId(preapprovalId);
-            Subscription sub;
-            Usuario usuario;
-            Plan plan;
 
-            // 🔹 Si no se encuentra por externalSubscriptionId, intentamos buscar por usuario_id
+// 🧩 Si no se encuentra por preapproval_id, buscar por usuario_id (por external_reference)
             if (subOpt.isEmpty() && externalReference != null) {
                 try {
                     Long userId = Long.parseLong(externalReference);
                     subOpt = subscriptionRepository.findByUsuarioId(userId);
+                    if (subOpt.isPresent()) {
+                        System.out.println("🔁 Suscripción existente encontrada por usuario_id=" + userId);
+                    }
                 } catch (NumberFormatException ignored) {}
             }
 
+
+
+            Subscription sub;
+            Usuario usuario;
+            Plan plan;
+
+            // 🔹 Si no se encuentra por externalSubscriptionId, buscar por usuario_id (external_reference)
             if (subOpt.isPresent()) {
-                // 🔁 Actualizar suscripción existente
                 sub = subOpt.get();
                 usuario = sub.getUsuario();
-                plan = sub.getPlan();
+
+                // 🧩 Detectar plan desde reason (por ejemplo "Tuinmo - PLAN-BARATO")
+                plan = sub.getPlan(); // valor por defecto
+
+                if (reason != null && reason.contains("PLAN-")) {
+                    String planCode = reason.substring(reason.indexOf("PLAN-")).trim();
+                    planCode = planCode.split(" ")[0].trim().toUpperCase();
+
+                    System.out.println("🧩 Plan detectado en reason: " + planCode);
+
+                    String finalPlanCode = planCode;
+                    plan = planRepository.findByCode(planCode)
+                            .orElseThrow(() -> new ResourceNotFoundException("Plan no encontrado por código: " + finalPlanCode));
+
+                    sub.setPlan(plan); // actualizamos el plan de la suscripción
+                    System.out.println("🔁 Plan actualizado en la suscripción: " + plan.getCode());
+                }
+
                 sub.setExternalSubscriptionId(preapprovalId);
                 sub.setStatus(finalStatus);
                 sub.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
 
-                if (finalStatus == Subscription.Status.ACTIVE) {
+                if (finalStatus == Subscription.Status.ACTIVE
+                        || finalStatus == Subscription.Status.AUTHORIZED
+                        || finalStatus == Subscription.Status.TRIALING) {
+
                     sub.setTrialEndsAt(null);
                     if (nextPaymentDateStr != null) {
                         Instant currentPeriodEnd = Instant.parse(nextPaymentDateStr);
@@ -160,9 +256,26 @@ public class WebhookService {
                     } else if (sub.getCurrentPeriodEnd() == null) {
                         sub.setCurrentPeriodEnd(LocalDateTime.now(ZoneOffset.UTC).plusDays(30));
                     }
+
+                    // 🔸 Actualizar plan también en el usuario
+                    usuario.setPlan(plan);
+                    usuarioRepository.save(usuario);
+                    System.out.printf("🎉 Plan '%s' asignado al usuario '%s'%n",
+                            plan.getCode(), usuario.getUsername());
                 } else if (finalStatus == Subscription.Status.CANCELED) {
                     sub.setCurrentPeriodEnd(null);
-                    sub.setCancelAtPeriodEnd(false);
+                    sub.setCancelAtPeriodEnd(false); // 🔸 Revertir al plan FREE
+                    Plan planFree = planRepository.findByCode("FREE")
+                            .orElseThrow(() -> new IllegalStateException("Plan FREE no encontrado"));
+                    sub.setPlan(planFree);
+
+                    usuario = sub.getUsuario();
+                    if (usuario != null) {
+                        usuario.setPlan(planFree);
+                        usuarioRepository.save(usuario);
+                        System.out.printf("🚫 Suscripción cancelada en MP → usuario '%s' pasado al plan FREE%n",
+                                usuario.getUsername());
+                    }
                 }
 
                 subscriptionRepository.save(sub);
@@ -170,7 +283,7 @@ public class WebhookService {
                 return;
             }
 
-            // 🟢 Si no existía, creamos una nueva
+            // 🟢 Si no existía, crear una nueva
             if (externalReference == null)
                 throw new IllegalArgumentException("External Reference (User ID) es nulo en la respuesta de MP.");
 
@@ -178,29 +291,75 @@ public class WebhookService {
             usuario = usuarioRepository.findById(userId)
                     .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado (ID: " + userId + ")"));
 
-            // 🔹 Buscar el plan
-            if (externalPlanId != null && !externalPlanId.isEmpty()) {
-                plan = planRepository.findByExternalPlanId(externalPlanId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Plan no encontrado por externalPlanId: " + externalPlanId));
-            } else if (reason != null && reason.contains("PLAN-")) {
-                String planCode = reason.substring(reason.indexOf("PLAN-")).trim();
-                plan = planRepository.findByCodeAndActiveTrue(planCode)
-                        .orElseThrow(() -> new ResourceNotFoundException("Plan no encontrado por código: " + planCode));
-            } else {
-                throw new ResourceNotFoundException("No se pudo deducir el plan (sin externalPlanId ni reason válido).");
+            // 🔹 Buscar el plan (bloque robusto con soporte para todos los casos)
+            try {
+                if (externalPlanId != null && !externalPlanId.isEmpty()) {
+                    System.out.println("🔍 Buscando plan por externalPlanId: " + externalPlanId);
+                    plan = planRepository.findByExternalPlanId(externalPlanId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Plan no encontrado por externalPlanId: " + externalPlanId));
+
+                } else if (reason != null) {
+                    String planCode = null;
+
+                    // Caso 1: el reason contiene "PLAN-" → extraer desde ahí
+                    if (reason.contains("PLAN-")) {
+                        planCode = reason.substring(reason.indexOf("PLAN-")).trim();
+                    }
+                    // Caso 2: no tiene "PLAN-", pero sí un nombre al final
+                    else if (reason.contains("-")) {
+                        planCode = reason.substring(reason.lastIndexOf('-') + 1).trim().toUpperCase();
+                    }
+
+                    if (planCode != null && !planCode.isEmpty()) {
+                        System.out.println("🔍 Buscando plan por código: " + planCode);
+                        final String finalPlanCode = planCode;
+                        plan = planRepository.findByCode(finalPlanCode)
+                                .orElseThrow(() -> new ResourceNotFoundException("Plan no encontrado por código: " + finalPlanCode));
+                        System.out.println("✅ Plan encontrado: " + plan.getName());
+                    } else {
+                        throw new ResourceNotFoundException("No se pudo extraer el código del plan desde reason: " + reason);
+                    }
+
+                } else if (mp.containsKey("auto_recurring")) {
+                    // Fallback: deducir plan por monto del pago
+                    Map<String, Object> autoRecurring = (Map<String, Object>) mp.get("auto_recurring");
+                    Object amountObj = autoRecurring != null ? autoRecurring.get("transaction_amount") : null;
+
+                    if (amountObj != null) {
+                        double amount = Double.parseDouble(amountObj.toString());
+                        System.out.println("💡 Intentando deducir plan por monto: " + amount);
+
+                        plan = planRepository.findByPriceArs(BigDecimal.valueOf(amount))
+                                .orElseThrow(() -> new ResourceNotFoundException("Plan no encontrado por monto: " + amount));
+                        System.out.println("✅ Plan deducido por monto: " + plan.getName());
+                    } else {
+                        throw new ResourceNotFoundException("auto_recurring sin monto.");
+                    }
+
+                } else {
+                    throw new ResourceNotFoundException("No se pudo deducir el plan (sin externalPlanId, reason ni auto_recurring).");
+                }
+
+            } catch (ResourceNotFoundException e) {
+                System.err.println("⚠️ " + e.getMessage());
+                System.out.println("➡️ Asignando plan FREE como fallback.");
+                plan = planRepository.findByCode("FREE")
+                        .orElseThrow(() -> new IllegalStateException("❌ Plan FREE no encontrado en la base de datos."));
             }
 
             // 4️⃣ Crear nueva suscripción
-            sub = Subscription.builder()
-                    .usuario(usuario)
-                    .plan(plan)
-                    .externalCustomerId(usuario.getId().toString())
-                    .externalSubscriptionId(preapprovalId)
-                    .cancelAtPeriodEnd(false)
-                    .status(finalStatus)
-                    .createdAt(LocalDateTime.now(ZoneOffset.UTC))
-                    .updatedAt(LocalDateTime.now(ZoneOffset.UTC))
-                    .build();
+            sub = subOpt.orElseGet(Subscription::new);
+
+            sub.setUsuario(usuario);
+            sub.setPlan(plan);
+            sub.setExternalCustomerId(usuario.getId().toString());
+            sub.setExternalSubscriptionId(preapprovalId);
+            sub.setCancelAtPeriodEnd(false);
+            sub.setStatus(finalStatus);
+            sub.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
+
+            if (sub.getCreatedAt() == null)
+                sub.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
 
             if (finalStatus == Subscription.Status.ACTIVE && nextPaymentDateStr != null) {
                 Instant currentPeriodEnd = Instant.parse(nextPaymentDateStr);
@@ -208,8 +367,21 @@ public class WebhookService {
             }
 
             subscriptionRepository.save(sub);
-            System.out.printf("✅ Nueva suscripción creada: user=%d | plan=%s | status=%s%n",
+            System.out.printf("✅ Suscripción actualizada/creada: user=%d | plan=%s | status=%s%n",
                     usuario.getId(), plan.getCode(), finalStatus);
+
+            // 🔸 Si la suscripción está activa, actualizar el plan del usuario
+            if (finalStatus == Subscription.Status.ACTIVE) {
+                try {
+                    usuario.setPlan(plan);
+                    usuarioRepository.save(usuario);
+                    System.out.printf("🎉 Plan '%s' asignado al usuario '%s'%n",
+                            plan.getCode(), usuario.getUsername());
+                } catch (Exception e) {
+                    System.err.printf("⚠️ Error al asignar el plan al usuario %d: %s%n",
+                            usuario.getId(), e.getMessage());
+                }
+            }
 
         } catch (NumberFormatException e) {
             System.err.printf("❌ External_reference inválido (%s): %s%n", externalReference, e.getMessage());
@@ -220,6 +392,128 @@ public class WebhookService {
     }
 
 
+    /**
+     * Procesa un evento de pago recurrente (subscription_authorized_payment).
+     * Llama a la API de MP para obtener los detalles del pago y actualiza la suscripción.
+     */
+//    private void processAuthorizedPayment(String authorizedPaymentId) {
+//        try {
+//            // 1️⃣ Consultar los detalles del pago recurrente directamente desde Mercado Pago
+//            String url = "https://api.mercadopago.com/authorized_payments/" + authorizedPaymentId;
+//
+//            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+//            headers.setBearerAuth(mpAccessToken); // ⚠️ reemplazá con tu token real de producción
+//            headers.setAccept(java.util.Collections.singletonList(org.springframework.http.MediaType.APPLICATION_JSON));
+//
+//            org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
+//            org.springframework.http.ResponseEntity<Map> response = restTemplate.exchange(
+//                    url,
+//                    org.springframework.http.HttpMethod.GET,
+//                    entity,
+//                    Map.class
+//            );
+//
+//            Map<String, Object> authorizedPayment = response.getBody();
+//            if (authorizedPayment == null) {
+//                System.err.println("⚠️ No se pudo obtener información del pago autorizado ID=" + authorizedPaymentId);
+//                return;
+//            }
+//
+//            System.out.println("-----------------------------------------------------------------------------------------------------------------------------");
+//            System.out.println("📦 Detalle del pago recurrente recibido (authorized_payment):");
+//            authorizedPayment.forEach((k, v) -> System.out.println(" - " + k + ": " + v));
+//            System.out.println("-----------------------------------------------------------------------------------------------------------------------------");
+//
+//            // 2️⃣ Obtener el ID de la suscripción (preapproval_id)
+//            String preapprovalId = (String) authorizedPayment.get("preapproval_id");
+//            if (preapprovalId == null || preapprovalId.isEmpty()) {
+//                System.err.println("⚠️ Pago recurrente sin preapproval_id → no se puede asociar a una suscripción.");
+//                return;
+//            }
+//
+//            // 3️⃣ Reutilizamos tu lógica existente
+//            System.out.println("💳 Pago recurrente asociado a preapproval_id=" + preapprovalId);
+//            processPreapproval(preapprovalId);
+//            System.out.println("💳 Guardando registro de pago en base de datos...");
+//            paymentService.registrarPago(authorizedPayment);
+//        } catch (Exception e) {
+//            System.err.println("❌ Error al procesar authorized_payment " + authorizedPaymentId + ": " + e.getMessage());
+//        }
+//    }
+    private void processAuthorizedPayment(String authorizedPaymentId) {
+        try {
+            String url = "https://api.mercadopago.com/authorized_payments/" + authorizedPaymentId;
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setBearerAuth(mpAccessToken);
+            headers.setAccept(java.util.Collections.singletonList(org.springframework.http.MediaType.APPLICATION_JSON));
+
+            org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
+            org.springframework.http.ResponseEntity<Map> response = restTemplate.exchange(
+                    url,
+                    org.springframework.http.HttpMethod.GET,
+                    entity,
+                    Map.class
+            );
+
+            Map<String, Object> authorizedPayment = response.getBody();
+            if (authorizedPayment == null) {
+                System.err.println("⚠️ No se pudo obtener información del pago autorizado ID=" + authorizedPaymentId);
+                return;
+            }
+
+            System.out.println("-----------------------------------------------------------------------------------------------------------------------------");
+            System.out.println("📦 Detalle del pago recurrente recibido (authorized_payment):");
+            authorizedPayment.forEach((k, v) -> System.out.println(" - " + k + ": " + v));
+            System.out.println("-----------------------------------------------------------------------------------------------------------------------------");
+
+            // 2️⃣ Obtener el ID de la suscripción (preapproval_id)
+            String preapprovalId = (String) authorizedPayment.get("preapproval_id");
+            if (preapprovalId == null || preapprovalId.isEmpty()) {
+                System.err.println("⚠️ Pago recurrente sin preapproval_id → no se puede asociar a una suscripción.");
+                return;
+            }
+
+            // 3️⃣ Buscar la suscripción en la base
+            Optional<Subscription> subOpt = subscriptionRepository.findByExternalSubscriptionId(preapprovalId);
+            if (subOpt.isPresent()) {
+                Subscription sub = subOpt.get();
+
+                // 4️⃣ Actualizar la fecha de renovación actual
+                Object dateApprovedObj = authorizedPayment.get("date_approved");
+                if (dateApprovedObj != null) {
+                    Instant dateApproved = Instant.parse(dateApprovedObj.toString());
+                    LocalDateTime paymentDate = LocalDateTime.ofInstant(dateApproved, ZoneOffset.UTC);
+                    LocalDateTime nextPeriodEnd = paymentDate.plusDays(30); // o según tu plan
+
+                    sub.setCurrentPeriodEnd(nextPeriodEnd);
+                    sub.setStatus(Subscription.Status.ACTIVE);
+                    sub.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
+                    subscriptionRepository.save(sub);
+
+                    System.out.printf("🔁 Suscripción renovada correctamente. Próximo vencimiento: %s%n", nextPeriodEnd);
+                } else {
+                    System.out.println("⚠️ No se encontró fecha de aprobación en el pago, no se actualizó currentPeriodEnd.");
+                }
+
+                // 5️⃣ Asegurar que el usuario sigue con el plan correcto
+                Usuario usuario = sub.getUsuario();
+                if (!usuario.getPlan().getId().equals(sub.getPlan().getId())) {
+                    usuario.setPlan(sub.getPlan());
+                    usuarioRepository.save(usuario);
+                    System.out.printf("🎉 Plan '%s' confirmado para usuario '%s'%n",
+                            sub.getPlan().getCode(), usuario.getUsername());
+                }
+            }
+
+            // 6️⃣ Registrar el pago (ya lo hacías correctamente)
+            System.out.println("💳 Guardando registro de pago en base de datos...");
+            paymentService.registrarPago(authorizedPayment);
+
+        } catch (Exception e) {
+            System.err.println("❌ Error al procesar authorized_payment " + authorizedPaymentId + ": " + e.getMessage());
+        }
+    }
 
     private Subscription.Status mapStatus(String mpStatus) {
         return switch (mpStatus.toLowerCase()) {

@@ -1,5 +1,8 @@
 package com.backend.crmInmobiliario.DTO.salida;
 
+import com.backend.crmInmobiliario.entity.AutorNotaTipo;
+import com.backend.crmInmobiliario.entity.EstadoNota;
+import com.backend.crmInmobiliario.entity.VisibilidadNota;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -21,7 +24,7 @@ public class NotaSalidaDto {
 
     private String motivo;
 
-    private Enum estado; // Ej: "Pendiente", "En Proceso", "Resuelto"
+    private EstadoNota estado; // Ej: "Pendiente", "En Proceso", "Resuelto"
 
     private String prioridad; // Ej: "Alta", "Media", "Baja"
 
@@ -34,5 +37,7 @@ public class NotaSalidaDto {
     private LocalDate fechaCreacion;
 
     private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
+
+    private AutorNotaTipo autor;
 
 }

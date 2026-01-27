@@ -28,5 +28,4 @@ public class PropiedadEntradaDto {
     private String inventario;
     private String tipo;
 
-    private String nombreUsuario;
 }

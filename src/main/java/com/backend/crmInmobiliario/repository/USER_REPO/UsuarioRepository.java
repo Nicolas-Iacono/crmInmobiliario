@@ -4,10 +4,7 @@ import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.entity.Usuario;
 import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -17,8 +14,15 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Long> {
 
     Optional<Usuario> findByUsername(String username);
 
+    Optional<Usuario> findByPropietarioId(Long propietarioId);
+
     @Query("SELECT u FROM Usuario u WHERE u.username = :username")
     Optional<Usuario> findUserByUsername(@Param("username") String username);
+
+
+    @Query("SELECT u FROM Usuario u WHERE u.nombreNegocio = :nombreNegocio")
+    Optional<Usuario> findUserByNombreNegocio(@Param("nombreNegocio") String nombreNegocio);
+
 
     Optional<Usuario> findByEmail(String email);
 
@@ -36,6 +40,56 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Long> {
     @Query("DELETE FROM Usuario u WHERE u.username = :username")  // <-- "Usuario" es la entidad
     int deleteByUsername(@Param("username") String username);
 
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM Usuario u WHERE u.nombreNegocio = :nombreNegocio")  // <-- "Usuario" es la entidad
+    int deleteByNombreNegocio(@Param("nombreNegocio") String nombreNegocio);
 
     boolean existsByEmail(String email);
+
+    @Query("SELECT u FROM Usuario u LEFT JOIN FETCH u.propietario WHERE u.id = :id")
+    Optional<Usuario> findUserById(@Param("id") Long id);
+
+    @Query(value = "SELECT u.username, u.password FROM usuario u WHERE u.propietario_id = :propietarioId", nativeQuery = true)
+    Optional<Object[]> obtenerCredencialesPorPropietario(@Param("propietarioId") Long propietarioId);
+
+    @Query("""
+    SELECT u FROM Usuario u
+    WHERE LOWER(u.email) = LOWER(:identifier)
+       OR LOWER(u.nombreNegocio) = LOWER(:identifier)
+""")
+    Optional<Usuario> findByIdentifier(String identifier);
+
+    @EntityGraph(attributePaths = {"roles", "roles.permisosList"})
+    @Query("""
+    SELECT u FROM Usuario u
+    WHERE LOWER(u.email) = LOWER(:identifier)
+       OR LOWER(u.nombreNegocio) = LOWER(:identifier)
+""")
+    Optional<Usuario> c(@Param("identifier") String identifier);
+
+
+
+    @Query("""
+select u from Usuario u
+left join fetch u.roles r
+left join fetch r.permisosList p
+where u.username = :identifier
+   or u.email = :identifier
+   or u.nombreNegocio = :identifier
+""")
+    Optional<Usuario> findByIdentifierWithRolesAndPerms(@Param("identifier") String identifier);
+
+
+    @Query("""
+  select distinct u
+  from Usuario u
+  left join fetch u.roles r
+  left join fetch r.permisosList p
+  where lower(u.email) = lower(:identifier)
+     or lower(u.nombreNegocio) = lower(:identifier)
+     or lower(u.username) = lower(:identifier)
+""")
+    Optional<Usuario> findByIdentifierWithRoles(String identifier);
+
 }

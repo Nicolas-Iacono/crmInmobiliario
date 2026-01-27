@@ -48,4 +48,9 @@ public class Garante extends Persona{
     @ToString.Exclude
     @JsonIgnore
     private Usuario usuario;
+
+    @OneToMany(mappedBy = "garante", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Documento> documentos = new ArrayList<>();
+
 }

@@ -24,6 +24,7 @@ public class PropietarioSalidaDto {
     private String cuit;
     private String nacionalidad;
     private String estadoCivil;
+    private Long usuarioCuentaPropietarioId;
 //    private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
     // Lista de propiedades del propietario
     private UsuarioDtoSalida usuarioDtoSalida;

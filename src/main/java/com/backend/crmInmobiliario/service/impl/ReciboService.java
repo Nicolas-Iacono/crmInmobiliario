@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.entrada.ImpuestoEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.ReciboEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.ReciboEstadoActualizadoEvent;
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.ImpuestosGeneralSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
@@ -10,31 +11,48 @@ import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.entity.impuestos.*;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.ContratoRepository;
+import com.backend.crmInmobiliario.repository.ImpuestoRepository;
 import com.backend.crmInmobiliario.repository.InquilinoRepository;
 import com.backend.crmInmobiliario.repository.ReciboRepository;
 import com.backend.crmInmobiliario.repository.notificacionesPush.PushSubscriptionRepository;
+import com.backend.crmInmobiliario.repository.projections.ReciboSyncProjection;
 import com.backend.crmInmobiliario.service.IReciboService;
+import com.backend.crmInmobiliario.service.impl.IA.EmbeddingService;
 import com.backend.crmInmobiliario.service.impl.notificacionesPush.PushNotificationService;
+import com.backend.crmInmobiliario.service.impl.utilsGeneral.ImpuestoCalculoService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import okhttp3.*;
+import org.hibernate.Hibernate;
 import org.hibernate.collection.spi.PersistentBag;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
 public class ReciboService implements IReciboService {
+    @Value("${supabase.url}")
+    private String SUPABASE_URL;
+
+    @Value("${supabase.key}")
+    private String SUPABASE_ANON_KEY;
+
+    @Value("${supabase.service.role.key}")
+    private String SUPABASE_SERVICE_ROLE_KEY;
     private final Logger LOGGER = LoggerFactory.getLogger(ReciboService.class);
     private ModelMapper modelMapper;
     private ReciboRepository reciboRepository;
@@ -43,7 +61,14 @@ public class ReciboService implements IReciboService {
     private PushNotificationService pushNotificationService;
     private PushSubscriptionRepository pushSubscriptionRepository;
     private ImagenService imagenService;
-    public ReciboService(ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository) {
+    private ContratoService contratoService;
+    private EmbeddingService embeddingService;
+    private ImpuestoRepository impuestoRepository;
+    @Autowired
+    private ApplicationEventPublisher applicationEventPublisher;
+    private final ImpuestoCalculoService impuestoCalculoService;
+
+    public ReciboService(ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService) {
         this.modelMapper = modelMapper;
         this.reciboRepository = reciboRepository;
         this.contratoRepository = contratoRepository;
@@ -51,6 +76,10 @@ public class ReciboService implements IReciboService {
         this.pushNotificationService = pushNotificationService;
         this.pushSubscriptionRepository = pushSubscriptionRepository;
         this.imagenService = imagenService;
+        this.embeddingService = embeddingService;
+        this.contratoService = contratoService;
+        this.impuestoCalculoService = impuestoCalculoService;
+        this.impuestoRepository = impuestoRepository;
         configureMapping();
     }
 
@@ -96,7 +125,15 @@ public class ReciboService implements IReciboService {
                 .addMapping(ReciboModificacionDto::getEstado, ReciboSalidaDto::setEstado);
 
     }
+    @Override
+    @Transactional
+    public List<ReciboSalidaDto> listarRecibosPorUsuarioId(Long userId) {
+        List<Recibo> recibos = reciboRepository.findByContratoUsuarioId(userId);
 
+        return recibos.stream()
+                .map(recibo -> modelMapper.map(recibo, ReciboSalidaDto.class))
+                .toList();
+    }
 
     @Override
     @Transactional() // Mejora el rendimiento para operaciones de solo lectura
@@ -128,7 +165,7 @@ public class ReciboService implements IReciboService {
 
     @Override
     @Transactional // Importante para la consistencia de la transacción
-    public ReciboSalidaDto crearRecibo(ReciboEntradaDto reciboEntradaDto) throws ResourceNotFoundException {
+    public ReciboSalidaDto crearRecibo(ReciboEntradaDto reciboEntradaDto) throws ResourceNotFoundException, IOException {
         LOGGER.info("Iniciando el proceso de creación de recibo");
 
         // 1. Buscar el contrato
@@ -148,7 +185,6 @@ public class ReciboService implements IReciboService {
         recibo.setFechaVencimiento(reciboEntradaDto.getFechaVencimiento());
         recibo.setNumeroRecibo(reciboEntradaDto.getNumeroRecibo());
         // Otros campos del recibo
-
         // 3. Procesar y agregar los impuestos
         if (reciboEntradaDto.getImpuestos() != null && !reciboEntradaDto.getImpuestos().isEmpty()) {
             for (ImpuestoEntradaDto impuestoDTO : reciboEntradaDto.getImpuestos()) {
@@ -161,11 +197,14 @@ public class ReciboService implements IReciboService {
             LOGGER.warn("No se proporcionaron impuestos para el recibo");
             // Considerar si lanzar una excepción aquí es apropiado para tu lógica de negocio
         }
-
         // 4. Guardar el recibo (y los impuestos en cascada)
         Recibo reciboGuardado = reciboRepository.save(recibo);
-        LOGGER.info("Recibo guardado con ID: " + reciboGuardado.getId());
-
+        contrato = recibo.getContrato();
+        try {
+            contratoService.actualizarContratoEnSupabasePorId(contrato.getId());
+        } catch (Exception e) {
+            LOGGER.error("⚠️ Error al actualizar contrato en Supabase: {}", e.getMessage());
+        }
         try {
             Inquilino inquilino = contrato.getInquilino();
             if (inquilino != null && inquilino.getUsuarioCuentaInquilino() != null) {
@@ -183,13 +222,20 @@ public class ReciboService implements IReciboService {
 
                 LOGGER.info("✅ Notificación enviada al usuario inquilino ID: {}", usuarioInquilino.getId());
             } else {
-                LOGGER.warn("⚠️ No se encontró el usuarioCuentaInquilino para el contrato ID: {}", contrato.getId_contrato());
+                LOGGER.warn("⚠️ No se encontró el usuarioCuentaInquilino para el contrato ID: {}", contrato.getId());
             }
         } catch (Exception e) {
             LOGGER.error("❌ Error al enviar notificación push: {}", e.getMessage(), e);
         }
 
-
+        CompletableFuture.runAsync(() -> {
+            try {
+                guardarReciboEnSupabase(reciboGuardado);
+                upsertReciboEmbedding(reciboGuardado);
+            } catch (Exception ex) {
+                LOGGER.error("⚠️ Error sincronizando recibo con Supabase: {}", ex.getMessage());
+            }
+        });
 
         // 5. Mapear a DTO de salida
         ReciboSalidaDto reciboSalidaDto = modelMapper.map(reciboGuardado, ReciboSalidaDto.class);
@@ -248,21 +294,89 @@ public class ReciboService implements IReciboService {
         impuesto.setTipoImpuesto(dto.getTipoImpuesto()); // Asigna el valor original, no la versión en mayúsculas
         impuesto.setDescripcion(dto.getDescripcion());
         impuesto.setEmpresa(dto.getEmpresa());
-        impuesto.setPorcentaje(dto.getPorcentaje());
         impuesto.setNumeroCliente(dto.getNumeroCliente());
         impuesto.setNumeroMedidor(dto.getNumeroMedidor());
-        impuesto.setMontoAPagar(dto.getMontoAPagar());
         impuesto.setFechaFactura(dto.getFechaFactura());
         impuesto.setEstadoPago(dto.getEstadoPago());
+
+        BigDecimal montoBase = dto.getMontoBase();
+        BigDecimal porcentaje = dto.getPorcentaje();
+        if (montoBase == null) {
+            throw new IllegalArgumentException("El monto base es obligatorio");
+        }
+
+        impuesto.setMontoBase(montoBase);
+        impuesto.setPorcentaje(porcentaje);
+
+        BigDecimal montoFinal;
+        if (porcentaje != null) {
+            montoFinal = impuestoCalculoService
+                    .calcularMontoPorcentaje(montoBase, porcentaje);
+        } else {
+            // 👉 impuesto de monto fijo
+            montoFinal = montoBase;
+        }
+
+        impuesto.setMontoAPagar(montoFinal);
+
+        // 📎 Archivo factura
         if (dto.getArchivoFactura() != null && !dto.getArchivoFactura().isEmpty()) {
             try {
                 String urlFactura = imagenService.subirPdfAFactura(dto.getArchivoFactura());
                 impuesto.setUrlFactura(urlFactura);
             } catch (IOException e) {
-                LOGGER.error("Error al subir la factura PDF: {}", e.getMessage());
+                LOGGER.error("Error al subir la factura PDF", e);
             }
         }
+
         return impuesto;
+    }
+    public void guardarReciboEnSupabase(Recibo r) throws IOException {
+        OkHttpClient client = new OkHttpClient();
+        ObjectMapper mapper = new ObjectMapper();
+        Usuario usuario = r.getContrato().getUsuario();
+
+        // 🔹 Convertir LocalDate → String (ISO) para evitar el error
+        String fechaEmision = r.getFechaEmision() != null
+                ? r.getFechaEmision().toString()
+                : null;
+
+        String fechaVencimiento = r.getFechaVencimiento() != null
+                ? r.getFechaVencimiento().toString()
+                : null;
+
+        Map<String, Object> registro = Map.of(
+                "id", r.getId(),
+                "id_contrato", r.getContrato().getId(),
+                "user_id", usuario.getId(),
+                "numero_recibo", r.getNumeroRecibo(),
+                "monto_total", r.getMontoTotal(),
+                "periodo", r.getPeriodo(),
+                "concepto", r.getConcepto(),
+                "fecha_emision", fechaEmision,          // 👈 ahora String
+                "fecha_vencimiento", fechaVencimiento,  // 👈 ahora String
+                "pagado", r.getEstado()
+        );
+
+        String json = mapper.writeValueAsString(List.of(registro));
+
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/recibos")
+                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .addHeader("Content-Type", "application/json")
+                // 👇 upsert: si ya existe el id, hace merge
+                .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
+                .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Authorization", "Bearer " + SUPABASE_SERVICE_ROLE_KEY)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) {
+                throw new IOException("❌ Supabase /recibos: " + response.code() + " - " + body);
+            }
+            LOGGER.info("✅ Recibo upsert en Supabase: {} (pagado={})", r.getId(), r.getEstado());
+        }
     }
 
     @Transactional // Asegura que la transacción esté abierta
@@ -276,35 +390,111 @@ public class ReciboService implements IReciboService {
             throw new ResourceNotFoundException("Recibo no encontrado con ID: " + id);
         }
 }
+    private String buildContenidoRecibo(Recibo r) {
+        return "RECIBO|id=" + r.getId() +
+                " | contrato=" + r.getContrato().getNombreContrato() +
+                " | periodo=" + r.getPeriodo() +
+                " | monto=" + r.getMontoTotal() +
+                " | pagado=" + (r.getEstado() ? "sí" : "no");
+    }
+    public void upsertReciboEmbedding(Recibo r) throws IOException, InterruptedException {
+        OkHttpClient client = new OkHttpClient();
+        ObjectMapper mapper = new ObjectMapper();
+
+        List<Float> embedding = embeddingService.generarEmbedding(buildContenidoRecibo(r));
+        Usuario usuario = r.getContrato().getUsuario();
+
+        Map<String, Object> registro = Map.of(
+                "id_recibo", r.getId(),
+                "id_contrato", r.getContrato().getId(),
+                "user_id", usuario.getId(),
+                "contenido", buildContenidoRecibo(r),
+                "embedding", embedding
+        );
+
+        String json = mapper.writeValueAsString(List.of(registro));
+
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/recibos_embeddings")
+                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Authorization", "Bearer " + SUPABASE_SERVICE_ROLE_KEY)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("❌ Supabase Error: " +
+                        response.code() + " - " + response.body().string());
+            }
+            LOGGER.info("✅ Embedding recibo creado: {}", r.getId());
+        }
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void generarEmbeddingsParaUsuario(Long userId) {
+        List<Recibo> recibos = reciboRepository.findByUsuarioId(userId);
+
+        recibos.forEach(c -> {
+            try {
+                upsertReciboEmbedding(c);
+            } catch (Exception e) {
+                LOGGER.error("Error generando embedding para recibos {}: {}", c.getId(), e.getMessage());
+            }
+        });
+
+        LOGGER.info("✅ Embeddings generados para {} contratos del usuario {}", recibos.size(), userId);
+    }
 
     @Override
     @Transactional
-    public ReciboSalidaDto modificarEstado(ReciboModificacionDto reciboModificacionDto) throws ResourceNotFoundException {
-        LOGGER.info("Iniciando la modificación del estado del recibo con ID: " + reciboModificacionDto.getId());
+    public ReciboSalidaDto modificarEstado(ReciboModificacionDto dto) throws ResourceNotFoundException {
 
-        // Buscar el recibo por ID
-        Recibo recibo = reciboRepository.findById(reciboModificacionDto.getId())
-                .orElseThrow(() -> {
-                    LOGGER.error("Recibo no encontrado con ID: " + reciboModificacionDto.getId());
-                    return new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboModificacionDto.getId());
-                });
+        Long reciboId = dto.getId();
+        boolean nuevoEstado = dto.getEstado();
 
-        // Actualizar el estado del recibo
-        recibo.setEstado(reciboModificacionDto.getEstado());
+        LOGGER.info("Iniciando la modificación del estado del recibo con ID: {}", reciboId);
 
-        // Guardar el recibo actualizado
-        Recibo reciboActualizado = reciboRepository.save(recibo);
-        LOGGER.info("Estado del recibo actualizado exitosamente. Nuevo estado: " + reciboActualizado.getEstado());
+        // 1) Traer SOLO el contratoId (barato)
+        Long contratoId = reciboRepository.findContratoIdByReciboId(reciboId);
+        if (contratoId == null) {
+            throw new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId);
+        }
 
-        // Mapear la entidad actualizada a DTO de salida y retornarlo
-        return modelMapper.map(reciboActualizado, ReciboSalidaDto.class);
+        // 2) Update directo (NO carga entidad, NO cascades, NO trae grafo)
+        int updated = reciboRepository.updateEstado(reciboId, nuevoEstado);
+        if (updated == 0) {
+            throw new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId);
+        }
+
+        // 3) Update directo a impuestos (evita el SELECT gigante a la tabla impuesto + joins por herencia)
+        int impuestosUpdated = impuestoRepository.updateEstadoPagoByRecibo(reciboId, nuevoEstado);
+        LOGGER.info("✅ Se actualizaron {} impuestos del recibo {}", impuestosUpdated, reciboId);
+
+        // 4) Disparar sincronización pesada AFTER_COMMIT (Supabase + embedding + contrato)
+        applicationEventPublisher.publishEvent(
+                new ReciboEstadoActualizadoEvent(reciboId, contratoId, nuevoEstado)
+        );
+
+        // 5) Respuesta liviana (proyección, no ModelMapper tocando relaciones)
+        ReciboRepository.ReciboEstadoProjection p = reciboRepository.findEstadoProjectionById(reciboId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId));
+
+        ReciboSalidaDto salida = new ReciboSalidaDto();
+        salida.setId(p.getId());
+        salida.setEstado(p.getEstado());
+        salida.setContratoId(p.getContratoId());
+        salida.setNombreContrato(p.getNombreContrato());
+
+        return salida;
     }
 
     @PostConstruct
     void initMapper() {
         modelMapper.typeMap(Recibo.class, ReciboSalidaDto.class)
                 .addMappings(m -> {
-                    m.map(src -> src.getContrato().getId_contrato(), ReciboSalidaDto::setContratoId);
+                    m.map(src -> src.getContrato().getId(), ReciboSalidaDto::setContratoId);
                     m.map(src -> src.getContrato().getNombreContrato(), ReciboSalidaDto::setNombreContrato);
                 });
     }
@@ -319,6 +509,193 @@ public class ReciboService implements IReciboService {
         return recibos.stream()
                 .map(r -> modelMapper.map(r, ReciboSalidaDto.class))
                 .toList();
+    }
+
+    @Transactional
+    public List<ReciboSalidaDto> listarRecibosPorContrato(Long contratoId) throws ResourceNotFoundException {
+
+        Contrato contrato = contratoRepository.findById(contratoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado con ID: " + contratoId));
+
+        List<Recibo> recibos = reciboRepository.findByContratoIdConTodo(contratoId);
+
+        // Forzar inicialización de las relaciones
+        for (Recibo r : recibos) {
+            Hibernate.initialize(r.getContrato().getInquilino());
+            Hibernate.initialize(r.getContrato().getPropietario());
+            Hibernate.initialize(r.getContrato().getPropiedad());
+            Hibernate.initialize(r.getContrato().getUsuario());
+        }
+
+        return recibos.stream()
+                .map(r -> modelMapper.map(r, ReciboSalidaDto.class))
+                .toList();
+    }
+
+    @Transactional
+    public void eliminarRecibo(Long id) throws ResourceNotFoundException {
+        LOGGER.info("Iniciando eliminación del recibo con ID: {}", id);
+
+        Recibo recibo = reciboRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado con el ID: " + id));
+
+        Long contratoId = recibo.getContrato() != null
+                ? recibo.getContrato().getId()
+                : null;
+
+        // 1️⃣ Eliminar en MySQL (transaccional)
+        reciboRepository.delete(recibo);
+        LOGGER.info("✅ Recibo eliminado correctamente en MySQL con ID: {}", id);
+
+        // 2️⃣ Async SIN entidades JPA
+        CompletableFuture.runAsync(() -> {
+            try {
+                eliminarReciboDeSupabase(id, contratoId);
+
+                if (contratoId != null) {
+                    Contrato contrato = contratoRepository
+                            .findByIdConFetchCompleto(contratoId)
+                            .orElse(null);
+
+                    if (contrato != null) {
+                        contratoService.actualizarContratoEnSupabasePorId(contrato.getId());
+                        LOGGER.info("🔄 Contrato {} reindexado correctamente", contratoId);
+                    }
+                }
+
+            } catch (Exception e) {
+                LOGGER.error("⚠️ Error procesando eliminación en Supabase", e);
+            }
+        });
+    }
+    private void eliminarReciboDeSupabase(Long reciboId, Long contratoId) throws IOException {
+        OkHttpClient client = new OkHttpClient();
+
+        // 1️⃣ Borrar embeddings del recibo
+        Request reqEmb = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/recibos_embeddings?id_recibo=eq." + reciboId)
+                .delete()
+                .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Authorization", "Bearer " + SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Prefer", "return=minimal")
+                .build();
+        client.newCall(reqEmb).execute().close();
+        LOGGER.info("🧹 Embeddings eliminados para el recibo {}", reciboId);
+
+        // 2️⃣ Borrar recibo en Supabase
+        Request reqRecibo = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/recibos?id=eq." + reciboId)
+                .delete()
+                .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Authorization", "Bearer " + SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Prefer", "return=minimal")
+                .build();
+        client.newCall(reqRecibo).execute().close();
+        LOGGER.info("🗑️ Recibo {} eliminado en Supabase", reciboId);
+
+        // 3️⃣ 🔥 BORRAR EMBEDDINGS DEL CONTRATO ENTERO
+        if (contratoId != null) {
+            Request reqContratoEmb = new Request.Builder()
+                    .url(SUPABASE_URL + "/rest/v1/contratos_embeddings?id_contrato=eq." + contratoId)
+                    .delete()
+                    .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
+                    .addHeader("Authorization", "Bearer " + SUPABASE_SERVICE_ROLE_KEY)
+                    .addHeader("Prefer", "return=minimal")
+                    .build();
+
+            client.newCall(reqContratoEmb).execute().close();
+            LOGGER.info("💣 Embeddings del contrato {} eliminados completamente (chunk viejo eliminado)", contratoId);
+        }
+    }
+
+    @Transactional
+    public void guardarReciboEnSupabasePorProjection(ReciboSyncProjection d)
+            throws IOException {
+
+        OkHttpClient client = new OkHttpClient();
+        ObjectMapper mapper = new ObjectMapper();
+
+        // ya vienen como String (o null) desde la proyección
+        String fechaEmision = d.getFechaEmision();
+        String fechaVencimiento = d.getFechaVencimiento();
+
+        Map<String, Object> registro = Map.of(
+                "id", d.getIdRecibo(),
+                "id_contrato", d.getContratoId(),
+                "user_id", d.getUserId(),
+                "numero_recibo", d.getNumeroRecibo(),
+                "monto_total", d.getMontoTotal(),
+                "periodo", d.getPeriodo(),
+                "concepto", d.getConcepto(),
+                "fecha_emision", fechaEmision,
+                "fecha_vencimiento", fechaVencimiento,
+                "pagado", Boolean.TRUE.equals(d.getEstado())
+        );
+
+        String json = mapper.writeValueAsString(List.of(registro));
+
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/recibos")
+                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
+                .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Authorization", "Bearer " + SUPABASE_SERVICE_ROLE_KEY)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) {
+                throw new IOException("❌ Supabase /recibos: " + response.code() + " - " + body);
+            }
+            LOGGER.info("✅ Recibo upsert en Supabase: {} (pagado={})", d.getIdRecibo(), d.getEstado());
+        }
+    }
+
+    @Transactional
+    public void upsertReciboEmbeddingPorProjection(ReciboSyncProjection d)
+            throws IOException, InterruptedException {
+
+        OkHttpClient client = new OkHttpClient();
+        ObjectMapper mapper = new ObjectMapper();
+
+        String contenido = buildContenidoRecibo(d);
+        List<Float> embedding = embeddingService.generarEmbedding(contenido);
+
+        Map<String, Object> registro = Map.of(
+                "id_recibo", d.getIdRecibo(),
+                "id_contrato", d.getContratoId(),
+                "user_id", d.getUserId(),
+                "contenido", contenido,
+                "embedding", embedding
+        );
+
+        String json = mapper.writeValueAsString(List.of(registro));
+
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/recibos_embeddings")
+                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Authorization", "Bearer " + SUPABASE_SERVICE_ROLE_KEY)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) {
+                throw new IOException("❌ Supabase /recibos_embeddings: " + response.code() + " - " + body);
+            }
+            LOGGER.info("✅ Embedding recibo creado: {}", d.getIdRecibo());
+        }
+    }
+
+    private String buildContenidoRecibo(ReciboSyncProjection d) {
+        return "RECIBO|id=" + d.getIdRecibo() +
+                " | contrato=" + d.getNombreContrato() +
+                " | periodo=" + d.getPeriodo() +
+                " | monto=" + d.getMontoTotal() +
+                " | pagado=" + (Boolean.TRUE.equals(d.getEstado()) ? "sí" : "no");
     }
 
 //    @Override
@@ -360,5 +737,8 @@ public class ReciboService implements IReciboService {
 //        reciboRepository.deleteAll(recibos);
 //        LOGGER.info("Se eliminaron {} recibos del contrato con ID: {}", recibos.size(), contratoId);
 //    }
+
+
+
 
 }

@@ -1,6 +1,7 @@
 package com.backend.crmInmobiliario.service;
 
 import com.backend.crmInmobiliario.DTO.entrada.garante.GaranteEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.GaranteDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
@@ -9,7 +10,9 @@ import java.util.List;
 
 @Service
 public interface IGaranteService {
+    GaranteSalidaDto editarGarante(GaranteDtoModificacion garanteDtoModificacion) throws ResourceNotFoundException;
 
+    List<GaranteSalidaDto> listarGarantesPorUsuarioId(Long userId);
 
     List<GaranteSalidaDto> listarGarantes();
 

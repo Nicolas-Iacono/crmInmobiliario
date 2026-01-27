@@ -8,6 +8,8 @@ import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoUser;
+import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioUser;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.IUserInquilinoService;
 import com.backend.crmInmobiliario.service.IUsuarioService;
@@ -15,6 +17,7 @@ import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.service.impl.InquilinoService;
 import com.backend.crmInmobiliario.service.impl.ReciboService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import com.backend.crmInmobiliario.utils.AuthUtil;
 import com.backend.crmInmobiliario.utils.JwtUtil;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
@@ -41,6 +44,16 @@ public class Inquilino {
     private final IUsuarioService userService;
     private final JwtUtil jwtUtil;
     private final ReciboService reciboService;
+    private final AuthUtil authUtil;
+
+
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<InquilinoSalidaDto>> listarMisInquilinos() {
+        Long userId = authUtil.extractUserId();
+        return ResponseEntity.ok(inquilinoService.listarInquilinosPorUsuarioId(userId));
+    }
 
     @CrossOrigin(origins = "https://tuinmo.net")
     @PreAuthorize("permitAll()")
@@ -67,7 +80,16 @@ public class Inquilino {
         List<ReciboSalidaDto> recibos = reciboService.obtenerPorInquilino(userId);
         return ResponseEntity.ok(recibos);
     }
-
+    @GetMapping("/generar-embeddings")
+    public ResponseEntity<?> generarEmbeddings() {
+        try {
+            Long userId = authUtil.extractUserId();
+            inquilinoService.generarEmbeddingsParaUsuario(userId);
+            return ResponseEntity.ok("✅ Embeddings generados correctamente");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
     @Transactional
     @PutMapping("/update")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -143,6 +165,15 @@ public class Inquilino {
         List<InquilinoSalidaDto> inquilinos = inquilinoService.buscarInquilinoPorUsuario(username);
         return ResponseEntity.ok(inquilinos);
     }
+
+
+    @GetMapping("/credenciales/{inquilinoId}")
+    public ResponseEntity<InquilinoUser> obtenerCredencialesPorInquilino(@PathVariable Long inquilinoId) {
+        InquilinoUser credenciales = inquilinoService.listarCredenciales(inquilinoId);
+        return ResponseEntity.ok(credenciales);
+
+    }
+
 //
 //    @PostMapping("/{id}/imagenes")
 //    public ResponseEntity<?> subirImagenesAInquilino(@PathVariable Long id,
@@ -163,4 +194,12 @@ public class Inquilino {
 //                    .body("Error al subir las imágenes: " + e.getMessage());
 //        }
 //    }
+
+    @DeleteMapping("/usuario-inquilino/{usuarioId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<String> eliminarUsuarioInquilino(@PathVariable Long usuarioId) {
+        inquilinoService.eliminarUsuarioCuentaInquilino(usuarioId);
+        return ResponseEntity.ok("Usuario inquilino eliminado correctamente sin borrar al inquilino.");
+    }
+
 }

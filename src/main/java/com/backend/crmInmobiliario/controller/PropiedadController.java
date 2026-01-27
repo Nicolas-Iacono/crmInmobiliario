@@ -6,15 +6,19 @@ import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSoloSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import com.backend.crmInmobiliario.repository.PropietarioRepository;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.service.impl.PropiedadService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import com.backend.crmInmobiliario.utils.AuthUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,6 +32,8 @@ import java.util.List;
 public class PropiedadController {
     private final PropiedadService propiedadService;
     private final ImagenService imagenService;
+    private final PropietarioRepository propietarioRepository;
+    private final AuthUtil authUtil;
 
 
     @Transactional
@@ -37,16 +43,11 @@ public class PropiedadController {
         return total;
     }
     @PostMapping("/create")
-    public ResponseEntity<ApiResponse<PropiedadSalidaDto>> crearPropiedad(@Valid @RequestBody PropiedadEntradaDto propiedadEntradaDto) {
-        try {
-            PropiedadSalidaDto propiedadSalidaDto = propiedadService.crearPropiedad(propiedadEntradaDto, propiedadEntradaDto.getId_propietario());
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(new ApiResponse<>("Propiedad creada correctamente.", propiedadSalidaDto));
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ApiResponse<>("El propietario no se encuentra en la base de datos", null));
-        }
+    public ResponseEntity<?> crearPropiedad(@RequestBody PropiedadEntradaDto dto, HttpServletRequest request) {
+        PropiedadSalidaDto salida = propiedadService.crearPropiedad(dto, request);
+        return ResponseEntity.ok(salida);
     }
+
 
 
     @PutMapping("/propiedad/{id}/asignar-propietario/{propietarioId}")
@@ -89,6 +90,18 @@ public class PropiedadController {
         return ResponseEntity.ok(propiedades);
     }
 
+    @GetMapping("/generar-embeddings")
+    public ResponseEntity<?> generarEmbeddings() {
+        try {
+            Long userId = authUtil.extractUserId();
+            propiedadService.generarEmbeddingsParaUsuario(userId);
+            return ResponseEntity.ok("✅ Embeddings generados correctamente");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
+
     @CrossOrigin(origins = "https://tuinmo.net")
     @PostMapping("/{id}/imagenes")
     public ResponseEntity<?> subirImagenesAPropiedad(@PathVariable Long id,
@@ -119,4 +132,29 @@ public class PropiedadController {
                     .body("Error al eliminar la imagen: " + e.getMessage());
         }
     }
+    @CrossOrigin(origins = "https://tuinmo.net")
+    @GetMapping("/por-propietario")
+    public ResponseEntity<List<PropiedadSoloSalidaDto>> obtenerMisPropiedades(Authentication auth) {
+        String email = auth.getName(); // viene del JWT
+        List<PropiedadSoloSalidaDto> propiedades = propiedadService.buscarPorEmailPropietario(email);
+        return ResponseEntity.ok(propiedades);
+    }
+
+    @GetMapping("/por-propietario/con-imagenes")
+    public ResponseEntity<List<PropiedadSalidaDto>> obtenerMisPropiedadesConImagenes(Authentication auth) {
+        String email = auth.getName();
+        var propietario = propietarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Propietario no encontrado"));
+
+        List<PropiedadSalidaDto> propiedades = propiedadService.buscarPorPropietarioConImagenes(propietario.getId());
+        return ResponseEntity.ok(propiedades);
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<PropiedadSalidaDto>> listarMisPropiedades() {
+        Long userId = authUtil.extractUserId();
+        return ResponseEntity.ok(propiedadService.listarPropiedadesPorUsuarioId(userId));
+    }
+
 }

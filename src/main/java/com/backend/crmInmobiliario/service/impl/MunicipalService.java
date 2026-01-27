@@ -37,6 +37,7 @@ public class MunicipalService implements IMunicipalService {
     @Override
     public ImpuestoMunicipalSalidaDto crearImpuestoMunicipal(ImpuestoMunicipalEntradaDto impuestoMunicipalEntradaDto) throws ResourceNotFoundException {
         Municipal municipalServicio = new Municipal();
+        municipalServicio.setMontoBase(impuestoMunicipalEntradaDto.getMontoBase());
         municipalServicio.setEmpresa(impuestoMunicipalEntradaDto.getEmpresa());
         municipalServicio.setPorcentaje(impuestoMunicipalEntradaDto.getPorcentaje());
         municipalServicio.setDescripcion(impuestoMunicipalEntradaDto.getDescripcion());
@@ -44,6 +45,7 @@ public class MunicipalService implements IMunicipalService {
         municipalServicio.setNumeroCliente(impuestoMunicipalEntradaDto.getNumeroCliente());
         municipalServicio.setMontoAPagar(impuestoMunicipalEntradaDto.getMontoAPagar());
         municipalServicio.setFechaFactura(impuestoMunicipalEntradaDto.getFechaFactura());
+
 
         Municipal servicioToSave = municipalRepository.save(municipalServicio);
         ImpuestoMunicipalSalidaDto municipalSalidaDto = modelMapper.map(servicioToSave, ImpuestoMunicipalSalidaDto.class);

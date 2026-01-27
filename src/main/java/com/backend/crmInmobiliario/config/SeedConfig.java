@@ -15,9 +15,10 @@ public class SeedConfig {
     CommandLineRunner seedPlans(PlanRepository repo) {
         return args -> {
             upsert(repo, "FREE", "Free", BigDecimal.ZERO, 3, true);
-            upsert(repo, "PLAN-PRO", "Pro", new BigDecimal("15000"), 10, true);
-            upsert(repo, "PLAN-PROF", "Pro+", new BigDecimal("25000"), 20, true);
-            upsert(repo, "PLAN-SUP", "Superior", new BigDecimal("35000"), 30, true);
+            upsert(repo, "PLAN-BARATO", "planBarato", new BigDecimal("20"), 5, true);
+            upsert(repo, "PLAN-PRO", "Pro", new BigDecimal("30000"), 10, true);
+            upsert(repo, "PLAN-PROF", "Pro+", new BigDecimal("35000"), 20, true);
+            upsert(repo, "PLAN-SUP", "Superior", new BigDecimal("45000"), 30, true);
         };
     }
 

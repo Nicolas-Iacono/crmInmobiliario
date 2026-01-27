@@ -4,6 +4,7 @@ import com.backend.crmInmobiliario.DTO.AuthResponse;
 import com.backend.crmInmobiliario.DTO.entrada.LoginEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.LoginInquilinoEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.usuarioPropietario.LoginPropietarioEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
@@ -28,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -40,7 +42,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
 import java.util.*;
@@ -50,18 +51,18 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
     private final Logger LOGGER = LoggerFactory.getLogger(UserService.class);
     @Autowired
-    private UsuarioRepository usuarioRepository;
+    private final UsuarioRepository usuarioRepository;
 
-    private EmailService emailService;
+    private final EmailService emailService;
 
-    private JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
 
-    private PasswordEncoder passwordEncoder;
-    private EntityManager entityManager;
+    private final PasswordEncoder passwordEncoder;
+    private final EntityManager entityManager;
 
-    private RoleRepository roleRepository;
+    private final RoleRepository roleRepository;
 
-    private ModelMapper modelMapper;
+    private final ModelMapper modelMapper;
 
     public UserService(EmailService emailService, UsuarioRepository usuarioRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder, EntityManager entityManager, RoleRepository roleRepository, ModelMapper modelMapper) {
         this.usuarioRepository = usuarioRepository;
@@ -245,9 +246,9 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
     @Override
     @Transactional
-    public UsuarioDtoSalida buscarUsuarioPorUsername(String username) throws ResourceNotFoundException {
-        Usuario usuario = usuarioRepository.findUserByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("No se encontró el usuario con username: " + username));
+    public UsuarioDtoSalida buscarUsuarioPorNombreNegocio(String nombreNegocio) throws ResourceNotFoundException {
+        Usuario usuario = usuarioRepository.findUserByNombreNegocio(nombreNegocio)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró el usuario con inmobiliaria: " + nombreNegocio));
 
         UsuarioDtoSalida dto = new UsuarioDtoSalida();
         dto.setId(usuario.getId());
@@ -301,33 +302,61 @@ public class UserService implements IUsuarioService, UserDetailsService {
         return null;
 
     }
-
     @Override
+    @Transactional // importante para que la sesión esté abierta mientras validás roles
     public AuthResponse loginUser(LoginEntradaDto loginEntradaDto) {
 
-        String username = loginEntradaDto.username();
+        String identifier = loginEntradaDto.username(); // puede ser email o nombreNegocio
         String password = loginEntradaDto.password();
 
-        Authentication authentication = this.authenticate(username, password);
+        // 1️⃣ Buscar usuario con roles (y permisos si aplica)
+        Usuario usuario = usuarioRepository.findByIdentifierWithRolesAndPerms(identifier)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        // 2️⃣ Validar contraseña
+        if (!passwordEncoder.matches(password, usuario.getPassword())) {
+            throw new BadCredentialsException("Credenciales inválidas");
+        }
+
+        // 3️⃣ Bloquear roles propietarios e inquilinos
+        boolean tieneRolRestringido = usuario.getRoles().stream()
+                .map(role -> role.getRol().toUpperCase())
+                .anyMatch(nombreRol -> nombreRol.equals("PROPIETARIO_USER") || nombreRol.equals("INQUILINO_USER"));
+
+        if (tieneRolRestringido) {
+            throw new AccessDeniedException("Este tipo de usuario no tiene acceso al panel principal.");
+        }
+
+        // 4️⃣ Autenticar y generar token
+        Authentication authentication = this.authenticate(identifier, password);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // Incluir el userId como claim en el JWT para poder leerlo luego (p.ej. estado de link con Google)
-        Long userId = usuarioRepository.findUserByUsername(username)
-                .map(Usuario::getId)
-                .orElse(null);
+        Long userId = usuario.getId();
+        String accessToken = jwtUtil.createAccessToken(authentication, userId);
 
-        String accesToken = jwtUtil.createAccessToken(authentication, userId);
-
-
-        AuthResponse authResponse = new AuthResponse(username,
-                "usuario logueado correctamente",
-                accesToken,
+        // 5️⃣ Responder
+        return new AuthResponse(
+                usuario.getUsername(), // ✅ devolvé el username real (interno)
+                "Usuario logueado correctamente",
+                accessToken,
                 true
-                );
-
-        return authResponse;
+        );
     }
+    public UsuarioDtoSalida obtenerUsuarioPorIdDesdeToken(Long userId) {
+        Usuario usuario = usuarioRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
+        UsuarioDtoSalida dto = modelMapper.map(usuario, UsuarioDtoSalida.class);
+
+        // ✅ Asegurar que el logo sea la URL
+        if (usuario.getLogoInmobiliaria() != null) {
+            dto.setLogo(usuario.getLogoInmobiliaria().getImageUrl());
+        } else {
+            dto.setLogo(null);
+        }
+
+        return dto;
+    }
     @Override
     public AuthResponse loginInquilino(LoginInquilinoEntradaDto loginEntradaDto) {
 
@@ -352,6 +381,30 @@ public class UserService implements IUsuarioService, UserDetailsService {
         );
     }
 
+    @Override
+    public AuthResponse loginPropietario(LoginPropietarioEntradaDto loginEntradaDto) {
+
+        String email = loginEntradaDto.getEmail();
+        String password = loginEntradaDto.getPassword();
+
+        Authentication authentication = this.authenticate(email, password);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // Buscamos el ID del usuario para incluirlo en el JWT
+        Long userId = usuarioRepository.findByEmail(email)
+                .map(Usuario::getId)
+                .orElse(null);
+
+        String accessToken = jwtUtil.createAccessToken(authentication, userId);
+
+        return new AuthResponse(
+                email,
+                "Propietario logueado correctamente",
+                accessToken,
+                true
+        );
+    }
+
 
 
 
@@ -371,27 +424,25 @@ public class UserService implements IUsuarioService, UserDetailsService {
     }
 
     @Override
-    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
-        Usuario user = usuarioRepository.findUserByUsername(usernameOrEmail)
-                .or(() -> usuarioRepository.findByEmail(usernameOrEmail))
-                .orElseThrow(() -> new UsernameNotFoundException("El usuario " + usernameOrEmail + " no existe"));
+    public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
+        Usuario user = usuarioRepository.findByIdentifierWithRoles(identifier)
+                .orElseThrow(() -> new UsernameNotFoundException("El usuario no existe: " + identifier));
 
-        List<SimpleGrantedAuthority> authorityList = new ArrayList<>();
-        user.getRoles().forEach(role -> authorityList.add(new SimpleGrantedAuthority("ROLE_" + role.getRol())));
+        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+        user.getRoles().forEach(role ->
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getRol()))
+        );
         user.getRoles().stream()
                 .flatMap(role -> role.getPermisosList().stream())
-                .forEach(permission -> authorityList.add(new SimpleGrantedAuthority(permission.getName())));
+                .forEach(perm -> authorities.add(new SimpleGrantedAuthority(perm.getName())));
 
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
                 user.getPassword(),
-                user.isAccountNonLocked(),
-                user.isEnabled(),
-                user.isAccountNonLocked(),
-                user.isAccountNonExpired(),
-                authorityList
+                authorities
         );
     }
+
 
     @Transactional
     @Override
@@ -417,8 +468,9 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
     @Override
     @Transactional
-    public void deleteAccountByUsername(String username) {
-        int deleted = usuarioRepository.deleteByUsername(username);
-        if (deleted == 0) throw new EntityNotFoundException("Usuario no encontrado");
+    public boolean deleteAccountByNombreNegocio(String nombreNegocio) {
+        int deleted = usuarioRepository.deleteByNombreNegocio(nombreNegocio);
+        LOGGER.info("deleteByNombreNegocio('{}') -> {} fila(s) borrada(s)", nombreNegocio, deleted);
+        return deleted > 0;
     }
 }

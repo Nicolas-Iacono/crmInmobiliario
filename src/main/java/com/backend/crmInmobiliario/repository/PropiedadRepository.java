@@ -17,4 +17,13 @@ public interface PropiedadRepository extends JpaRepository<Propiedad,Long> {
     List<Propiedad> findPropiedadByUsername(@Param("username") String username);
     int countByUsuarioUsername(String username);
 
+
+    @Query("SELECT pr FROM Propiedad pr WHERE pr.propietario.email = :email")
+    List<Propiedad> findByPropietarioEmail(@Param("email") String email);
+
+    @Query("SELECT DISTINCT p FROM Propiedad p LEFT JOIN FETCH p.imagenes WHERE p.propietario.id = :propietarioId")
+    List<Propiedad> findByPropietarioIdWithImages(@Param("propietarioId") Long propietarioId);
+
+    List<Propiedad> findByUsuarioId(Long userId);
+    int countByUsuarioId(Long userId);
 }

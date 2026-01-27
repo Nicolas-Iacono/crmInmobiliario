@@ -15,7 +15,7 @@ import java.util.List;
 public class ReciboSalidaDto {
 
     private Long id;
-    private ContratoIdSalidaDto contratoId;
+    private Long contratoId;
     private LocalDate fechaEmision;
     private LocalDate fechaVencimiento;
     private String periodo;

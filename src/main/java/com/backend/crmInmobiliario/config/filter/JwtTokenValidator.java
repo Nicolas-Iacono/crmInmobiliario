@@ -9,6 +9,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -27,6 +28,7 @@ import java.util.Collection;
 public class JwtTokenValidator extends OncePerRequestFilter {
 
     @Autowired
+    @Lazy
     private UserDetailsService userDetailsService;
     @Autowired
     private JwtUtil jwtUtil;
@@ -36,6 +38,9 @@ public class JwtTokenValidator extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
+        System.out.println("🟣 Request entrante: " + request.getMethod() + " " + request.getRequestURI());
+        System.out.println("🔸 Origin: " + request.getHeader("Origin"));
+        System.out.println("🔸 Authorization: " + request.getHeader("Authorization"));
 
         String jwtToken = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (jwtToken != null && jwtToken.startsWith("Bearer ")) {
@@ -44,7 +49,7 @@ public class JwtTokenValidator extends OncePerRequestFilter {
             try {
                 DecodedJWT decodedJWT = jwtUtil.validateAccessToken(jwtToken);
 
-                String username = jwtUtil.extractUsername(decodedJWT);
+                String email = jwtUtil.extractUsername(decodedJWT);
                 String stringAuthorities = jwtUtil.getSpecifClaim(decodedJWT, "authorities").asString();
                 Long userId = jwtUtil.getSpecifClaim(decodedJWT, "userId").asLong(); // 🔹 acá obtenemos el userId
 
@@ -55,7 +60,7 @@ public class JwtTokenValidator extends OncePerRequestFilter {
 
                 // 🔹 Creamos la autenticación con los roles
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(username, null, authorities);
+                        new UsernamePasswordAuthenticationToken(email, null, authorities);
 
                 // 🔹 Guardamos el userId como detalle adicional del token
                 authentication.setDetails(java.util.Map.of("userId", userId));
@@ -79,6 +84,9 @@ public class JwtTokenValidator extends OncePerRequestFilter {
                 return;
             }
         }
+        System.out.println("🟣 Request entrante: " + request.getMethod() + " " + request.getRequestURI());
+        System.out.println("🔸 Origin: " + request.getHeader("Origin"));
+        System.out.println("🔸 Authorization: " + request.getHeader("Authorization"));
 
         // si no hay token, igual dejamos pasar (para endpoints permitAll)
         filterChain.doFilter(request, response);
@@ -93,5 +101,26 @@ public class JwtTokenValidator extends OncePerRequestFilter {
         if (req.getCookies() == null) return null;
         for (Cookie c : req.getCookies()) if (name.equals(c.getName())) return c.getValue();
         return null;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+
+        // Todo lo público que NO debe validar JWT
+        return path.equals("/api/inquilino/login")
+                || path.equals("/api/propietario/login")
+                || path.equals("/api/usuario/login")
+
+                || path.equals("/api/inquilino/register")
+                || path.equals("/api/propietario/register")
+                || path.equals("/api/usuario/registrar-admin")
+
+                || path.equals("/api/webhooks/mercadopago")
+                || path.equals("/api/webhooks/n8n/stripe/past-due")
+                || path.equals("/api/subscriptions/provider-event")
+
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs");
     }
 }

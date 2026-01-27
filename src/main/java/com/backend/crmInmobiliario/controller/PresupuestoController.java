@@ -45,9 +45,9 @@ public class PresupuestoController {
     // ✅ Listar por username (ruta explícita)
     @PreAuthorize("permitAll()")
     @Transactional
-    @GetMapping("/usuario/{username}")
-    public ResponseEntity<?> listarPorUsuario(@PathVariable String username) {
-        return ResponseEntity.ok(presupuestoService.listarPorUsuario(username));
+    @GetMapping("/id-user/{id}")
+    public ResponseEntity<?> listarPorUsuarioId(@PathVariable Long id) {
+        return ResponseEntity.ok(presupuestoService.listarPorUsuarioId(id));
     }
 
     @DeleteMapping("/{id}")

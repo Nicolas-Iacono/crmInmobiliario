@@ -4,13 +4,15 @@ import com.backend.crmInmobiliario.DTO.entrada.propiedades.PropiedadEntradaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSoloSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 
 public interface IPropiedadService {
     List<PropiedadSoloSalidaDto> listarPropiedades();
 
-    PropiedadSalidaDto crearPropiedad (PropiedadEntradaDto propiedadEntradaDto, Long propietarioId) throws ResourceNotFoundException;
+    PropiedadSalidaDto crearPropiedad(PropiedadEntradaDto propiedadEntradaDto, HttpServletRequest request)
+            throws ResourceNotFoundException;
 
     PropiedadSalidaDto buscarPropiedadPorId(Long id) throws ResourceNotFoundException;
 
@@ -21,4 +23,8 @@ public interface IPropiedadService {
     List<PropiedadSalidaDto> buscarPropiedadesPorUsuario(String username);
 
     Integer enumerarPropiedades(String username);
+
+    List<PropiedadSoloSalidaDto> buscarPorEmailPropietario(String email);
+
+    List<PropiedadSalidaDto> listarPropiedadesPorUsuarioId(Long userId);
 }

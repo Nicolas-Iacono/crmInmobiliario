@@ -31,6 +31,24 @@ public class WebhookController {
             @RequestParam(name = "type", required = false) String typeParam,
             @RequestHeader Map<String, String> headers) {
 
+        // ---------------------------------------------------------
+        // 🔹 LOGS DETALLADOS DEL WEBHOOK RECIBIDO
+        // ---------------------------------------------------------
+        logger.info("📬 Webhook recibido de Mercado Pago");
+        logger.info("─────────────────────────────────────────────");
+        logger.info("🔸 Type param: {}", typeParam);
+        logger.info("🔸 DataId param: {}", dataIdParam);
+
+        if (payload != null) {
+            logger.info("🔹 Payload keys: {}", payload.keySet());
+            logger.info("🔹 Payload completo: {}", payload);
+        } else {
+            logger.info("🔹 Payload: <VACÍO>");
+        }
+
+        logger.info("🔹 Headers: {}", headers);
+        logger.info("─────────────────────────────────────────────");
+
         // Nota: La notificación puede venir con el ID en el cuerpo o en los query params.
         String type = typeParam;
         String dataId = dataIdParam;
@@ -51,6 +69,10 @@ public class WebhookController {
             logger.warn("Webhook recibido sin tipo o ID de datos: Type={}, DataId={}", type, dataId);
             return ResponseEntity.badRequest().build();
         }
+        // ---------------------------------------------------------
+        // 🔹 Log de confirmación final
+        // ---------------------------------------------------------
+        logger.info("✅ Webhook listo para procesar → Type={}, DataId={}", type, dataId);
 
         // --- REQUISITO 2A: DEVOLVER 200 OK INMEDIATAMENTE ---
         // Llamamos al servicio de manera asíncrona para liberar el hilo del request

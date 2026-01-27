@@ -6,12 +6,14 @@ import com.backend.crmInmobiliario.DTO.salida.PropietarioContratoDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteContratoDtoSalida;
+import com.backend.crmInmobiliario.entity.EstadoContrato;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-
+import java.util.Set;
 
 
 @Data
@@ -29,18 +31,19 @@ public class ContratoSalidaSinGaranteDto {
     private double montoAlquiler;
     private int duracion;
     private boolean activo;
-
+    private String estado;
+    private String tipoGarantia;
     private String aguaEmpresa;
     private int aguaPorcentaje;
 
     private String luzEmpresa;
-    private int luzPorcentaje;
+    private BigDecimal luzPorcentaje;
 
     private String gasEmpresa;
-    private int gasPorcentaje;
+    private BigDecimal gasPorcentaje;
 
     private String municipalEmpresa;
-    private int municipalPorcentaje;
+    private BigDecimal municipalPorcentaje;
     //    private ImpuestosGeneralSalidaDto impuestos;
     private List<ReciboSalidaDto> recibos;
 
@@ -54,5 +57,5 @@ public class ContratoSalidaSinGaranteDto {
     //    private ContratoPdfSalidaDto pdfSalidaDto;
     private UsuarioDtoSalida usuarioDtoSalida;
 
-
+    private Set<EstadoContrato> estados;
 }

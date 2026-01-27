@@ -15,7 +15,7 @@ import java.util.List;
 @Entity
 @NoArgsConstructor
 @Table(name = "inquilinos")
-public class Inquilino extends Persona{
+public class  Inquilino extends Persona{
 
     @ManyToOne
     @JoinColumn(name = "usuario_id")
@@ -26,9 +26,15 @@ public class Inquilino extends Persona{
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_cuenta_id")
     @ToString.Exclude
-    @JsonIgnore // ⛔ evita recursión con usuarioCuentaInquilino
+    @JsonIgnore // evita recursión en serialización JSON
     private Usuario usuarioCuentaInquilino;
-//
-//    @OneToMany(mappedBy = "inquilino", cascade = CascadeType.ALL, orphanRemoval = true)
-//    private List<ImageUrls> imagenes = new ArrayList<>();
+
+    @Column(name = "activo")
+    private boolean activo = false;
+
+    @OneToMany(mappedBy = "inquilino", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    @ToString.Exclude
+    private List<Documento> documentos = new ArrayList<>();
+
 }

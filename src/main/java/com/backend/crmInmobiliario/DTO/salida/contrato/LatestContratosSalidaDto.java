@@ -4,11 +4,13 @@ import com.backend.crmInmobiliario.DTO.entrada.inquilino.InquilinoContratoDtoSal
 import com.backend.crmInmobiliario.DTO.salida.*;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
+import com.backend.crmInmobiliario.entity.EstadoContrato;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -19,4 +21,5 @@ public class LatestContratosSalidaDto {
     private InquilinoContratoDtoSalida inquilino;
     private PropiedadContratoSalidaDto propiedad;
     private UsuarioDtoSalida usuarioDtoSalida;
+    private Set<EstadoContrato> estados;
 }

@@ -12,13 +12,16 @@ import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
 import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
+import com.backend.crmInmobiliario.entity.Usuario;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IUsuarioService;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
 import com.backend.crmInmobiliario.utils.JwtUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -42,11 +45,13 @@ public class UsuarioController {
     private IUsuarioService userService;
     private ImagenService imagenService;
     private UsuarioRepository usuarioRepository;
-    public UsuarioController(JwtUtil jwtUtil,     IUsuarioService userService, ImagenService imagenService,UsuarioRepository usuarioRepository) {
+    private ModelMapper modelMapper;
+    public UsuarioController(ModelMapper modelMapper,JwtUtil jwtUtil,     IUsuarioService userService, ImagenService imagenService,UsuarioRepository usuarioRepository) {
         this.userService = userService;
         this.imagenService = imagenService;
         this.usuarioRepository = usuarioRepository;
         this.jwtUtil = jwtUtil;
+        this.modelMapper = modelMapper;
     }
 
     @PreAuthorize("permitAll()")
@@ -97,6 +102,37 @@ public class UsuarioController {
     public ResponseEntity<AuthResponse> login (@RequestBody LoginEntradaDto loginEntradaDto){
         return new ResponseEntity<>(this.userService.loginUser(loginEntradaDto), HttpStatus.OK);
     }
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UsuarioDtoSalida> obtenerMiUsuario(HttpServletRequest request) {
+
+
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String token = authHeader.substring(7);
+
+        // ✅ Validar y decodificar token
+        DecodedJWT decodedJWT = jwtUtil.validateAccessToken(token);
+
+        // ✅ Extraer userId del JWT
+        Long userId = jwtUtil.extractUserId(decodedJWT);
+
+        Usuario usuario = usuarioRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        UsuarioDtoSalida dto = modelMapper.map(usuario, UsuarioDtoSalida.class);
+
+        // ✅ Ajuste extra: devolver la URL del logo correctamente
+        if (usuario.getLogoInmobiliaria() != null) {
+            dto.setLogo(usuario.getLogoInmobiliaria().getImageUrl());
+        }
+
+        return ResponseEntity.ok(dto);
+    }
+
 
     @CrossOrigin(origins = "https://tuinmo.net")
     @PostMapping("/{id}/logo")
@@ -129,16 +165,16 @@ public class UsuarioController {
         }
     }
 
-    @GetMapping("/username/{username}")
+    @GetMapping("/nombre-negocio/{nombreNegocio}")
     @CrossOrigin(origins = "https://tuinmo.net")
     @PreAuthorize("permitAll()")
-    public ResponseEntity<?> obtenerUsuarioPorUsername(@PathVariable String username) {
+    public ResponseEntity<?> obtenerUsuarioPorNombreNegocio(@PathVariable String nombreNegocio) {
         try {
-            UsuarioDtoSalida usuario = userService.buscarUsuarioPorUsername(username);
+            UsuarioDtoSalida usuario = userService.buscarUsuarioPorNombreNegocio(nombreNegocio);
             return ResponseEntity.ok(usuario);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ApiResponse<>("Usuario no encontrado con username: " + username, null));
+                    .body(new ApiResponse<>("Usuario no encontrado con nombreNegocio: " + nombreNegocio, null));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>("Error inesperado", null));
@@ -160,10 +196,15 @@ public class UsuarioController {
     }
 
     @PreAuthorize("#username == authentication.name or hasAnyRole('ADMIN','SUPER_ADMIN')")
-    @DeleteMapping("/{username}")
-    public ResponseEntity<Void> deleteByUsername(@PathVariable String username) {
-        userService.deleteAccountByUsername(username);
-        return ResponseEntity.noContent().build();
+    @DeleteMapping("/{nombreNegocio}")
+    public ResponseEntity<?> deleteByNombreNegocio(@PathVariable String nombreNegocio) {
+        boolean deleted = userService.deleteAccountByNombreNegocio(nombreNegocio);
+
+        if (!deleted) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuario no encontrado");
+        }
+
+        return ResponseEntity.noContent().build(); // 204
     }
     @CrossOrigin(origins = "https://tuinmo.net")
     @PreAuthorize("permitAll()")

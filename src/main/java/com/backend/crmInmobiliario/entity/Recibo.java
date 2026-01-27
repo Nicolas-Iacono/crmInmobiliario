@@ -28,7 +28,7 @@ public class Recibo {
     @Column(name = "id_recibo")
     private Long id;
 
-    @CreationTimestamp
+    @Column(name = "fecha_emision", nullable = false)
     private LocalDate fechaEmision;
 
     @ManyToOne(fetch = FetchType.LAZY)

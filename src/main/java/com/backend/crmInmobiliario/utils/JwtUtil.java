@@ -6,7 +6,10 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.backend.crmInmobiliario.entity.Usuario;
+import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -24,7 +27,8 @@ public class JwtUtil {
     private String privateKey;
     @Value("${security.jwt.user.generator}")
     private String userGenerator;
-
+    @Autowired
+    private UsuarioRepository usuarioRepository;
     // ====== Config ======
     private static final long SKEW_MS = 5_000;               // tolerancia local
     private static final long ACCESS_TTL_MS = 3 * 60 * 60 * 1000;
@@ -97,17 +101,32 @@ public class JwtUtil {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
-        return JWT.create()
+        // 🔎 Buscar el usuario real desde la BD para ver si tiene propietario asociado
+        Usuario usuario = usuarioRepository.findUserById(userId)
+                .orElse(null);
+
+        Long propietarioId = null;
+        if (usuario != null && usuario.getPropietario() != null) {
+            propietarioId = usuario.getPropietario().getId();
+        }
+
+        // 🔐 Crear token
+        var jwt = JWT.create()
                 .withIssuer(userGenerator)
                 .withSubject(username)
                 .withClaim("authorities", authorities)
                 .withClaim("userId", userId)
+                // ⚡ NUEVO CLAIM
+                .withClaim("propietarioId", propietarioId)
                 .withIssuedAt(new Date(now))
                 .withNotBefore(new Date(now - SKEW_MS))
                 .withExpiresAt(new Date(now + ACCESS_TTL_MS))
                 .withJWTId(UUID.randomUUID().toString())
                 .sign(alg());
+
+        return jwt;
     }
+
 
     // ====== Validate (separadas) ======
     public DecodedJWT validateAccessToken(String token) {

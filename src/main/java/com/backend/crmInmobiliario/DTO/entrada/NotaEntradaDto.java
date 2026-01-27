@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.DTO.entrada;
 
 
 import com.backend.crmInmobiliario.entity.EstadoNota;
+import com.backend.crmInmobiliario.entity.VisibilidadNota;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -28,6 +29,6 @@ public class NotaEntradaDto {
 
     private String observaciones; // Campo adicional para comentarios libres
 
-
+    private VisibilidadNota visibilidad;
 
 }

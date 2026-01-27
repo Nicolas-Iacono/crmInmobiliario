@@ -43,6 +43,7 @@ public class AguaService implements IAguaService {
     @Override
     public ImpuestoAguaSalidaDto crearImpuestoAgua(ImpuestoAguaEntradaDto impuestoAguaEntradaDto) throws ResourceNotFoundException {
        Agua aguaServicio = new Agua();
+       aguaServicio.setMontoBase(impuestoAguaEntradaDto.getMontoBase());
        aguaServicio.setEmpresa(impuestoAguaEntradaDto.getEmpresa());
        aguaServicio.setPorcentaje(impuestoAguaEntradaDto.getPorcentaje());
        aguaServicio.setDescripcion(impuestoAguaEntradaDto.getDescripcion());

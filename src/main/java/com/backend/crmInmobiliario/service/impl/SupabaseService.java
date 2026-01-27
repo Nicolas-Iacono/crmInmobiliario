@@ -17,7 +17,7 @@ public class SupabaseService {
     private final String apiKey = System.getenv("OPENAI_API_KEY");
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    private final String supabaseUrl = "https://<tu-proyecto>.supabase.co";
+    private final String supabaseUrl = "https://kksdxwqcgrbemlpgjifr.supabase.co";
     private final String supabaseKey = System.getenv("SUPABASE_KEY");
 
     public void insertarDocumentoEmbedding(String tipo,

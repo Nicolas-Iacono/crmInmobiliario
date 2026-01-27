@@ -1,6 +1,8 @@
 package com.backend.crmInmobiliario.controller;
 
 import com.backend.crmInmobiliario.DTO.entrada.garante.GaranteEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.GaranteDtoModificacion;
+import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -8,6 +10,8 @@ import com.backend.crmInmobiliario.service.impl.ContratoService;
 import com.backend.crmInmobiliario.service.impl.GaranteService;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import com.backend.crmInmobiliario.utils.AuthUtil;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -26,6 +30,14 @@ public class GaranteController {
     private final GaranteService garanteService;
     private final ContratoService contratoService;
     private final ImagenService imagenService;
+    private final AuthUtil authUtil;
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<GaranteSalidaDto>> listarMisGarantes() {
+        Long userId = authUtil.extractUserId();
+        return ResponseEntity.ok(garanteService.listarGarantesPorUsuarioId(userId));
+    }
 
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<GaranteSalidaDto>>> allGarantes(){
@@ -70,6 +82,16 @@ public class GaranteController {
                     .body(new ApiResponse<>("No se encontro el garante buscado, ", null));
         }
     }
+    @GetMapping("/generar-embeddings")
+    public ResponseEntity<?> generarEmbeddings() {
+        try {
+            Long userId = authUtil.extractUserId();
+            garanteService.generarEmbeddingsParaUsuario(userId);
+            return ResponseEntity.ok("✅ Embeddings generados correctamente");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
 
     @CrossOrigin(origins = "https://darkgreen-ferret-296866.hostingersite.com")
     @DeleteMapping("/delete/{id}")
@@ -94,24 +116,17 @@ public class GaranteController {
         return ResponseEntity.ok(garantes);
     }
 
-//    @PostMapping("/{id}/imagenes")
-//    public ResponseEntity<?> subirImagenesAGarante(@PathVariable Long id,
-//                                                   @RequestParam("files") MultipartFile[] archivos) {
-//        try {
-//            List<String> urls = imagenService.subirImagenesYAsociarAGarante(id, archivos);
-//            return ResponseEntity.ok(urls);
-//        } catch (Exception e) {
-//            // 🔥 Imprimí el error para debug
-//            e.printStackTrace();
-//
-//            // 🧠 Podés loguearlo con SLF4J si querés:
-//            // log.error("Error al subir imágenes", e);
-//
-//            // 💬 Devolvés una respuesta clara al frontend
-//            return ResponseEntity
-//                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-//                    .body("Error al subir las imágenes: " + e.getMessage());
-//        }
-//    }
+    @Transactional
+    @PutMapping("/update")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<GaranteSalidaDto>> editarGarante(@RequestBody GaranteDtoModificacion garanteDtoModificacion) {
+        try {
+            GaranteSalidaDto garanteSalidaDto = garanteService.editarGarante(garanteDtoModificacion);
+            return ResponseEntity.ok(new ApiResponse<>("garante editado correctamente.", garanteSalidaDto));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>("El garante no se encuentra en la DB", null));
+        }
+    }
 
 }

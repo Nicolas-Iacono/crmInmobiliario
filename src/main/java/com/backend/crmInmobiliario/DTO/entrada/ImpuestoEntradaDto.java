@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
@@ -15,11 +16,12 @@ public class ImpuestoEntradaDto {
     private String tipoImpuesto;
     private String descripcion;
     private String Empresa;
-    private int porcentaje;
+    private BigDecimal porcentaje;
+    private BigDecimal montoBase;
     private String numeroCliente;
     private String numeroMedidor;
     @NotNull(message = "El monto del impuesto es obligatorio")
-    private Double montoAPagar;
+    private BigDecimal montoAPagar;
     private LocalDate fechaFactura;
     private Boolean estadoPago;
     private MultipartFile archivoFactura;

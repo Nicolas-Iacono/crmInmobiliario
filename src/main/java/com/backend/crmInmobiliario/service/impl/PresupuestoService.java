@@ -77,8 +77,8 @@ public class PresupuestoService implements IPresupuestoService {
 
     @Override
     @Transactional
-    public List<PresupuestoSalidaDto> listarPorUsuario(String username) {
-        return presupuestoRepository.findByUsuario(username)
+    public List<PresupuestoSalidaDto> listarPorUsuarioId(Long id) {
+        return presupuestoRepository.findByUsuarioId(id)
                 .stream()
                 .map(this::mapToSalida) // ✅ evitamos NPE del mapper
                 .toList();

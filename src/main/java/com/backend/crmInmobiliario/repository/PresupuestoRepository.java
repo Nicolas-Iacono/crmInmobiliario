@@ -15,9 +15,9 @@ public interface PresupuestoRepository extends JpaRepository<Presupuesto, Long> 
            SELECT p
            FROM Presupuesto p
            JOIN FETCH p.usuario u
-           WHERE u.username = :username
+           WHERE u.id = :id
            """)
-    List<Presupuesto> findByUsuario(@Param("username") String username);
+    List<Presupuesto> findByUsuarioId(@Param("id") Long id);
 }
 
 

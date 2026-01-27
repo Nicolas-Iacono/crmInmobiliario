@@ -56,7 +56,7 @@ public class Usuario  implements UserDetails {
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private UsuarioGoogleAccount googleAccount;
 
-    @ManyToMany(fetch = FetchType.EAGER, targetEntity = Role.class, cascade = {CascadeType.MERGE, CascadeType.PERSIST})
+    @ManyToMany(fetch = FetchType.LAZY, targetEntity = Role.class, cascade = {CascadeType.MERGE, CascadeType.PERSIST})
     @JoinTable(
             name = "users_roles",
             joinColumns = @JoinColumn(name = "user_id"),
@@ -106,7 +106,16 @@ public class Usuario  implements UserDetails {
     @JsonIgnore // 🔥 evita ciclo con Inquilino
     private Inquilino inquilino;
 
+    @OneToOne
+    @JoinColumn(name = "propietario_id")
+    @ToString.Exclude
+    @JsonIgnore // 🔥 evita ciclo con Propietario
+    private Propietario propietario;
 
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @JsonIgnore
+    private List<PlantillaContrato> plantillasContrato = new ArrayList<>();
 
     // Getters y setters
 

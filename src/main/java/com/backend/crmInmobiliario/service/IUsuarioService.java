@@ -4,6 +4,7 @@ import com.backend.crmInmobiliario.DTO.AuthResponse;
 import com.backend.crmInmobiliario.DTO.entrada.LoginEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.LoginInquilinoEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.usuarioPropietario.LoginPropietarioEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
@@ -25,12 +26,10 @@ public interface IUsuarioService extends UserDetailsService  {
 
     TokenDtoSalida registrarUsuarioSuperAdmin(UserAdminEntradaDto superAdmin );
 
-//    TokenSalidaDto createUser(UserDTO usuario) throws DataIntegrityViolationException;
-//
-//    TokenSalidaDto createUserAdmin(UserAdminEntradaDto userAdminEntradaDto) throws DataIntegrityViolationException;
 
     UsuarioDtoSalida buscarUsuarioPorId(Long id) throws IOException, ResourceNotFoundException;
-    UsuarioDtoSalida buscarUsuarioPorUsername(String username) throws ResourceNotFoundException;
+
+    UsuarioDtoSalida buscarUsuarioPorNombreNegocio(String nombreNegocio) throws ResourceNotFoundException;
 
     void eliminarUsuario(Long id);
 
@@ -42,9 +41,13 @@ public interface IUsuarioService extends UserDetailsService  {
 
     AuthResponse loginUser(LoginEntradaDto loginEntradaDto);
 
+    UsuarioDtoSalida obtenerUsuarioPorIdDesdeToken(Long userId);
+
     AuthResponse loginInquilino(LoginInquilinoEntradaDto loginInquilinoEntradaDto);
+
+    AuthResponse loginPropietario(LoginPropietarioEntradaDto loginPropietarioEntradaDto);
 
     UsuarioDtoSalida actualizarUsuario(Long id, ActualizarUsuarioDto dto) throws ResourceNotFoundException;
 
-    void deleteAccountByUsername(String username);
+    boolean deleteAccountByNombreNegocio(String nombreNegocio);
 }

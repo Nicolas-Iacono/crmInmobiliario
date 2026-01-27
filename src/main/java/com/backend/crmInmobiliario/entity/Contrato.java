@@ -1,18 +1,17 @@
 package com.backend.crmInmobiliario.entity;
 
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
-import org.springframework.format.annotation.DateTimeFormat;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Date;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -25,9 +24,14 @@ public class Contrato {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_contrato")
-    private Long id_contrato;
+    private Long id;
     private String nombreContrato;
+    @Column(name = "fecha_inicio", columnDefinition = "DATE",updatable = false,       // ⬅️ clave
+            nullable = false)
     private LocalDate fecha_inicio;
+
+    @Column(name = "fecha_fin", columnDefinition = "DATE",updatable = false,       // ⬅️ clave
+            nullable = false)
     private LocalDate fecha_fin;
 
     @ManyToOne
@@ -37,12 +41,14 @@ public class Contrato {
     private Usuario usuario;
 
     @CreationTimestamp
-    @Column
-    @Temporal(TemporalType.TIMESTAMP)
-    private Date publicDate;
-//    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-//    @JoinColumn(name = "pdf_contrato_id")  // Columna en la tabla 'contrato' que hace referencia a la clave primaria de 'PdfContrato'
-//    private PdfContrato pdfContrato;
+    @Column(
+            name = "public_date",
+            columnDefinition = "DATE",
+            updatable = false,       // ⬅️ clave
+            nullable = false
+    )
+    private LocalDate publicDate;
+
 @Lob
 @Column(name = "inventario", length = 20000)
     private String pdfContratoTexto;
@@ -51,7 +57,7 @@ public class Contrato {
     @JoinColumn(name = "id_propietario", nullable = false)
     private Propietario propietario;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_inquilino", nullable = false)
     private Inquilino inquilino;
 
@@ -64,19 +70,24 @@ public class Contrato {
 
 
     private String aguaEmpresa;
-    private int aguaPorcentaje;
+    @Column(precision = 5, scale = 2)
+    private BigDecimal aguaPorcentaje;
 
     private String luzEmpresa;
-    private int luzPorcentaje;
+    @Column(precision = 5, scale = 2)
+    private BigDecimal luzPorcentaje;
 
     private String gasEmpresa;
-    private int gasPorcentaje;
+    @Column(precision = 5, scale = 2)
+    private BigDecimal gasPorcentaje;
 
     private String municipalEmpresa;
-    private int municipalPorcentaje;
+    @Column(precision = 5, scale = 2)
+    private BigDecimal municipalPorcentaje;
 
 
-
+    @Column(name = "tipo_garantia")
+    private String tipoGarantia;
 
     private int actualizacion;
     @Column(name = "monto_alquiler", nullable = false)
@@ -104,13 +115,21 @@ public class Contrato {
     @Column(name = "suscrito", nullable = false)
     private boolean suscrito = true; // cuenta sólo si está activo
 
+    @OneToMany(mappedBy = "contrato", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Documento> documentos = new ArrayList<>();
+
     public boolean isActivo() {
         return activo;
     }
 
+
     public void setActivo(boolean activo) {
         this.activo = activo;
     }
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado", nullable = false)
+    private EstadoContrato estado = EstadoContrato.INACTIVO;
 
     @Transient
     public BigDecimal getComisionContratoMonto() {
@@ -142,4 +161,24 @@ public class Contrato {
         // pasa de 3.5 a 0.035
         return v.divide(BigDecimal.valueOf(100));
     }
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "contrato_estados",
+            joinColumns = @JoinColumn(name = "contrato_id")
+    )
+    @Column(name = "estado")
+    @Enumerated(EnumType.STRING)
+    private Set<EstadoContrato> estados = new HashSet<>();
+
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "contrato_anterior_id")
+//    private Contrato contratoAnterior;
+//
+//    @OneToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "contrato_renovado_id")
+//    private Contrato contratoRenovado;
+//
+//    @Column(name = "fecha_renovacion")
+//    private LocalDate fechaRenovacion;
 }

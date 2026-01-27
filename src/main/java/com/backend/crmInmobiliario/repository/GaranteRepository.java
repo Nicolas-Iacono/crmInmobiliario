@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface GaranteRepository extends JpaRepository<Garante, Long> {
 
@@ -16,4 +17,23 @@ public interface GaranteRepository extends JpaRepository<Garante, Long> {
 
     @Query("SELECT g FROM Garante g WHERE g.usuario.username = :username")
     List<Garante> findGaranteByUsername(@Param("username") String username);
+
+    @Query("SELECT g FROM Garante g WHERE g.usuario.id = :userId")
+    List<Garante> findByUsuarioId(@Param("userId") Long userId);
+
+    int countByUsuarioId(Long userId);
+
+    List<Garante> findByNombreLikeIgnoreCaseOrApellidoLikeIgnoreCaseAndUsuarioId(
+            String nombre, String apellido, Long userId);
+
+    Optional<Garante> findByDniAndUsuarioId(String dni, Long userId);
+
+    Optional<Garante> findByEmailIgnoreCaseAndUsuarioId(String email, Long userId);
+
+    @Query("""
+    SELECT g FROM Garante g
+    WHERE g.contrato.id = :id
+""")
+    List<Garante> findGarantesByContratoId(Long id);
+
 }

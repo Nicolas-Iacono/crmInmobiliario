@@ -41,7 +41,4 @@ public class InquilinoEntradaDto {
     private String nacionalidad;
 
     private String estadoCivil;
-
-    private String nombreUsuario;
-
 }

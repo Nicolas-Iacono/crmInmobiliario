@@ -5,8 +5,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.sql.Blob;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,4 +51,17 @@ public class Nota {
     private List<ImageUrls> imagenes = new ArrayList<>();
 
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "autor_usuario_id")
+    private Usuario autorUsuario;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private VisibilidadNota visibilidad = VisibilidadNota.PUBLICA;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "autor_tipo", nullable = false)
+    private AutorNotaTipo autorTipo;
 }
+
+

@@ -10,4 +10,8 @@ public interface ImpuestoRepository extends JpaRepository<Impuesto, Long> {
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from Impuesto i where i.recibo.id in (select r.id from Recibo r where r.contrato.id = :idContrato)")
     void deleteByContratoId(@Param("idContrato") Long idContrato);
+
+    @Modifying
+    @Query("update Impuesto i set i.estadoPago = :pagado where i.recibo.id = :reciboId")
+    int updateEstadoPagoByRecibo(@Param("reciboId") Long reciboId, @Param("pagado") boolean pagado);
 }

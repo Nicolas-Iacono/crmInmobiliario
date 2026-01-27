@@ -1,9 +1,7 @@
 package com.backend.crmInmobiliario.DTO.entrada.contrato;
 
 
-import com.backend.crmInmobiliario.utils.CustomLocalDateDeserializer;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -13,7 +11,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Date;
 import java.util.List;
 
 @Data
@@ -22,14 +19,12 @@ public class ContratoEntradaDto {
 
     @NotNull(message = "El contrato debe tener un nombre")
     private String nombreContrato;
-    @NotNull(message = "fecha inicio no puede ser nulo")
-    @JsonDeserialize(using = CustomLocalDateDeserializer.class)
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy")
+
+
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate fecha_inicio;
 
-    @NotNull(message = "fecha fin no puede ser nulo")
-    @JsonDeserialize(using = CustomLocalDateDeserializer.class)
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate fecha_fin;
 
     @NotNull(message = "debe asignarse un propietario")
@@ -44,16 +39,16 @@ public class ContratoEntradaDto {
     private List<Long> garantesIds;
 
     private String aguaEmpresa;
-    private int aguaPorcentaje;
+    private BigDecimal aguaPorcentaje;
 
     private String luzEmpresa;
-    private int luzPorcentaje;
+    private BigDecimal luzPorcentaje;
 
     private String gasEmpresa;
-    private int gasPorcentaje;
+    private BigDecimal gasPorcentaje;
 
     private String municipalEmpresa;
-    private int municipalPorcentaje;
+    private BigDecimal municipalPorcentaje;
 
     private int actualizacion;
     private Double montoAlquiler;
@@ -65,7 +60,7 @@ public class ContratoEntradaDto {
     private int duracion;
     private String destino;
 
-    private String nombreUsuario;
+    private String tipoGarantia;
 
     @DecimalMin(value = "0.00") @DecimalMax(value = "100.00")
     @Digits(integer = 3, fraction = 2)

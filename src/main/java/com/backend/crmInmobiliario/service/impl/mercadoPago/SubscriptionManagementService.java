@@ -52,14 +52,23 @@ public class SubscriptionManagementService {
         Subscription sub = subscriptionRepository.findByUsuarioId(usuarioId)
                 .orElseThrow(() -> new ResourceNotFoundException("Suscripción no encontrada"));
 
+        if (sub.getExternalSubscriptionId() != null) {
+            try {
+                paymentService.cancelSubscription(sub.getExternalSubscriptionId());
+            } catch (Exception e) {
+                System.err.println("⚠️ Falló la cancelación en MP, pero se continúa con la lógica local.");
+            }
+        }
 
         sub.setStatus(Subscription.Status.CANCELED);
         sub.setCancelAtPeriodEnd(false);
+        sub.setCurrentPeriodEnd(null);
+        sub.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
         subscriptionRepository.save(sub);
-
 
         moveToFreeIfNeeded(usuarioId);
     }
+
 
 
     @Transactional
@@ -113,7 +122,24 @@ public class SubscriptionManagementService {
     }
 
 
+    @Transactional
+    public void sincronizarPlanesUsuarios() {
+        var activas = subscriptionRepository.findAllByStatus(Subscription.Status.ACTIVE);
 
+        for (Subscription sub : activas) {
+            Usuario usuario = sub.getUsuario();
+            Plan plan = sub.getPlan();
+
+            if (usuario != null && plan != null) {
+                if (usuario.getPlan() == null || !usuario.getPlan().getId().equals(plan.getId())) {
+                    usuario.setPlan(plan);
+                    usuarioRepository.save(usuario);
+                    System.out.printf("✅ Sincronizado: usuario '%s' ahora tiene plan '%s'%n",
+                            usuario.getUsername(), plan.getCode());
+                }
+            }
+        }
+    }
 
     @Transactional
     public void setCancelAtPeriodEnd(Long usuarioId, boolean cancelAtPeriodEnd) {
@@ -164,4 +190,6 @@ public class SubscriptionManagementService {
         sub.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
         subscriptionRepository.save(sub);
     }
+
+
 }

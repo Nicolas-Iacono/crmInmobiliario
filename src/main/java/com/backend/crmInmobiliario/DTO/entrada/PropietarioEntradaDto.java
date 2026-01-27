@@ -48,5 +48,4 @@ public class PropietarioEntradaDto {
 
     private List<PropiedadEntradaDto> propiedades = new ArrayList<>();
 
-    private String nombreUsuario;
 }

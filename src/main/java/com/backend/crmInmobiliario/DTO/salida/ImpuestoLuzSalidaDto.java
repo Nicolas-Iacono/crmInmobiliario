@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.DTO.salida;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
@@ -13,10 +14,11 @@ public class ImpuestoLuzSalidaDto {
     private String tipo;
     private String descripcion;
     private String empresa;
-    private int porcentaje;
+    private BigDecimal porcentaje;
     private String numeroCliente;
+    private BigDecimal montoBase;
     private String numeroMedidor;
-    private Double montoAPagar;
+    private BigDecimal montoAPagar;
     private LocalDate fechaFactura;
     private Boolean estadoPago;
 }

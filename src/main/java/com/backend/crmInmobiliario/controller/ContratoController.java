@@ -1,35 +1,92 @@
 package com.backend.crmInmobiliario.controller;
 
-import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoComisionUpdateDto;
-import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.contrato.*;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.*;
+import com.backend.crmInmobiliario.entity.Contrato;
+import com.backend.crmInmobiliario.entity.EstadoContrato;
+import com.backend.crmInmobiliario.entity.Usuario;
 import com.backend.crmInmobiliario.exception.ContractLimitExceededException;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import com.backend.crmInmobiliario.service.IUsuarioService;
 import com.backend.crmInmobiliario.service.impl.ContratoService;
 import com.backend.crmInmobiliario.service.impl.GaranteService;
+import com.backend.crmInmobiliario.service.impl.ReciboService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import com.backend.crmInmobiliario.utils.AuthUtil;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @CrossOrigin(origins = "https://tuinmo.net")
 @RestController
-@AllArgsConstructor
 @RequestMapping("api/contrato")
 public class ContratoController {
 
     private final static Logger LOGGER = LoggerFactory.getLogger(ContratoController.class);
     private final GaranteService garanteService;
     private final ContratoService contratoService;
+    private final ReciboService reciboService;
+    private final AuthUtil authUtil;
+    private final IUsuarioService usuarioService;
+    private final ModelMapper modelMapper;
+
+    public ContratoController(GaranteService garanteService, ContratoService contratoService, ReciboService reciboService, AuthUtil authUtil, IUsuarioService usuarioService, ModelMapper modelMapper) {
+        this.garanteService = garanteService;
+        this.contratoService = contratoService;
+        this.reciboService = reciboService;
+        this.authUtil = authUtil;
+        this.usuarioService = usuarioService;
+        this.modelMapper = modelMapper;
+    }
+
+
+    @PutMapping("/mod/{id}")
+    public ResponseEntity<Void> editarContrato(
+            @PathVariable Long id,
+            @RequestBody ContratoModificacionDto dto
+    ) throws ResourceNotFoundException {
+
+        dto.setIdContrato(id); // por si lo querés usar después
+       contratoService.editarContrato(id, dto);
+       return ResponseEntity.ok().build();
+    }
+
+
+    @GetMapping("/pdf/{id}")
+    public ResponseEntity<ApiResponse<ContratoPdfDto>> buscarContratoPdf(@PathVariable Long id) {
+        ContratoPdfDto dto = contratoService.buscarContratoPdf(id);
+        return ResponseEntity.ok(new ApiResponse<>("Contrato PDF listo", dto));
+    }
+
+
+    @GetMapping("/generar-embeddings")
+    public ResponseEntity<?> generarEmbeddings() {
+        try {
+            Long userId = authUtil.extractUserId();
+            contratoService.generarEmbeddingsParaUsuario(userId);
+            return ResponseEntity.ok("✅ Embeddings generados correctamente");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
+
 
     @PutMapping("/comisiones")
     public ResponseEntity<ContratoComisionDtoSalida> actualizarComisiones(
@@ -189,14 +246,178 @@ public class ContratoController {
         return contratoService.getLatestContratos();
     }
 
-
+    @CrossOrigin(origins = "https://tuinmo.net")
     @GetMapping("/buscar-por-nombre")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<ContratoSalidaDto> obtenerContratoPorNombre(@RequestParam String nombre) {
         try {
             ContratoSalidaDto dto = contratoService.buscarContratoPorNombre(nombre);
             return ResponseEntity.ok(dto);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<ContratoSalidaDto>> listarMisContratos() {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || authentication.getDetails() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> details = (Map<String, Object>) authentication.getDetails();
+        Long userId = (Long) details.get("userId");
+
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        List<ContratoSalidaDto> contratos = contratoService.listarContratosPorUsuarioId(userId);
+
+        return ResponseEntity.ok(contratos);
+    }
+
+
+    @GetMapping("/me/cards")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<ContratoCardDto>> listarMisCards() {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || authentication.getDetails() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> details = (Map<String, Object>) authentication.getDetails();
+        Long userId = (Long) details.get("userId");
+
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        List<ContratoCardDto> contratos = contratoService.listarCardscontratos(userId);
+
+        return ResponseEntity.ok(contratos);
+    }
+
+
+    @GetMapping("/eventos")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<ContractEventDto>> eventosContratos(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || authentication.getDetails() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> details = (Map<String, Object>) authentication.getDetails();
+        Long userId = (Long) details.get("userId");
+
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        List<ContractEventDto> eventos =
+                contratoService.getEventosContratos(userId, from, to);
+
+        return ResponseEntity.ok(eventos);
+    }
+
+    @PutMapping("/{id}/estados")
+    public ResponseEntity<ContratoEstadosDto> actualizarEstados(
+            @PathVariable Long id,
+            @RequestBody Set<EstadoContrato> estados
+    ) {
+        ContratoEstadosDto dto = contratoService.actualizarEstados(id, estados);
+        return ResponseEntity.ok(dto);
+    }
+
+
+//    @PostMapping("/renovar/{id}")
+//    @PreAuthorize("isAuthenticated()")
+//    public ResponseEntity<ContratoSalidaDto> renovarContrato(
+//            @PathVariable Long id,
+//            @RequestBody RenovarContratoRequest req
+//    ) {
+//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+//
+//        if (authentication == null || authentication.getDetails() == null) {
+//            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+//        }
+//
+//        @SuppressWarnings("unchecked")
+//        Map<String, Object> details = (Map<String, Object>) authentication.getDetails();
+//        Long userId = (Long) details.get("userId");
+//
+//        if (userId == null) {
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+//        }
+//
+//        ContratoSalidaDto dto = contratoService.renovarContrato(id, req, userId);
+//        return ResponseEntity.ok(dto);
+//    }
+
+
+    @Transactional
+    @GetMapping("/alertas-vencimiento")
+    public ResponseEntity<ApiResponse<List<ContratoVencimientoAlertaDto>>> obtenerAlertasVencimiento(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "30") int dias) {
+        try {
+            List<ContratoVencimientoAlertaDto> alertas = contratoService.obtenerAlertasVencimiento(userId, dias);
+            ApiResponse<List<ContratoVencimientoAlertaDto>> response =
+                    new ApiResponse<>("alertas_vencimiento", alertas);
+            return ResponseEntity.ok(response);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al obtener alertas", null));
+        }
+    }
+
+    @Transactional
+    @PutMapping("/alertas-vencimiento/estado")
+    public ResponseEntity<ApiResponse<ContratoVencimientoAlertaDto>> actualizarEstadoAlerta(
+            @RequestBody ContratoAlertaEstadoDto dto) {
+        try {
+            ContratoVencimientoAlertaDto alerta = contratoService.actualizarEstadoAlerta(dto);
+            return ResponseEntity.ok(new ApiResponse<>("alerta_actualizada", alerta));
+        } catch (ResourceNotFoundException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al actualizar la alerta", null));
+        }
+    }
+
+
+    @Transactional
+    @PostMapping("/renovar")
+    public ResponseEntity<ApiResponse<ContratoSalidaDto>> renovarContrato(
+            @RequestBody ContratoRenovacionDtoEntrada dto) {
+        try {
+            ContratoSalidaDto renovado = contratoService.renovarContrato(dto);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(new ApiResponse<>("Contrato renovado correctamente.", renovado));
+        } catch (ResourceNotFoundException | IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al renovar el contrato", null));
         }
     }
 }

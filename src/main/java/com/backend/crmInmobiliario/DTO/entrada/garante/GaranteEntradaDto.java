@@ -63,5 +63,4 @@ public class GaranteEntradaDto {
     private String tipoPropiedad;
     private String informeDominio;
     private String informeInhibicion;
-    private String nombreUsuario;
 }

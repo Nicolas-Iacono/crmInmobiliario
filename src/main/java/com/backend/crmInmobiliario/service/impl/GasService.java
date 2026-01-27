@@ -35,6 +35,7 @@ public class GasService implements IGasService {
     @Override
     public ImpuestoGasSalidaDto crearImpuestoGas(ImpuestoGasEntradaDto impuestoGasEntradaDto) throws ResourceNotFoundException {
         Gas gasServicio = new Gas();
+        gasServicio.setMontoBase(impuestoGasEntradaDto.getMontoBase());
         gasServicio.setEmpresa(impuestoGasEntradaDto.getEmpresa());
         gasServicio.setPorcentaje(impuestoGasEntradaDto.getPorcentaje());
         gasServicio.setDescripcion(impuestoGasEntradaDto.getDescripcion());

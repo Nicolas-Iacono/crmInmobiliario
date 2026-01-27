@@ -13,5 +13,5 @@ public interface IPresupuestoService {
     PresupuestoSalidaDto buscarPorId(Long id) throws ResourceNotFoundException;
     List<PresupuestoSalidaDto> listar();
     void eliminar(Long id) throws ResourceNotFoundException;
-    List<PresupuestoSalidaDto> listarPorUsuario(String username);
+    List<PresupuestoSalidaDto> listarPorUsuarioId(Long id);
 }

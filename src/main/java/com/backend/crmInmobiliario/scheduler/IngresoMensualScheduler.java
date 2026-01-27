@@ -24,25 +24,23 @@ public class IngresoMensualScheduler {
     }
 
     // 🔹 Ejecuta el día 1 de cada mes a las 3:00 AM
-    @Scheduled(cron = "0 0 3 1 * ?")
+    @Scheduled(cron = "0 0 3 1 * ?") // 3 AM del primer día de cada mes
     public void generarIngresosMensualesAutomaticamente() {
-        LocalDate hoy = LocalDate.now();
-        int mes = hoy.getMonthValue();
-        int anio = hoy.getYear();
 
-        log.info("🕒 Generando ingresos mensuales automáticos para {} / {}", mes, anio);
+        LocalDate hoy = LocalDate.now();
+        log.info("🕒 Generando ingresos automáticos para el mes: {}", hoy);
 
         List<Usuario> usuarios = usuarioRepository.findAll();
 
         for (Usuario usuario : usuarios) {
             try {
-                ingresoMensualService.generarIngresosDelMesActual(usuario.getUsername());
-                log.info("✅ Ingresos generados para usuario {}", usuario.getUsername());
+                ingresoMensualService.generarIngresosDelMesActual(usuario.getId());
+                log.info("✅ Ingresos generados para {}", usuario.getUsername());
             } catch (Exception e) {
-                log.error("❌ Error al generar ingresos para usuario {}: {}", usuario.getUsername(), e.getMessage());
+                log.error("❌ Error para {}: {}", usuario.getUsername(), e.getMessage());
             }
         }
 
-        log.info("🏁 Generación automática de ingresos finalizada.");
+        log.info("🏁 Finalizó la generación automática de ingresos.");
     }
 }

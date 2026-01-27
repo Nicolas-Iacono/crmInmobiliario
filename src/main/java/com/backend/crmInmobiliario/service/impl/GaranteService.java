@@ -2,6 +2,8 @@ package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.entrada.garante.GaranteEntradaDto;
 //import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.GaranteDtoModificacion;
+import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
@@ -14,17 +16,31 @@ import com.backend.crmInmobiliario.repository.ContratoRepository;
 import com.backend.crmInmobiliario.repository.GaranteRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IGaranteService;
+import com.backend.crmInmobiliario.service.impl.IA.EmbeddingService;
+import com.backend.crmInmobiliario.utils.AuthUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
+import okhttp3.*;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class GaranteService implements IGaranteService {
+    @Value("${supabase.url}")
+    private String SUPABASE_URL;
 
+    @Value("${supabase.key}")
+    private String SUPABASE_ANON_KEY;
+
+    @Value("${supabase.service.role.key}")
+    private String SUPABASE_SERVICE_ROLE_KEY;
     private static final String UPLOAD_DIR = "https://srv1597-files.hstgr.io/cb06a4ee9e063e7f/files/public_html/uploads";
     private final Logger LOGGER = LoggerFactory.getLogger(GaranteService.class);
     private ModelMapper modelMapper;
@@ -32,12 +48,16 @@ public class GaranteService implements IGaranteService {
     private ContratoRepository contratoRepository;
     private GaranteRepository garanteRepository;
     private UsuarioRepository usuarioRepository;
+    private AuthUtil authUtil;
+    private EmbeddingService embeddingService;
 
-    public GaranteService(ModelMapper modelMapper, ContratoRepository contratoRepository, GaranteRepository garanteRepository,UsuarioRepository usuarioRepository) {
+    public GaranteService(EmbeddingService embeddingService, AuthUtil authUtil, ModelMapper modelMapper, ContratoRepository contratoRepository, GaranteRepository garanteRepository,UsuarioRepository usuarioRepository) {
+        this.authUtil = authUtil;
         this.modelMapper = modelMapper;
         this.contratoRepository = contratoRepository;
         this.garanteRepository = garanteRepository;
         this.usuarioRepository = usuarioRepository;
+        this.embeddingService = embeddingService;
         configureMapping();
     }
 
@@ -79,19 +99,39 @@ public class GaranteService implements IGaranteService {
                 })
                 .toList();
     }
+    @Override
+    @Transactional
+    public List<GaranteSalidaDto> listarGarantesPorUsuarioId(Long userId) {
 
+        List<Garante> garantes = garanteRepository.findByUsuarioId(userId);
+
+        return garantes.stream()
+                .map(garante -> {
+                    GaranteSalidaDto dto = modelMapper.map(garante, GaranteSalidaDto.class);
+
+                    Usuario usuario = garante.getUsuario();
+                    if (usuario != null) {
+                        var usuarioDto = modelMapper.map(usuario, com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida.class);
+
+                        if (usuario.getLogoInmobiliaria() != null) {
+                            usuarioDto.setLogo(usuario.getLogoInmobiliaria().getImageUrl());
+                        }
+
+                        dto.setUsuarioDtoSalida(usuarioDto);
+                    }
+
+                    return dto;
+                })
+                .toList();
+    }
     @Override
     @Transactional
     public GaranteSalidaDto crearGarante(GaranteEntradaDto garanteEntradaDto) throws ResourceNotFoundException{
-        String nombreUsuario = garanteEntradaDto.getNombreUsuario();
-        if (nombreUsuario == null || nombreUsuario.isEmpty()) {
-            throw new IllegalArgumentException("El nombre de usuario no puede ser nulo o vacío");
-        }
-        LOGGER.info("Intentando encontrar usuario con username: " + nombreUsuario);
-        Usuario usuario = usuarioRepository.findUserByUsername(nombreUsuario)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
-        LOGGER.info("usuario encontrado con username: " + nombreUsuario);
+        Long idUser = authUtil.extractUserId();
+        LOGGER.info("✅ User ID desde JWT: {}", idUser);
 
+        Usuario usuario = usuarioRepository.findById(idUser)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
         Garante garante = new Garante();
         garante.setPronombre(garanteEntradaDto.getPronombre());
         garante.setNombre(garanteEntradaDto.getNombre());
@@ -121,7 +161,14 @@ public class GaranteService implements IGaranteService {
 
         Garante garanteToSave = garanteRepository.save(garante);
         LOGGER.info("Garante guardado para usuario: {}", garanteToSave.getUsuario().getUsername());
-
+        CompletableFuture.runAsync(() -> {
+            try {
+                guardarGaranteEnSupabase(garanteToSave);
+                upsertGaranteEmbedding(garanteToSave);
+            } catch (Exception ex) {
+                LOGGER.error("⚠️ Error sincronizando garante con Supabase: {}", ex.getMessage());
+            }
+        });
 // Mapeo manual con fallback seguro para el UsuarioDtoSalida
         GaranteSalidaDto garanteSalidaDto = modelMapper.map(garanteToSave, GaranteSalidaDto.class);
 
@@ -140,7 +187,92 @@ public class GaranteService implements IGaranteService {
 
         return garanteSalidaDto;
     }
+    private void guardarGaranteEnSupabase(Garante g) throws IOException {
+        OkHttpClient client = new OkHttpClient();
+        ObjectMapper mapper = new ObjectMapper();
 
+        Map<String, Object> registro = Map.of(
+                "id", g.getId(),
+                "user_id", g.getUsuario().getId(),
+                "nombre", g.getNombre(),
+                "apellido", g.getApellido(),
+                "email", g.getEmail(),
+                "dni", g.getDni(),
+                "telefono", g.getTelefono(),
+                "tipo_garantia", g.getTipoGarantia(),
+                "direccion", g.getDireccionResidencial()
+        );
+
+        String json = mapper.writeValueAsString(List.of(registro));
+
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/garantes")
+                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Authorization", "Bearer " + SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Prefer", "return=minimal")
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("❌ Supabase Error: " +
+                        response.code() + " - " + response.body().string());
+            }
+            LOGGER.info("✅ Garante guardado en Supabase: {}", g.getId());
+        }
+    }
+    private String buildContenidoGarante(Garante g) {
+        return "GARANTE|id=" + g.getId() +
+                " | nombre=" + g.getNombre() + " " + g.getApellido() +
+                " | dni=" + g.getDni() +
+                " | tipo_garantia=" + g.getTipoGarantia();
+    }
+    private void upsertGaranteEmbedding(Garante g) throws IOException, InterruptedException {
+        OkHttpClient client = new OkHttpClient();
+        ObjectMapper mapper = new ObjectMapper();
+
+        List<Float> embedding = embeddingService.generarEmbedding(buildContenidoGarante(g));
+
+        Map<String, Object> registro = Map.of(
+                "id_garante", g.getId(),
+                "user_id", g.getUsuario().getId(),
+                "contenido", buildContenidoGarante(g),
+                "embedding", embedding
+        );
+
+        String json = mapper.writeValueAsString(List.of(registro));
+
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/garantes_embeddings")
+                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Authorization", "Bearer " + SUPABASE_SERVICE_ROLE_KEY)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("❌ Supabase: " +
+                        response.code() + " - " + response.body().string());
+            }
+            LOGGER.info("✅ Embedding garante creado: {}", g.getId());
+        }
+    }
+    @org.springframework.transaction.annotation.Transactional
+    public void generarEmbeddingsParaUsuario(Long userId) {
+        List<Garante> garantes = garanteRepository.findByUsuarioId(userId);
+
+        garantes.forEach(c -> {
+            try {
+                upsertGaranteEmbedding(c);
+            } catch (Exception e) {
+                LOGGER.error("Error generando embedding para contrato {}: {}", c.getId(), e.getMessage());
+            }
+        });
+
+        LOGGER.info("✅ Embeddings generados para {} garantes del usuario {}", garantes.size(), userId);
+    }
 
     @Transactional
     @Override
@@ -168,8 +300,33 @@ public class GaranteService implements IGaranteService {
         Garante garante = garanteRepository.findById(id)
                 .orElseThrow(()-> new ResourceNotFoundException("No se encontro el garante con el id: " + id));
         garanteRepository.delete(garante);
+        CompletableFuture.runAsync(() -> {
+            try {
+                eliminarGaranteEmbeddingSupabase(id);
+            } catch (Exception e) {
+                LOGGER.error("⚠️ Error eliminando embedding de inquilino: {}", e.getMessage());
+            }
+        });
     }
+    private void eliminarGaranteEmbeddingSupabase(Long id) throws IOException {
+        OkHttpClient client = new OkHttpClient();
 
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/garantes_embeddings?id_garante=eq." + id)
+                .delete()
+                .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Authorization", "Bearer " + SUPABASE_SERVICE_ROLE_KEY)
+                .addHeader("Prefer", "return=minimal")
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("❌ Supabase delete error: " +
+                        response.code() + " - " + response.body().string());
+            }
+            LOGGER.info("🗑️ Embedding de garante eliminado: {}", id);
+        }
+    }
     @Override
     public void asignarGarante(Long idGarante, Long idContrato) throws ResourceNotFoundException {
         Contrato contrato = contratoRepository.findById(idContrato)
@@ -192,4 +349,83 @@ public class GaranteService implements IGaranteService {
         contratoRepository.save(contrato);
         garanteRepository.save(garante);
     }
+
+
+    @Override
+    @Transactional
+    public GaranteSalidaDto editarGarante(GaranteDtoModificacion garanteDtoModificacion) throws ResourceNotFoundException {
+
+        Garante garante = garanteRepository.findById(garanteDtoModificacion.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontro el garante con el id proporcionado!!"));
+
+
+        garante.setNombre(garanteDtoModificacion.getNombre());
+        garante.setApellido(garanteDtoModificacion.getApellido());
+        garante.setDni(garanteDtoModificacion.getDni());
+        garante.setCuit(garanteDtoModificacion.getCuit());
+        garante.setEmail(garanteDtoModificacion.getEmail());
+        garante.setTelefono(garanteDtoModificacion.getTelefono());
+        garante.setDireccionResidencial(garanteDtoModificacion.getDireccionResidencial());
+
+        Garante garanteToSave = garanteRepository.save(garante);
+        GaranteSalidaDto garanteSalidaDto = modelMapper.map(garanteToSave, GaranteSalidaDto.class);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                upsertGaranteEmbedding(garanteToSave);
+            } catch (Exception e) {
+                LOGGER.error("⚠️ Error actualizando embedding garante en Supabase: {}", e.getMessage());
+            }
+        });
+        return garanteSalidaDto;
+    }
+
+    public Garante clonarGarante(Garante origen) {
+        if (origen == null) return null;
+
+        Garante g = new Garante();
+
+        // =========================
+        // Campos heredados de Persona
+        // =========================
+        g.setPronombre(origen.getPronombre());
+        g.setNombre(origen.getNombre());
+        g.setApellido(origen.getApellido());
+        g.setTelefono(origen.getTelefono());
+        g.setEmail(origen.getEmail());
+        g.setDni(origen.getDni());
+        g.setCuit(origen.getCuit());
+        g.setDireccionResidencial(origen.getDireccionResidencial());
+        g.setNacionalidad(origen.getNacionalidad());
+        g.setEstadoCivil(origen.getEstadoCivil());
+
+        // =========================
+        // Campos propios de Garante
+        // =========================
+        g.setTipoGarantia(origen.getTipoGarantia());
+
+        g.setNombreEmpresa(origen.getNombreEmpresa());
+        g.setSectorActual(origen.getSectorActual());
+        g.setCargoActual(origen.getCargoActual());
+        g.setLegajo(origen.getLegajo());
+        g.setCuitEmpresa(origen.getCuitEmpresa());
+
+        g.setPartidaInmobiliaria(origen.getPartidaInmobiliaria());
+        g.setDireccion(origen.getDireccion());
+        g.setInfoCatastral(origen.getInfoCatastral());
+        g.setEstadoOcupacion(origen.getEstadoOcupacion());
+        g.setTipoPropiedad(origen.getTipoPropiedad());
+        g.setInformeDominio(origen.getInformeDominio());
+        g.setInformeInhibicion(origen.getInformeInhibicion());
+
+        // =========================
+        // Relaciones (NO clonar docs)
+        // =========================
+        g.setDocumentos(new ArrayList<>()); // renovación: documentos nuevos si hace falta
+
+        // contrato y usuario se setean afuera (cuando ya tenés el nuevo contrato)
+        return g;
+    }
+
+
 }

@@ -22,5 +22,6 @@ public class IngresoMensualSalidaDto {
     private BigDecimal ingresoCalculadoPorContrato;
     private BigDecimal ingresoCalculadoPorMes;
     private String nombreUsuario;
+    private Long userId;
     private String nombreContrato;
 }

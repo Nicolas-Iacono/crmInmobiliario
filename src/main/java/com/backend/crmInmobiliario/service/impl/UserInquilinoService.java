@@ -21,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 
 
@@ -73,14 +74,17 @@ public class UserInquilinoService implements IUserInquilinoService {
         usuarioEntidad.setUsername(dto.getEmail());
         usuarioEntidad.setPassword(passwordEncoder.encode(dto.getPassword()));
         usuarioEntidad.setEmail(dto.getEmail());
-        usuarioEntidad.setRoles(Collections.singleton(inquilinoRole));
+        Set<Role> roles = new HashSet<>();
+        roles.add(inquilinoRole);
+        usuarioEntidad.setRoles(roles);
 
         Usuario usuarioPersistido = usuarioRepository.save(usuarioEntidad);
 
         // 5️⃣ Vincular el inquilino al nuevo usuarioCuenta
         inquilino.setUsuarioCuentaInquilino(usuarioPersistido);
         inquilinoRepository.save(inquilino);
-
+        usuarioPersistido.setInquilino(inquilino);
+        usuarioRepository.save(usuarioPersistido);
         // 6️⃣ Devolver datos de confirmación
         TokenDtoSalida tokenDto = new TokenDtoSalida();
         tokenDto.setUsername(usuarioPersistido.getUsername());

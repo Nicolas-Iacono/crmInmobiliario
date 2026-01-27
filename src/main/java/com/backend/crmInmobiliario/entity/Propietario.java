@@ -26,11 +26,21 @@ public class Propietario extends Persona{
     @JsonIgnore
     private Usuario usuario;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_cuenta_propietario_id")
+    @ToString.Exclude
+    @JsonIgnore // ⛔ evita recursión con usuarioCuentaInquilino
+    private Usuario usuarioCuentaPropietario;
+
+
     @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
-    private List<Propiedad> propiedades;
-//
-//    @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true,  fetch = FetchType.LAZY)
-//    private List<ImageUrls> imagenes = new ArrayList<>();
+    private List<Propiedad> propiedades = new ArrayList<>();
+
+    @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    @ToString.Exclude
+    private List<Documento> documentos = new ArrayList<>();
+
 
 }

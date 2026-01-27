@@ -3,11 +3,15 @@ package com.backend.crmInmobiliario.repository;
 import com.backend.crmInmobiliario.entity.IngresoMensual;
 import com.backend.crmInmobiliario.entity.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import com.backend.crmInmobiliario.entity.Contrato;
+
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface IngresoMensualRepository extends JpaRepository<IngresoMensual, Long> {
 
@@ -22,7 +26,7 @@ public interface IngresoMensualRepository extends JpaRepository<IngresoMensual, 
     List<IngresoMensual> findByUsuario(Usuario usuario);
 
     // 🔹 Buscar ingresos por contrato
-    @Query("SELECT i FROM IngresoMensual i WHERE i.contrato.id_contrato = :idContrato")
+    @Query("SELECT i FROM IngresoMensual i WHERE i.contrato.id = :idContrato")
     List<IngresoMensual> findByContratoId(@Param("idContrato") Long idContrato);
 
 
@@ -52,4 +56,43 @@ public interface IngresoMensualRepository extends JpaRepository<IngresoMensual, 
     boolean existsByContratoAndAnioAndMes(Contrato contrato, int anio, int mes);
 
 
+    void deleteByContratoIdAndAnioAndMes(Long contratoId, int anio, int mes);
+
+    @Modifying
+    @Query("DELETE FROM IngresoMensual i WHERE i.contrato.id = :contratoId")
+    void deleteByContratoId(@Param("contratoId") Long contratoId);
+
+
+
+
+    @Query("""
+        SELECT COALESCE(SUM(i.ingresoCalculadoPorMes), 0)
+        FROM IngresoMensual i
+        WHERE i.usuario.id = :userId
+          AND i.anio = :anio
+          AND i.mes = :mes
+    """)
+    BigDecimal totalIngresosPorMes(
+            @Param("userId") Long userId,
+            @Param("anio") int anio,
+            @Param("mes") int mes
+    );
+
+    @Query("""
+        SELECT i.contrato.id,
+               i.contrato.nombreContrato,
+               COALESCE(SUM(i.ingresoCalculadoPorMes), 0),
+               COALESCE(SUM(i.ingresoCalculadoPorContrato), 0)
+        FROM IngresoMensual i
+        WHERE i.usuario.id = :userId
+          AND i.anio = :anio
+        GROUP BY i.contrato.id, i.contrato.nombreContrato
+        ORDER BY (COALESCE(SUM(i.ingresoCalculadoPorMes), 0)
+                + COALESCE(SUM(i.ingresoCalculadoPorContrato), 0)) DESC
+    """)
+    List<Object[]> totalIngresosPorContratoAnual(
+            @Param("userId") Long userId,
+            @Param("anio") int anio
+    );
 }
+
