@@ -1069,7 +1069,15 @@ public class ContratoService implements IContratoService {
         }
         return null;
     }
-
+    private LocalDate resolverFechaFin(LocalDate fechaFin, LocalDate fechaInicio, Integer duracion) {
+        if (fechaFin != null) {
+            return fechaFin;
+        }
+        if (fechaInicio != null && duracion != null && duracion > 0) {
+            return fechaInicio.plusMonths(duracion);
+        }
+        return null;
+    }
     private List<Garante> clonarGarantes(Contrato contratoBase, Contrato contratoNuevo) {
         List<Garante> originales = Optional.ofNullable(contratoBase.getGarantes())
                 .orElseGet(Collections::emptyList);
@@ -2023,6 +2031,22 @@ public class ContratoService implements IContratoService {
         alerta.setDiasAviso(diasAviso);
         return contratoAlertaRepository.save(alerta);
     }
+    private ContratoAlerta upsertAlerta(ContratoRepository.ContratoAlertaRow row, LocalDate fechaFin, int diasAviso) {
+        ContratoAlerta alerta = contratoAlertaRepository
+                .findByContratoIdAndUsuarioId(row.getContratoId(), row.getUserId())
+                .orElseGet(() -> {
+                    ContratoAlerta nueva = new ContratoAlerta();
+                    nueva.setContrato(contratoRepository.getReferenceById(row.getContratoId()));
+                    nueva.setUsuario(usuarioRepository.getReferenceById(row.getUserId()));
+                    nueva.setVisto(false);
+                    nueva.setNoMostrar(false);
+                    return nueva;
+                });
+
+        alerta.setFechaFin(fechaFin);
+        alerta.setDiasAviso(diasAviso);
+        return contratoAlertaRepository.save(alerta);
+    }
 
     private ContratoVencimientoAlertaDto construirDtoAlerta(ContratoAlerta alerta) {
         Contrato contrato = alerta.getContrato();
@@ -2053,7 +2077,26 @@ public class ContratoService implements IContratoService {
         );
     }
 
-
+    private ContratoVencimientoAlertaDto construirDtoAlerta(
+            ContratoAlerta alerta,
+            ContratoRepository.ContratoAlertaRow row,
+            long diasRestantes,
+            boolean vencido
+    ) {
+        return new ContratoVencimientoAlertaDto(
+                alerta.getId(),
+                row.getContratoId(),
+                row.getUserId(),
+                row.getNombreContrato(),
+                row.getFechaInicio(),
+                alerta.getFechaFin(),
+                diasRestantes,
+                vencido,
+                row.getEstado(),
+                Boolean.TRUE.equals(row.getActivo()),
+                Boolean.TRUE.equals(row.getActivo())
+        );
+    }
 
     @Override
     public List<ContratoVencimientoAlertaDto> obtenerAlertasVencimiento(Long userId, int diasAviso) {
@@ -2080,27 +2123,37 @@ public class ContratoService implements IContratoService {
         LocalDate hoy = LocalDate.now();
         LocalDate limite = hoy.plusDays(dias);
 
-        return contratoRepository.findByActivoTrue().stream()
-                .filter(contrato -> usuarioId == null || contrato.getUsuario().getId().equals(usuarioId))
-                .map(contrato -> {
-                    LocalDate fechaFin = resolverFechaFin(contrato);
+        return contratoRepository.findAlertasVencimientoActivos().stream()
+                .filter(row -> usuarioId == null || row.getUserId().equals(usuarioId))
+                .map(row -> {
+                    LocalDate fechaFin = resolverFechaFin(row.getFechaFin(), row.getFechaInicio(), row.getDuracion());
+
+
+
+
                     if (fechaFin == null) return null;
 
                     boolean vencido = !fechaFin.isAfter(hoy);
                     if (!vencido && fechaFin.isAfter(limite)) return null;
 
-                    ContratoAlerta alerta = upsertAlerta(contrato, fechaFin, dias);
+                    ContratoAlerta alerta = upsertAlerta(row, fechaFin, dias);
                     if (alerta.isVisto() || alerta.isNoMostrar()) return null;
 
                     long diasRestantes = vencido ? 0 : ChronoUnit.DAYS.between(hoy, fechaFin);
-                    return construirDtoAlerta(alerta, contrato, diasRestantes, vencido);
+
+                    ContratoVencimientoAlertaDto dto = construirDtoAlerta(alerta, row, diasRestantes, vencido);
+                    if (dto.getId() == null || dto.getContratoId() == null || dto.getUserId() == null) {
+                        LOGGER.warn("Alerta inválida para contrato {} (usuario {}).", row.getContratoId(), row.getUserId());
+                        return null;
+                    }
+                    return dto;
                 })
                 .filter(Objects::nonNull)
                 .toList();
     }
 
     @Transactional
-    @Scheduled(cron = "0 0 9 * * ?")
+    @Scheduled(cron = "0 * * * * ?")
     public void notificarAlertasVencimiento() {
         List<ContratoVencimientoAlertaDto> alertas = obtenerAlertasVencimientoInterno(null, 30, false);
         LocalDate hoy = LocalDate.now();
@@ -2152,9 +2205,12 @@ public class ContratoService implements IContratoService {
         if (!contratoBase.isActivo()) {
             throw new IllegalStateException("Solo se pueden renovar contratos activos");
         }
-
+        Double nuevoMontoAlquiler = dto.getMontoAlquiler();
+        String nuevoMontoAlquilerLetras = dto.getMontoAlquilerLetras();
+        Integer nuevaActualizacionDuracion = dto.getActualizacion();
         LocalDate nuevaFechaInicio = dto.getNuevaFechaInicio();
         LocalDate nuevaFechaFin = dto.getNuevaFechaFin();
+        String nuevoTipoGarantia = dto.getTipoGarantia();
         int duracionMeses = dto.getDuracionMeses() != null ? dto.getDuracionMeses() : contratoBase.getDuracion();
 
         if (nuevaFechaFin == null) {
@@ -2181,9 +2237,10 @@ public class ContratoService implements IContratoService {
         contratoNuevo.setFecha_inicio(nuevaFechaInicio);
         contratoNuevo.setFecha_fin(nuevaFechaFin);
         contratoNuevo.setDuracion(duracionMeses);
-        contratoNuevo.setActualizacion(contratoBase.getActualizacion());
-        contratoNuevo.setMontoAlquiler(contratoBase.getMontoAlquiler());
-        contratoNuevo.setMontoAlquilerLetras(contratoBase.getMontoAlquilerLetras());
+        contratoNuevo.setTipoGarantia(nuevoTipoGarantia);
+        contratoNuevo.setActualizacion(nuevaActualizacionDuracion);
+        contratoNuevo.setMontoAlquiler(nuevoMontoAlquiler);
+        contratoNuevo.setMontoAlquilerLetras(nuevoMontoAlquilerLetras);
         contratoNuevo.setMultaXDia(contratoBase.getMultaXDia());
         contratoNuevo.setDestino(contratoBase.getDestino());
         contratoNuevo.setIndiceAjuste(contratoBase.getIndiceAjuste());
@@ -2198,8 +2255,10 @@ public class ContratoService implements IContratoService {
         contratoNuevo.setMunicipalEmpresa(contratoBase.getMunicipalEmpresa());
         contratoNuevo.setMunicipalPorcentaje(contratoBase.getMunicipalPorcentaje());
         contratoNuevo.setActivo(true);
-        contratoNuevo.setEstado(EstadoContrato.ACTIVO);
         contratoNuevo.setSuscrito(contratoBase.isSuscrito());
+
+        contratoNuevo.setEstado(EstadoContrato.ACTIVO);
+        List<EstadoContrato> estados = new ArrayList<>();
 
         List<Garante> garantes = new ArrayList<>();
         boolean usarGarantesExistentes = false;

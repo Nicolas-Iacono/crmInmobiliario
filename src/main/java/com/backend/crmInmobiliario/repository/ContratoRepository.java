@@ -233,6 +233,32 @@ where c.usuario.id = :usuarioId
     );
 
     List<Contrato> findByActivoTrue();
+
+    interface ContratoAlertaRow {
+        Long getContratoId();
+        String getNombreContrato();
+        java.time.LocalDate getFechaInicio();
+        java.time.LocalDate getFechaFin();
+        Integer getDuracion();
+        Boolean getActivo();
+        String getEstado();
+        Long getUserId();
+    }
+
+    @Query("""
+        select c.id as contratoId,
+               c.nombreContrato as nombreContrato,
+               c.fecha_inicio as fechaInicio,
+               c.fecha_fin as fechaFin,
+               c.duracion as duracion,
+               c.activo as activo,
+               c.estado as estado,
+               u.id as userId
+        from Contrato c
+        join c.usuario u
+        where c.activo = true
+        """)
+    List<ContratoAlertaRow> findAlertasVencimientoActivos();
 }
 
 
