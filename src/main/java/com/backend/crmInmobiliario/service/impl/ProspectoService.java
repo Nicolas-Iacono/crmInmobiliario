@@ -65,12 +65,15 @@ public class ProspectoService implements IProspectoService {
                 .addMapping(ProspectoEntradaDto::getApellido, Prospecto::setApellido)
                 .addMapping(ProspectoEntradaDto::getTelefono, Prospecto::setTelefono)
                 .addMapping(ProspectoEntradaDto::getZonaPreferencia, Prospecto::setZonaPreferencia)
-                .addMapping(ProspectoEntradaDto::getCantidadAmbientes, Prospecto::setCantidadPersonas)
+                .addMapping(ProspectoEntradaDto::getCantidadAmbientes, Prospecto::setCantidadAmbientes)
+                .addMapping(ProspectoEntradaDto::getCantidadPersonas, Prospecto::setCantidadPersonas)
                 .addMapping(ProspectoEntradaDto::getRangoPrecioMin, Prospecto::setRangoPrecioMin)
                 .addMapping(ProspectoEntradaDto::getRangoPrecioMax, Prospecto::setRangoPrecioMax)
                 .addMapping(ProspectoEntradaDto::getCochera, Prospecto::setCochera)
                 .addMapping(ProspectoEntradaDto::getPatio, Prospecto::setPatio)
-                .addMapping(ProspectoEntradaDto::getJardin, Prospecto::setJardin);
+                .addMapping(ProspectoEntradaDto::getJardin, Prospecto::setJardin)
+                .addMapping(ProspectoEntradaDto::getPileta, Prospecto::setPileta)
+                .addMapping(ProspectoEntradaDto::getVisibilidadPublico, Prospecto::setVisibilidadPublico);
 
         modelMapper.typeMap(Prospecto.class,ProspectoSalidaDto.class)
                 .addMapping(Prospecto::getNombre, ProspectoSalidaDto::setNombre)
@@ -109,6 +112,7 @@ public class ProspectoService implements IProspectoService {
         prospecto.setPatio(dto.getPatio());
         prospecto.setJardin(dto.getJardin());
         prospecto.setPileta(dto.getPileta());
+        prospecto.setVisibilidadPublico(dto.getVisibilidadPublico() != null ? dto.getVisibilidadPublico() : Boolean.TRUE);
 
         Prospecto guardado = prospectoRepository.save(prospecto);
         return mapSalida(guardado);
@@ -148,6 +152,7 @@ public class ProspectoService implements IProspectoService {
         if (dto.getPatio() != null) { prospecto.setPatio(dto.getPatio()); cambioFiltros = true; }
         if (dto.getJardin() != null) { prospecto.setJardin(dto.getJardin()); cambioFiltros = true; }
         if (dto.getPileta() != null) { prospecto.setPileta(dto.getPileta()); cambioFiltros = true; }
+        if (dto.getVisibilidadPublico() != null) { prospecto.setVisibilidadPublico(dto.getVisibilidadPublico()); cambioFiltros = true; }
 
         // 4) Guardar
         Prospecto actualizado = prospectoRepository.save(prospecto);
@@ -193,6 +198,7 @@ public class ProspectoService implements IProspectoService {
         List<Prospecto> prospectos = prospectoRepository.findByUsuarioIdNot(ownerId);
 
         long matches = prospectos.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getVisibilidadPublico()))
                 .filter(p -> p.cumpleConPropiedad(propiedad))
                 .count();
 
@@ -228,8 +234,13 @@ public class ProspectoService implements IProspectoService {
         List<Prospecto> prospectos = prospectoRepository.findByUsuarioIdNot(userId);
 
         return prospectos.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getVisibilidadPublico()))
                 .filter(p -> p.cumpleConPropiedad(propiedad))
                 .map(this::mapProspectoSalida) // o modelMapper directo
                 .toList();
+    }
+
+    private ProspectoSalidaDto mapProspectoSalida(Prospecto prospecto) {
+        return mapSalida(prospecto);
     }
 }

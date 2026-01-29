@@ -77,6 +77,27 @@ public class ProspectoController {
         return ResponseEntity.ok(new ApiResponse<>("Prospectos del usuario.", salida));
     }
 
+    @GetMapping("/compatibles/{propiedadId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<ProspectoSalidaDto>>> listarProspectosCompatibles(
+            @PathVariable Long propiedadId) {
+        try {
+            Long userId = authUtil.extractUserId();
+            if (userId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ApiResponse<>("Usuario no autenticado", null));
+            }
+            List<ProspectoSalidaDto> salida = prospectoService.listarProspectosCompatibles(propiedadId, userId);
+            return ResponseEntity.ok(new ApiResponse<>("Prospectos compatibles con la propiedad.", salida));
+        } catch (ResourceNotFoundException | AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al listar prospectos compatibles", null));
+        }
+    }
+
 
     @Transactional
     @DeleteMapping("/{id}")

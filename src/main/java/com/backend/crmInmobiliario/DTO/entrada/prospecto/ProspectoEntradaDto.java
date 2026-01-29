@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.DTO.entrada.prospecto;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class ProspectoEntradaDto {
@@ -13,7 +14,7 @@ public class ProspectoEntradaDto {
     private BigDecimal rangoPrecioMin;
     private BigDecimal rangoPrecioMax;
     private Integer cantidadPersonas;
-    private String zonaPreferencia;
+    private List<String> zonaPreferencia;
     private Boolean visibilidadPublico;
     private Integer cantidadAmbientes;
     private Boolean cochera;

@@ -4,6 +4,7 @@ import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class ProspectoSalidaDto {
@@ -15,7 +16,7 @@ public class ProspectoSalidaDto {
     private BigDecimal rangoPrecioMin;
     private BigDecimal rangoPrecioMax;
     private Integer cantidadPersonas;
-    private String zonaPreferencia;
+    private List<String> zonaPreferencia;
     private Integer cantidadAmbientes;
     private Boolean cochera;
     private Boolean patio;
