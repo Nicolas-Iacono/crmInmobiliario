@@ -1,25 +1,20 @@
-package com.backend.crmInmobiliario.DTO.salida;
+package com.backend.crmInmobiliario.DTO.modificacion;
 
 import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Data
-@NoArgsConstructor
-public class PropiedadContratoSalidaDto {
-    private Long id;
+public class PropiedadModificacionDto {
     private String direccion;
     private String localidad;
     private String partido;
     private String provincia;
-    private String inventario;
     private String tipo;
+    private String inventario;
+    private Boolean disponibilidad;
     private Integer cantidadAmbientes;
     private Boolean pileta;
     private Boolean cochera;
     private Boolean jardin;
     private Boolean patio;
-    private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
+    private Long propietarioId;
 }

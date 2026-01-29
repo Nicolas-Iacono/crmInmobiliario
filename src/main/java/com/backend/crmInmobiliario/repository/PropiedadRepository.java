@@ -17,4 +17,6 @@ public interface PropiedadRepository extends JpaRepository<Propiedad,Long> {
     List<Propiedad> findPropiedadByUsername(@Param("username") String username);
     int countByUsuarioUsername(String username);
 
+    List<Propiedad> findByUsuarioIdNot(Long usuarioId);
+
 }

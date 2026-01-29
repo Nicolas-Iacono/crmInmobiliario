@@ -30,6 +30,7 @@ public class ContratoSalidaDto {
     private Double montoAlquiler;
     private int duracion;
     private boolean activo;
+    private String estado;
 
     private String aguaEmpresa;
     private int aguaPorcentaje;

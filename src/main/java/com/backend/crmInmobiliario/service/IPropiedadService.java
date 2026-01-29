@@ -1,6 +1,7 @@
 package com.backend.crmInmobiliario.service;
 
 import com.backend.crmInmobiliario.DTO.entrada.propiedades.PropiedadEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.PropiedadModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSoloSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -13,6 +14,10 @@ public interface IPropiedadService {
     PropiedadSalidaDto crearPropiedad (PropiedadEntradaDto propiedadEntradaDto, Long propietarioId) throws ResourceNotFoundException;
 
     PropiedadSalidaDto buscarPropiedadPorId(Long id) throws ResourceNotFoundException;
+
+    PropiedadSalidaDto actualizarPropiedad(Long id, PropiedadModificacionDto dto) throws ResourceNotFoundException;
+
+    List<ProspectoSalidaDto> listarProspectosCompatibles(Long propiedadId, Long usuarioId) throws ResourceNotFoundException;
 
     void eliminarPropiedad(Long id) throws ResourceNotFoundException;
 

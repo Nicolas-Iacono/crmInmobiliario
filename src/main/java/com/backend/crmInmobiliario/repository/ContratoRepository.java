@@ -14,6 +14,31 @@ import java.util.Optional;
 @Repository
 public interface ContratoRepository extends JpaRepository<Contrato, Long> {
 
+    interface ContratoAlertaRow {
+        Long getContratoId();
+        String getNombreContrato();
+        java.time.LocalDate getFechaInicio();
+        java.time.LocalDate getFechaFin();
+        Integer getDuracion();
+        Boolean getActivo();
+        String getEstado();
+        Long getUserId();
+    }
+
+    @Query(value = """
+        select c.id_contrato as contratoId,
+               c.nombre_contrato as nombreContrato,
+               c.fecha_inicio as fechaInicio,
+               c.fecha_fin as fechaFin,
+               c.duracion as duracion,
+               c.activo as activo,
+               c.estado as estado,
+               c.usuario_id as userId
+        from contrato c
+        where c.activo = true
+        """, nativeQuery = true)
+    List<ContratoAlertaRow> findAlertasVencimientoActivos();
+
 
     Optional<Contrato> findByInquilinoAndActivoTrue(Inquilino inquilino);
 
@@ -31,6 +56,7 @@ public interface ContratoRepository extends JpaRepository<Contrato, Long> {
     @Query("SELECT c FROM Contrato c LEFT JOIN FETCH c.garantes WHERE c.id = :id")
     Contrato findContratoByIdWithGarantes(@Param("id") Long id);
 
+    List<Contrato> findByActivoTrue();
 
     int countByUsuarioUsername(String username);
 
@@ -51,5 +77,3 @@ public interface ContratoRepository extends JpaRepository<Contrato, Long> {
     Optional<Contrato> findByNombreContratoCompleto(@Param("nombre") String nombre);
 
 }
-
-

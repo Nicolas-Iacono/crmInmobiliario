@@ -1,7 +1,9 @@
 package com.backend.crmInmobiliario.service.impl;
 
+import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoAlertaEstadoDto;
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoComisionUpdateDto;
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoRenovacionDtoEntrada;
 //import com.backend.crmInmobiliario.DTO.entrada.planesYSuscripcion.PlanLimitsDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoComisionDtoSalida;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
@@ -17,7 +19,9 @@ import com.backend.crmInmobiliario.repository.*;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.PlanRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.SubscriptionRepository;
+import com.backend.crmInmobiliario.repository.notificacionesPush.PushSubscriptionRepository;
 import com.backend.crmInmobiliario.service.IContratoService;
+import com.backend.crmInmobiliario.service.impl.notificacionesPush.PushNotificationService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
@@ -81,6 +85,9 @@ public class ContratoService implements IContratoService {
     private NotaRepository notaRepository;
     private ReciboRepository reciboRepository;
     private ImpuestoRepository impuestoRepository;
+    private ContratoAlertaRepository contratoAlertaRepository;
+    private PushSubscriptionRepository pushSubscriptionRepository;
+    private PushNotificationService pushNotificationService;
 //    private PdfContratoRepository pdfContratoRepository;
 
     public ContratoService(
@@ -99,6 +106,9 @@ public class ContratoService implements IContratoService {
                            MunicipalRepository municipalRepository,
                            NotaRepository notaRepository,
                            ReciboRepository reciboRepository,
+                           ContratoAlertaRepository contratoAlertaRepository,
+                           PushSubscriptionRepository pushSubscriptionRepository,
+                           PushNotificationService pushNotificationService,
 //                         SubscriptionService subscriptionService
 //                         UsuarioRepository usuarioRepository,
                            IngresoMensualService ingresoMensualService
@@ -120,6 +130,9 @@ public class ContratoService implements IContratoService {
         this.notaRepository = notaRepository;
         this.reciboRepository = reciboRepository;
         this.impuestoRepository = impuestoRepository;
+        this.contratoAlertaRepository = contratoAlertaRepository;
+        this.pushSubscriptionRepository = pushSubscriptionRepository;
+        this.pushNotificationService = pushNotificationService;
         this.ingresoMensualService = ingresoMensualService;
 //        this.subscriptionService = subscriptionService;
 //        this.pdfContratoRepository = pdfContratoRepository;
@@ -145,14 +158,18 @@ public class ContratoService implements IContratoService {
                 .addMapping(Contrato::getPropietario, ContratoSalidaDto::setPropietario)
                 .addMapping(Contrato::getGarantes, ContratoSalidaDto::setGarantes)
                 .addMapping(Contrato::getRecibos,ContratoSalidaDto::setRecibos)
-                .addMapping(Contrato::getTiempoRestante, ContratoSalidaDto::setTiempoRestante);
+                .addMapping(Contrato::getTiempoRestante, ContratoSalidaDto::setTiempoRestante)
+                .addMapping(src -> src.getEstado() != null ? src.getEstado().name() : null,
+                        ContratoSalidaDto::setEstado);
 
         modelMapper.typeMap(Contrato.class, ContratoSalidaSinGaranteDto.class)
                 .addMapping(Contrato::getInquilino, ContratoSalidaSinGaranteDto::setInquilino)
                 .addMapping(Contrato::getPropiedad, ContratoSalidaSinGaranteDto::setPropiedad)
                 .addMapping(Contrato::getPropietario, ContratoSalidaSinGaranteDto::setPropietario)
                 .addMapping(Contrato::getTiempoRestante, ContratoSalidaSinGaranteDto::setTiempoRestante)
-                .addMapping(Contrato::getRecibos, ContratoSalidaSinGaranteDto::setRecibos);
+                .addMapping(Contrato::getRecibos, ContratoSalidaSinGaranteDto::setRecibos)
+                .addMapping(src -> src.getEstado() != null ? src.getEstado().name() : null,
+                        ContratoSalidaSinGaranteDto::setEstado);
 
 
         modelMapper.typeMap(Contrato.class, LatestContratosSalidaDto.class)
@@ -165,7 +182,9 @@ public class ContratoService implements IContratoService {
                 .addMapping(ContratoModificacionDto::getComisionContratoPorc, ContratoSalidaDto::setComisionContratoPorc);
 
         modelMapper.typeMap(Contrato.class, ContratoBasicoDto.class)
-                .addMapping(Contrato::getPdfContratoTexto, ContratoBasicoDto::setContratoPdf);
+                .addMapping(Contrato::getPdfContratoTexto, ContratoBasicoDto::setContratoPdf)
+                .addMapping(src -> src.getEstado() != null ? src.getEstado().name() : null,
+                        ContratoBasicoDto::setEstado);
     }
 
 
@@ -389,6 +408,9 @@ public class ContratoService implements IContratoService {
                 contratoEntradaDto.getComisionMensualPorc() != null ? contratoEntradaDto.getComisionMensualPorc() : java.math.BigDecimal.ZERO
         );
 
+        contratoEnCreacion.setActivo(true);
+        contratoEnCreacion.setEstado(ContratoEstado.ACTIVO);
+
         // Persistir el contrato
         Contrato contratoPersistido = contratoRepository.save(contratoEnCreacion);
         // Intentar embeddings + Supabase (no bloquea la creación)
@@ -434,11 +456,6 @@ public class ContratoService implements IContratoService {
                     contratoPersistido.getId_contrato(), e.getMessage());
         }
 
-
-        // Cambiar el estado del contrato a activo
-        if (!cambiarEstadoContrato(contratoPersistido.getId_contrato())) {
-            throw new RuntimeException("No se pudo activar el contrato");
-        }
 
         // Actualizar la disponibilidad de la propiedad
         propiedad.setDisponibilidad(false);
@@ -723,6 +740,160 @@ public class ContratoService implements IContratoService {
         return "{" + lista.stream().map(String::valueOf).collect(Collectors.joining(",")) + "}";
     }
 
+    private Long obtenerUsuarioIdActual() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return null;
+        }
+        if (auth.getDetails() instanceof Map<?, ?> details && details.get("userId") != null) {
+            return ((Number) details.get("userId")).longValue();
+        }
+        return null;
+    }
+
+    private ContratoAlerta upsertAlerta(Contrato contrato, LocalDate fechaFin, int diasAviso) {
+        Long usuarioId = contrato.getUsuario().getId();
+        ContratoAlerta alerta = contratoAlertaRepository
+                .findByContratoIdAndUsuarioId(contrato.getId_contrato(), usuarioId)
+                .orElseGet(() -> {
+                    ContratoAlerta nueva = new ContratoAlerta();
+                    nueva.setContrato(contrato);
+                    nueva.setUsuario(contrato.getUsuario());
+                    nueva.setVisto(false);
+                    nueva.setNoMostrar(false);
+                    return nueva;
+                });
+
+        alerta.setFechaFin(fechaFin);
+        alerta.setDiasAviso(diasAviso);
+        return contratoAlertaRepository.save(alerta);
+    }
+
+    private ContratoAlerta upsertAlerta(ContratoRepository.ContratoAlertaRow row, LocalDate fechaFin, int diasAviso) {
+        ContratoAlerta alerta = contratoAlertaRepository
+                .findByContratoIdAndUsuarioId(row.getContratoId(), row.getUserId())
+                .orElseGet(() -> {
+                    ContratoAlerta nueva = new ContratoAlerta();
+                    nueva.setContrato(contratoRepository.getReferenceById(row.getContratoId()));
+                    nueva.setUsuario(usuarioRepository.getReferenceById(row.getUserId()));
+                    nueva.setVisto(false);
+                    nueva.setNoMostrar(false);
+                    return nueva;
+                });
+
+        alerta.setFechaFin(fechaFin);
+        alerta.setDiasAviso(diasAviso);
+        return contratoAlertaRepository.save(alerta);
+    }
+
+    private ContratoVencimientoAlertaDto construirDtoAlerta(ContratoAlerta alerta) {
+        Contrato contrato = alerta.getContrato();
+        LocalDate hoy = LocalDate.now();
+        boolean vencido = !alerta.getFechaFin().isAfter(hoy);
+        long diasRestantes = vencido ? 0 : ChronoUnit.DAYS.between(hoy, alerta.getFechaFin());
+        return construirDtoAlerta(alerta, contrato, diasRestantes, vencido);
+    }
+
+    private ContratoVencimientoAlertaDto construirDtoAlerta(
+            ContratoAlerta alerta,
+            Contrato contrato,
+            long diasRestantes,
+            boolean vencido
+    ) {
+        return new ContratoVencimientoAlertaDto(
+                alerta.getId(),
+                contrato.getId_contrato(),
+                contrato.getUsuario().getId(),
+                contrato.getNombreContrato(),
+                contrato.getFecha_inicio(),
+                alerta.getFechaFin(),
+                diasRestantes,
+                vencido,
+                contrato.getEstado() != null ? contrato.getEstado().name() : null,
+                contrato.isActivo(),
+                contrato.isActivo()
+        );
+    }
+
+    private ContratoVencimientoAlertaDto construirDtoAlerta(
+            ContratoAlerta alerta,
+            ContratoRepository.ContratoAlertaRow row,
+            long diasRestantes,
+            boolean vencido
+    ) {
+        return new ContratoVencimientoAlertaDto(
+                alerta.getId(),
+                row.getContratoId(),
+                row.getUserId(),
+                row.getNombreContrato(),
+                row.getFechaInicio(),
+                alerta.getFechaFin(),
+                diasRestantes,
+                vencido,
+                row.getEstado(),
+                Boolean.TRUE.equals(row.getActivo()),
+                Boolean.TRUE.equals(row.getActivo())
+        );
+    }
+
+    private LocalDate resolverFechaFin(Contrato contrato) {
+        if (contrato.getFecha_fin() != null) {
+            return contrato.getFecha_fin();
+        }
+        if (contrato.getFecha_inicio() != null && contrato.getDuracion() > 0) {
+            return contrato.getFecha_inicio().plusMonths(contrato.getDuracion());
+        }
+        return null;
+    }
+
+    private LocalDate resolverFechaFin(LocalDate fechaFin, LocalDate fechaInicio, Integer duracion) {
+        if (fechaFin != null) {
+            return fechaFin;
+        }
+        if (fechaInicio != null && duracion != null && duracion > 0) {
+            return fechaInicio.plusMonths(duracion);
+        }
+        return null;
+    }
+
+    private List<Garante> clonarGarantes(Contrato contratoBase, Contrato contratoNuevo) {
+        List<Garante> originales = Optional.ofNullable(contratoBase.getGarantes())
+                .orElseGet(Collections::emptyList);
+        List<Garante> clones = new ArrayList<>();
+
+        for (Garante original : originales) {
+            Garante clone = new Garante();
+            clone.setPronombre(original.getPronombre());
+            clone.setNombre(original.getNombre());
+            clone.setApellido(original.getApellido());
+            clone.setTelefono(original.getTelefono());
+            clone.setEmail(original.getEmail());
+            clone.setDni(original.getDni());
+            clone.setCuit(original.getCuit());
+            clone.setDireccionResidencial(original.getDireccionResidencial());
+            clone.setNacionalidad(original.getNacionalidad());
+            clone.setEstadoCivil(original.getEstadoCivil());
+            clone.setTipoGarantia(original.getTipoGarantia());
+            clone.setNombreEmpresa(original.getNombreEmpresa());
+            clone.setSectorActual(original.getSectorActual());
+            clone.setCargoActual(original.getCargoActual());
+            clone.setLegajo(original.getLegajo());
+            clone.setCuitEmpresa(original.getCuitEmpresa());
+            clone.setPartidaInmobiliaria(original.getPartidaInmobiliaria());
+            clone.setDireccion(original.getDireccion());
+            clone.setInfoCatastral(original.getInfoCatastral());
+            clone.setEstadoOcupacion(original.getEstadoOcupacion());
+            clone.setTipoPropiedad(original.getTipoPropiedad());
+            clone.setInformeDominio(original.getInformeDominio());
+            clone.setInformeInhibicion(original.getInformeInhibicion());
+            clone.setUsuario(original.getUsuario());
+            clone.setContrato(contratoNuevo);
+            clones.add(clone);
+        }
+
+        return clones;
+    }
+
 
     @Transactional
     private void validarContratoEntrada(ContratoEntradaDto dto) {
@@ -983,6 +1154,7 @@ public class ContratoService implements IContratoService {
         Contrato contrato = contratoRepository.findById(id)
                 .orElseThrow(()-> new ResourceNotFoundException("Contrato no encontrado"));
         contrato.setActivo(!contrato.isActivo());
+        contrato.setEstado(contrato.isActivo() ? ContratoEstado.ACTIVO : ContratoEstado.INACTIVO);
         contratoRepository.save(contrato);
         return contrato.isActivo();
     }
@@ -993,11 +1165,214 @@ public class ContratoService implements IContratoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado"));
 
         contrato.setActivo(false);
+        contrato.setEstado(ContratoEstado.FINALIZADO);
         contratoRepository.save(contrato);
 
         Propiedad propiedad = contrato.getPropiedad();
         propiedad.setDisponibilidad(true);
         propiedadRepository.save(propiedad);
+    }
+
+    @Transactional
+    @Override
+    public ContratoSalidaDto renovarContrato(ContratoRenovacionDtoEntrada dto) throws ResourceNotFoundException {
+        if (dto.getIdContrato() == null) {
+            throw new IllegalArgumentException("El id del contrato es obligatorio");
+        }
+        if (dto.getNuevaFechaInicio() == null) {
+            throw new IllegalArgumentException("La fecha de inicio es obligatoria");
+        }
+
+        Contrato contratoBase = contratoRepository.findById(dto.getIdContrato())
+                .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado"));
+
+        if (!contratoBase.isActivo()) {
+            throw new IllegalStateException("Solo se pueden renovar contratos activos");
+        }
+
+        LocalDate nuevaFechaInicio = dto.getNuevaFechaInicio();
+        LocalDate nuevaFechaFin = dto.getNuevaFechaFin();
+        int duracionMeses = dto.getDuracionMeses() != null ? dto.getDuracionMeses() : contratoBase.getDuracion();
+
+        if (nuevaFechaFin == null) {
+            if (duracionMeses <= 0) {
+                throw new IllegalArgumentException("Debe indicar una duración válida si no se especifica fecha de fin");
+            }
+            nuevaFechaFin = nuevaFechaInicio.plusMonths(duracionMeses);
+        }
+
+        if (!nuevaFechaFin.isAfter(nuevaFechaInicio)) {
+            throw new IllegalArgumentException("La fecha de fin debe ser posterior a la fecha de inicio");
+        }
+
+        if (dto.getDuracionMeses() == null) {
+            duracionMeses = Math.max(1, (int) ChronoUnit.MONTHS.between(nuevaFechaInicio, nuevaFechaFin));
+        }
+
+        Contrato contratoNuevo = new Contrato();
+        contratoNuevo.setNombreContrato(contratoBase.getNombreContrato());
+        contratoNuevo.setUsuario(contratoBase.getUsuario());
+        contratoNuevo.setPropietario(contratoBase.getPropietario());
+        contratoNuevo.setInquilino(contratoBase.getInquilino());
+        contratoNuevo.setPropiedad(contratoBase.getPropiedad());
+        contratoNuevo.setFecha_inicio(nuevaFechaInicio);
+        contratoNuevo.setFecha_fin(nuevaFechaFin);
+        contratoNuevo.setDuracion(duracionMeses);
+        contratoNuevo.setActualizacion(contratoBase.getActualizacion());
+        contratoNuevo.setMontoAlquiler(contratoBase.getMontoAlquiler());
+        contratoNuevo.setMontoAlquilerLetras(contratoBase.getMontoAlquilerLetras());
+        contratoNuevo.setMultaXDia(contratoBase.getMultaXDia());
+        contratoNuevo.setDestino(contratoBase.getDestino());
+        contratoNuevo.setIndiceAjuste(contratoBase.getIndiceAjuste());
+        contratoNuevo.setComisionContratoPorc(contratoBase.getComisionContratoPorc());
+        contratoNuevo.setComisionMensualPorc(contratoBase.getComisionMensualPorc());
+        contratoNuevo.setAguaEmpresa(contratoBase.getAguaEmpresa());
+        contratoNuevo.setAguaPorcentaje(contratoBase.getAguaPorcentaje());
+        contratoNuevo.setLuzEmpresa(contratoBase.getLuzEmpresa());
+        contratoNuevo.setLuzPorcentaje(contratoBase.getLuzPorcentaje());
+        contratoNuevo.setGasEmpresa(contratoBase.getGasEmpresa());
+        contratoNuevo.setGasPorcentaje(contratoBase.getGasPorcentaje());
+        contratoNuevo.setMunicipalEmpresa(contratoBase.getMunicipalEmpresa());
+        contratoNuevo.setMunicipalPorcentaje(contratoBase.getMunicipalPorcentaje());
+        contratoNuevo.setActivo(true);
+        contratoNuevo.setEstado(ContratoEstado.ACTIVO);
+        contratoNuevo.setSuscrito(contratoBase.isSuscrito());
+
+        List<Garante> garantes = new ArrayList<>();
+        boolean usarGarantesExistentes = false;
+        if (dto.getGarantesIds() != null && !dto.getGarantesIds().isEmpty()) {
+            garantes = obtenerGarantesPorIds(dto.getGarantesIds());
+            usarGarantesExistentes = true;
+        } else if (dto.isMantenerGarantes()) {
+            garantes = clonarGarantes(contratoBase, contratoNuevo);
+        }
+
+        if (!garantes.isEmpty()) {
+            for (Garante garante : garantes) {
+                garante.setContrato(contratoNuevo);
+            }
+            contratoNuevo.setGarantes(garantes);
+        } else {
+            contratoNuevo.setGarantes(Collections.emptyList());
+        }
+
+        Contrato contratoPersistido = contratoRepository.save(contratoNuevo);
+        if (usarGarantesExistentes && !garantes.isEmpty()) {
+            garanteRepository.saveAll(garantes);
+        }
+
+        contratoBase.setActivo(false);
+        contratoBase.setEstado(ContratoEstado.RENOVADO);
+        contratoRepository.save(contratoBase);
+
+        ingresoMensualService.generarParaContrato(contratoPersistido);
+        return modelMapper.map(contratoPersistido, ContratoSalidaDto.class);
+    }
+
+    @Override
+    public List<ContratoVencimientoAlertaDto> obtenerAlertasVencimiento(Long userId, int diasAviso) {
+        return obtenerAlertasVencimientoInterno(userId, diasAviso, true);
+    }
+
+    @Transactional
+    @Override
+    public ContratoVencimientoAlertaDto actualizarEstadoAlerta(ContratoAlertaEstadoDto dto) throws ResourceNotFoundException {
+        if (dto.getContratoId() == null) {
+            throw new IllegalArgumentException("El contratoId es obligatorio");
+        }
+        Long usuarioId = dto.getUsuarioId() != null ? dto.getUsuarioId() : obtenerUsuarioIdActual();
+        if (usuarioId == null) {
+            throw new IllegalArgumentException("El usuarioId es obligatorio");
+        }
+
+        ContratoAlerta alerta = contratoAlertaRepository.findByContratoIdAndUsuarioId(dto.getContratoId(), usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Alerta no encontrada"));
+
+        if (dto.getVisto() != null) {
+            alerta.setVisto(dto.getVisto());
+        }
+        if (dto.getNoMostrar() != null) {
+            alerta.setNoMostrar(dto.getNoMostrar());
+        }
+
+        ContratoAlerta guardada = contratoAlertaRepository.save(alerta);
+        return construirDtoAlerta(guardada);
+    }
+
+    @Transactional
+    private List<ContratoVencimientoAlertaDto> obtenerAlertasVencimientoInterno(Long userId, int diasAviso, boolean validarAuth) {
+        Long usuarioId = userId;
+        if (usuarioId == null && validarAuth) {
+            usuarioId = obtenerUsuarioIdActual();
+        }
+        if (validarAuth && usuarioId == null) {
+            throw new IllegalStateException("No se pudo determinar el usuario autenticado");
+        }
+
+        int dias = diasAviso > 0 ? diasAviso : 30;
+        LocalDate hoy = LocalDate.now();
+        LocalDate limite = hoy.plusDays(dias);
+
+        return contratoRepository.findAlertasVencimientoActivos().stream()
+                .filter(row -> usuarioId == null || row.getUserId().equals(usuarioId))
+                .map(row -> {
+                    LocalDate fechaFin = resolverFechaFin(row.getFechaFin(), row.getFechaInicio(), row.getDuracion());
+                    if (fechaFin == null) return null;
+
+                    boolean vencido = !fechaFin.isAfter(hoy);
+                    if (!vencido && fechaFin.isAfter(limite)) return null;
+
+                    ContratoAlerta alerta = upsertAlerta(row, fechaFin, dias);
+                    if (alerta.isVisto() || alerta.isNoMostrar()) return null;
+
+                    long diasRestantes = vencido ? 0 : ChronoUnit.DAYS.between(hoy, fechaFin);
+                    ContratoVencimientoAlertaDto dto = construirDtoAlerta(alerta, row, diasRestantes, vencido);
+                    if (dto.getId() == null || dto.getContratoId() == null || dto.getUserId() == null) {
+                        LOGGER.warn("Alerta inválida para contrato {} (usuario {}).", row.getContratoId(), row.getUserId());
+                        return null;
+                    }
+                    return dto;
+                })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @Transactional
+    @Scheduled(cron = "0 0 * * * ?")
+    public void notificarAlertasVencimiento() {
+        List<ContratoVencimientoAlertaDto> alertas = obtenerAlertasVencimientoInterno(null, 30, false);
+        LocalDate hoy = LocalDate.now();
+
+        for (ContratoVencimientoAlertaDto alertaDto : alertas) {
+            if (alertaDto.getUserId() == null) {
+                continue;
+            }
+            ContratoAlerta alerta = contratoAlertaRepository.findById(alertaDto.getId()).orElse(null);
+            if (alerta == null || alerta.isVisto() || alerta.isNoMostrar()) {
+                continue;
+            }
+            if (alerta.getUltimaNotificacion() != null && alerta.getUltimaNotificacion().isEqual(hoy)) {
+                continue;
+            }
+
+            List<PushSubscription> subs = pushSubscriptionRepository.findByUserId(alertaDto.getUserId());
+            if (subs.isEmpty()) {
+                continue;
+            }
+
+            String titulo = "📅 Contrato próximo a vencer";
+            String cuerpo = String.format(
+                    "El contrato '%s' vence el %s. Podés renovarlo o finalizarlo.",
+                    alertaDto.getNombreContrato(),
+                    alertaDto.getFechaFin()
+            );
+
+            for (PushSubscription sub : subs) {
+                pushNotificationService.enviarNotificacion(sub, titulo, cuerpo);
+            }
+            alerta.setUltimaNotificacion(hoy);
+            contratoAlertaRepository.save(alerta);
+        }
     }
     @Transactional
     @Override
@@ -1097,6 +1472,7 @@ public class ContratoService implements IContratoService {
         dto.setDuracion(contrato.getDuracion());
         dto.setNombreInquilino(contrato.getInquilino().getNombre());
         dto.setApellidoInquilino(contrato.getInquilino().getApellido());
+        dto.setEstado(contrato.getEstado() != null ? contrato.getEstado().name() : null);
 
 
         return dto;

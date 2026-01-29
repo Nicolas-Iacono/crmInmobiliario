@@ -23,6 +23,12 @@ public class PropiedadEntradaDto {
 
     private Boolean disponibilidad;
 
+    private Integer cantidadAmbientes;
+    private Boolean pileta;
+    private Boolean cochera;
+    private Boolean jardin;
+    private Boolean patio;
+
     private Long id_propietario;
 
     private String inventario;

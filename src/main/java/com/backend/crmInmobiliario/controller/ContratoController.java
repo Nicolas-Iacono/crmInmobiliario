@@ -1,7 +1,9 @@
 package com.backend.crmInmobiliario.controller;
 
+import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoAlertaEstadoDto;
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoComisionUpdateDto;
 import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoRenovacionDtoEntrada;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.*;
 import com.backend.crmInmobiliario.exception.ContractLimitExceededException;
@@ -115,6 +117,41 @@ public class ContratoController {
     }
 
     @Transactional
+    @GetMapping("/alertas-vencimiento")
+    public ResponseEntity<ApiResponse<List<ContratoVencimientoAlertaDto>>> obtenerAlertasVencimiento(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "30") int dias) {
+        try {
+            List<ContratoVencimientoAlertaDto> alertas = contratoService.obtenerAlertasVencimiento(userId, dias);
+            ApiResponse<List<ContratoVencimientoAlertaDto>> response =
+                    new ApiResponse<>("alertas_vencimiento", alertas);
+            return ResponseEntity.ok(response);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al obtener alertas", null));
+        }
+    }
+
+    @Transactional
+    @PutMapping("/alertas-vencimiento/estado")
+    public ResponseEntity<ApiResponse<ContratoVencimientoAlertaDto>> actualizarEstadoAlerta(
+            @RequestBody ContratoAlertaEstadoDto dto) {
+        try {
+            ContratoVencimientoAlertaDto alerta = contratoService.actualizarEstadoAlerta(dto);
+            return ResponseEntity.ok(new ApiResponse<>("alerta_actualizada", alerta));
+        } catch (ResourceNotFoundException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al actualizar la alerta", null));
+        }
+    }
+
+    @Transactional
     @PostMapping("/finalizar/{id}")
     public ResponseEntity<String> FinalizarContrato(@PathVariable Long id) {
         try {
@@ -123,6 +160,23 @@ public class ContratoController {
 
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    @Transactional
+    @PostMapping("/renovar")
+    public ResponseEntity<ApiResponse<ContratoSalidaDto>> renovarContrato(
+            @RequestBody ContratoRenovacionDtoEntrada dto) {
+        try {
+            ContratoSalidaDto renovado = contratoService.renovarContrato(dto);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(new ApiResponse<>("Contrato renovado correctamente.", renovado));
+        } catch (ResourceNotFoundException | IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al renovar el contrato", null));
         }
     }
 

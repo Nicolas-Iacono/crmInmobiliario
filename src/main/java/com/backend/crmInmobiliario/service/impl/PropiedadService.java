@@ -1,17 +1,23 @@
 package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.entrada.propiedades.PropiedadEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.PropiedadModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.*;
+import com.backend.crmInmobiliario.DTO.salida.prospecto.ProspectoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.entity.Propiedad;
 import com.backend.crmInmobiliario.entity.Propietario;
+import com.backend.crmInmobiliario.entity.Prospecto;
 import com.backend.crmInmobiliario.entity.Usuario;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.InquilinoRepository;
+import com.backend.crmInmobiliario.repository.ProspectoRepository;
 import com.backend.crmInmobiliario.repository.PropiedadRepository;
 import com.backend.crmInmobiliario.repository.PropietarioRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IPropiedadService;
+import com.backend.crmInmobiliario.service.impl.notificacionesPush.PushNotificationService;
+import com.backend.crmInmobiliario.repository.notificacionesPush.PushSubscriptionRepository;
 import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
@@ -41,6 +47,12 @@ public class PropiedadService implements IPropiedadService {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+    @Autowired
+    private ProspectoRepository prospectoRepository;
+    @Autowired
+    private PushSubscriptionRepository pushSubscriptionRepository;
+    @Autowired
+    private PushNotificationService pushNotificationService;
 
     public PropiedadService(ModelMapper modelMapper, InquilinoRepository inquilinoRepository, PropiedadRepository propiedadRepository, PropietarioRepository propietarioRepository) {
         this.modelMapper = modelMapper;
@@ -115,6 +127,11 @@ public class PropiedadService implements IPropiedadService {
         propiedad.setTipo(propiedadEntradaDto.getTipo());
         propiedad.setInventario(propiedadEntradaDto.getInventario());
         propiedad.setDisponibilidad(propiedadEntradaDto.getDisponibilidad());
+        propiedad.setCantidadAmbientes(propiedadEntradaDto.getCantidadAmbientes());
+        propiedad.setPileta(propiedadEntradaDto.getPileta());
+        propiedad.setCochera(propiedadEntradaDto.getCochera());
+        propiedad.setJardin(propiedadEntradaDto.getJardin());
+        propiedad.setPatio(propiedadEntradaDto.getPatio());
         propiedad.setUsuario(usuario);
 
         // asignar propietario solo si viene
@@ -147,6 +164,7 @@ public class PropiedadService implements IPropiedadService {
             propiedadSalidaDto.setPropietarioSalidaDto(null);
         }
 
+        notificarProspectosPorPropiedad(propiedadAPersistir);
         return propiedadSalidaDto;
     }
 
@@ -219,6 +237,54 @@ public class PropiedadService implements IPropiedadService {
 
     @Override
     @Transactional
+    public PropiedadSalidaDto actualizarPropiedad(Long id, PropiedadModificacionDto dto) throws ResourceNotFoundException {
+        Propiedad propiedad = propiedadRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Propiedad no encontrada"));
+
+        if (dto.getDireccion() != null) propiedad.setDireccion(dto.getDireccion());
+        if (dto.getLocalidad() != null) propiedad.setLocalidad(dto.getLocalidad());
+        if (dto.getPartido() != null) propiedad.setPartido(dto.getPartido());
+        if (dto.getProvincia() != null) propiedad.setProvincia(dto.getProvincia());
+        if (dto.getTipo() != null) propiedad.setTipo(dto.getTipo());
+        if (dto.getInventario() != null) propiedad.setInventario(dto.getInventario());
+        if (dto.getDisponibilidad() != null) propiedad.setDisponibilidad(dto.getDisponibilidad());
+        if (dto.getCantidadAmbientes() != null) propiedad.setCantidadAmbientes(dto.getCantidadAmbientes());
+        if (dto.getPileta() != null) propiedad.setPileta(dto.getPileta());
+        if (dto.getCochera() != null) propiedad.setCochera(dto.getCochera());
+        if (dto.getJardin() != null) propiedad.setJardin(dto.getJardin());
+        if (dto.getPatio() != null) propiedad.setPatio(dto.getPatio());
+
+        if (dto.getPropietarioId() != null) {
+            Propietario propietario = propietarioRepository.findById(dto.getPropietarioId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Propietario no encontrado"));
+            if (!propietario.getUsuario().getId().equals(propiedad.getUsuario().getId())) {
+                throw new IllegalArgumentException("El propietario no pertenece al mismo usuario");
+            }
+            propiedad.setPropietario(propietario);
+        }
+
+        Propiedad saved = propiedadRepository.save(propiedad);
+        return modelMapper.map(saved, PropiedadSalidaDto.class);
+    }
+
+    @Override
+    @Transactional
+    public List<ProspectoSalidaDto> listarProspectosCompatibles(Long propiedadId, Long usuarioId) throws ResourceNotFoundException {
+        Propiedad propiedad = propiedadRepository.findById(propiedadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Propiedad no encontrada"));
+
+        if (usuarioId == null || propiedad.getUsuario() == null || !propiedad.getUsuario().getId().equals(usuarioId)) {
+            throw new ResourceNotFoundException("Propiedad no encontrada");
+        }
+
+        return prospectoRepository.findByUsuarioIdNot(usuarioId).stream()
+                .filter(prospecto -> prospecto.cumpleConPropiedad(propiedad))
+                .map(this::mapProspectoSalidaPublica)
+                .toList();
+    }
+
+    @Override
+    @Transactional
     public void eliminarPropiedad(Long id) throws ResourceNotFoundException {
         // 1) Traer con imágenes cargadas
         Propiedad p = propiedadRepository.findById(id)
@@ -247,6 +313,31 @@ public class PropiedadService implements IPropiedadService {
     public Integer enumerarPropiedades(String username) {
       return propiedadRepository.countByUsuarioUsername(username);
 
+    }
+
+    private void notificarProspectosPorPropiedad(Propiedad propiedad) {
+        List<Prospecto> prospectos = prospectoRepository.findByUsuarioIdNot(propiedad.getUsuario().getId()).stream()
+                .filter(prospecto -> prospecto.cumpleConPropiedad(propiedad))
+                .toList();
+        if (prospectos.isEmpty()) {
+            return;
+        }
+
+        int total = prospectos.size();
+        pushSubscriptionRepository.findByUserId(propiedad.getUsuario().getId())
+                .forEach(sub -> pushNotificationService.enviarNotificacion(
+                        sub,
+                        "📌 Prospectos encontrados para tu propiedad",
+                        String.format("Hay %d prospecto(s) que buscan una propiedad en %s.",
+                                total,
+                                propiedad.getLocalidad() != null ? propiedad.getLocalidad() : "tu zona")
+                ));
+    }
+
+    private ProspectoSalidaDto mapProspectoSalidaPublica(Prospecto prospecto) {
+        ProspectoSalidaDto dto = modelMapper.map(prospecto, ProspectoSalidaDto.class);
+        dto.setUsuarioDtoSalida(null);
+        return dto;
     }
 
 }
