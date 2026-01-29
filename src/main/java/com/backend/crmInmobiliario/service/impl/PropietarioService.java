@@ -76,12 +76,6 @@ public class PropietarioService implements IPropietarioService {
                 .map(garante -> {
                     PropietarioSalidaDto dto = modelMapper.map(propietarios, PropietarioSalidaDto.class);
 
-//                    List<ImgUrlSalidaDto> imagenesDto = dto.getImagenes()
-//                            .stream()
-//                            .map(img -> modelMapper.map(img, ImgUrlSalidaDto.class))
-//                            .toList();
-//
-//                    dto.setImagenes(imagenesDto);
                     return dto;
                 })
                 .toList();

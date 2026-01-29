@@ -2,19 +2,20 @@ package com.backend.crmInmobiliario.service.impl;
 
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.backend.crmInmobiliario.DTO.entrada.propiedades.PropiedadEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.PropiedadModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.*;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
-import com.backend.crmInmobiliario.entity.Inquilino;
-import com.backend.crmInmobiliario.entity.Propiedad;
-import com.backend.crmInmobiliario.entity.Propietario;
-import com.backend.crmInmobiliario.entity.Usuario;
+import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.InquilinoRepository;
 import com.backend.crmInmobiliario.repository.PropiedadRepository;
 import com.backend.crmInmobiliario.repository.PropietarioRepository;
+import com.backend.crmInmobiliario.repository.ProspectoRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
+import com.backend.crmInmobiliario.repository.notificacionesPush.PushSubscriptionRepository;
 import com.backend.crmInmobiliario.service.IPropiedadService;
 import com.backend.crmInmobiliario.service.impl.IA.EmbeddingService;
+import com.backend.crmInmobiliario.service.impl.notificacionesPush.PushNotificationService;
 import com.backend.crmInmobiliario.utils.JwtUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -64,14 +65,21 @@ public class PropiedadService implements IPropiedadService {
 
     @Autowired
     private PropietarioRepository propietarioRepository;
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+    @Autowired
+    private ProspectoRepository prospectoRepository;
+    @Autowired
+    private PushSubscriptionRepository pushSubscriptionRepository;
+    @Autowired
+    private PushNotificationService pushNotificationService;
 
     private EmbeddingService embeddingService;
 
     @Autowired
     private JwtUtil jwtUtil;
 
-    @Autowired
-    private UsuarioRepository usuarioRepository;
+
 
     public PropiedadService(EmbeddingService embeddingService,JwtUtil jwtUtil,ModelMapper modelMapper, InquilinoRepository inquilinoRepository, PropiedadRepository propiedadRepository, PropietarioRepository propietarioRepository) {
         this.modelMapper = modelMapper;
@@ -158,6 +166,11 @@ public class PropiedadService implements IPropiedadService {
         propiedad.setTipo(propiedadEntradaDto.getTipo());
         propiedad.setInventario(propiedadEntradaDto.getInventario());
         propiedad.setDisponibilidad(propiedadEntradaDto.getDisponibilidad());
+        propiedad.setCantidadAmbientes(propiedadEntradaDto.getCantidadAmbientes());
+        propiedad.setPileta(propiedadEntradaDto.getPileta());
+        propiedad.setCochera(propiedadEntradaDto.getCochera());
+        propiedad.setJardin(propiedadEntradaDto.getJardin());
+        propiedad.setPatio(propiedadEntradaDto.getPatio());
         propiedad.setUsuario(usuario);
 
         // 🔹 4️⃣ Asignar propietario (opcional)
@@ -200,6 +213,8 @@ public class PropiedadService implements IPropiedadService {
                 LOGGER.error("⚠️ Error al procesar Propiedad en Supabase: {}", ex.getMessage());
             }
         });
+
+        notificarProspectosPorPropiedad(propiedadAPersistir);
         return propiedadSalidaDto;
     }
 
@@ -328,6 +343,55 @@ public class PropiedadService implements IPropiedadService {
         return propiedad.isDisponibilidad();
     }
 
+    @Override
+    @Transactional
+    public PropiedadSalidaDto actualizarPropiedad(Long id, PropiedadModificacionDto dto) throws ResourceNotFoundException {
+        Propiedad propiedad = propiedadRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Propiedad no encontrada"));
+
+        if (dto.getDireccion() != null) propiedad.setDireccion(dto.getDireccion());
+        if (dto.getLocalidad() != null) propiedad.setLocalidad(dto.getLocalidad());
+        if (dto.getPartido() != null) propiedad.setPartido(dto.getPartido());
+        if (dto.getProvincia() != null) propiedad.setProvincia(dto.getProvincia());
+        if (dto.getTipo() != null) propiedad.setTipo(dto.getTipo());
+        if (dto.getInventario() != null) propiedad.setInventario(dto.getInventario());
+        if (dto.getDisponibilidad() != null) propiedad.setDisponibilidad(dto.getDisponibilidad());
+        if (dto.getCantidadAmbientes() != null) propiedad.setCantidadAmbientes(dto.getCantidadAmbientes());
+        if (dto.getPileta() != null) propiedad.setPileta(dto.getPileta());
+        if (dto.getCochera() != null) propiedad.setCochera(dto.getCochera());
+        if (dto.getJardin() != null) propiedad.setJardin(dto.getJardin());
+        if (dto.getPatio() != null) propiedad.setPatio(dto.getPatio());
+
+        if (dto.getPropietarioId() != null) {
+            Propietario propietario = propietarioRepository.findById(dto.getPropietarioId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Propietario no encontrado"));
+            if (!propietario.getUsuario().getId().equals(propiedad.getUsuario().getId())) {
+                throw new IllegalArgumentException("El propietario no pertenece al mismo usuario");
+            }
+            propiedad.setPropietario(propietario);
+        }
+
+        Propiedad saved = propiedadRepository.save(propiedad);
+        return modelMapper.map(saved, PropiedadSalidaDto.class);
+    }
+    private void notificarProspectosPorPropiedad(Propiedad propiedad) {
+        List<Prospecto> prospectos = prospectoRepository.findByUsuarioIdNot(propiedad.getUsuario().getId()).stream()
+                .filter(prospecto -> prospecto.cumpleConPropiedad(propiedad))
+                .toList();
+        if (prospectos.isEmpty()) {
+            return;
+        }
+
+        int total = prospectos.size();
+        pushSubscriptionRepository.findByUserId(propiedad.getUsuario().getId())
+                .forEach(sub -> pushNotificationService.enviarNotificacion(
+                        sub,
+                        "📌 Prospectos encontrados para tu propiedad",
+                        String.format("Hay %d prospecto(s) que buscan una propiedad en %s.",
+                                total,
+                                propiedad.getLocalidad() != null ? propiedad.getLocalidad() : "tu zona")
+                ));
+    }
     @Override
     @Transactional
     public List<PropiedadSalidaDto> buscarPropiedadesPorUsuario(String username) {

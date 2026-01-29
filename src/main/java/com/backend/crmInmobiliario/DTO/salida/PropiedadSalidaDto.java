@@ -17,7 +17,12 @@ public class PropiedadSalidaDto {
     private String tipo;
     private String inventario;
     private Boolean disponibilidad;
-
+    private Integer cantidadAmbientes;
+    private Boolean pileta;
+    private Boolean cochera;
+    private Boolean jardin;
+    private Boolean patio;
+    private Double precio;
     private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
 
     private PropietarioContratoDtoSalida propietarioSalidaDto;

@@ -20,8 +20,15 @@ public class PropiedadEntradaDto {
 
     @NotNull(message = "La provincia no puede ser nula")
     private String provincia;
-
+    private Double precio;
     private Boolean disponibilidad;
+
+    private Integer cantidadAmbientes;
+    private Boolean pileta;
+    private Boolean cochera;
+    private Boolean jardin;
+    private Boolean patio;
+
 
     private Long id_propietario;
 

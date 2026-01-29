@@ -219,6 +219,7 @@ public class ContratoController {
             // Paso 1: Finalizar el contrato (lo marca como inactivo y libera la propiedad)
             contratoService.finalizarContrato(id);
 
+
             // Paso 2: Eliminar el contrato (ya inactivo)
             contratoService.eliminarContrato(id);
 

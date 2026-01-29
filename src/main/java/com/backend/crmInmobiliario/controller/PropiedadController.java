@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.controller;
 
 
 import com.backend.crmInmobiliario.DTO.entrada.propiedades.PropiedadEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.PropiedadModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSoloSalidaDto;
@@ -42,10 +43,27 @@ public class PropiedadController {
         Integer total = propiedadService.enumerarPropiedades(username);
         return total;
     }
+
+
     @PostMapping("/create")
     public ResponseEntity<?> crearPropiedad(@RequestBody PropiedadEntradaDto dto, HttpServletRequest request) {
         PropiedadSalidaDto salida = propiedadService.crearPropiedad(dto, request);
         return ResponseEntity.ok(salida);
+    }
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<PropiedadSalidaDto>> actualizarPropiedad(
+            @PathVariable Long id,
+            @RequestBody PropiedadModificacionDto dto) {
+        try {
+            PropiedadSalidaDto actualizado = propiedadService.actualizarPropiedad(id, dto);
+            return ResponseEntity.ok(new ApiResponse<>("Propiedad actualizada correctamente.", actualizado));
+        } catch (ResourceNotFoundException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al actualizar la propiedad", null));
+        }
     }
 
 

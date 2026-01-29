@@ -29,6 +29,7 @@ public class ContratoCardDto {
     private String propietario;
     private String propiedad;
     private Set<EstadoContrato> estados;
+    private Boolean activo;
 
     // ⬇⬇⬇ Constructor que Hibernate necesita
     public ContratoCardDto(
@@ -38,7 +39,9 @@ public class ContratoCardDto {
             String inquilino,
             String propietario,
             String propiedad,
-            Set<EstadoContrato> estados
+            Set<EstadoContrato> estados,
+            Boolean activo
+
     ) {
         this.id = id;
         this.nombreContrato = nombreContrato;
@@ -47,5 +50,7 @@ public class ContratoCardDto {
         this.propietario = propietario;
         this.propiedad = propiedad;
         this.estados = estados;
+        this.activo = activo;
+
     }
 }

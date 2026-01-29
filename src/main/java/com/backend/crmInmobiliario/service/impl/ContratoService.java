@@ -1587,7 +1587,7 @@ public class ContratoService implements IContratoService {
             notaRepository.deleteByContratoId(id);
             impuestoRepository.deleteByContratoId(id);
             reciboRepository.deleteByContratoId(id);
-
+            contratoAlertaRepository.deleteByContratoId(id);
             // ✅ Eliminar contrato
             contratoRepository.delete(contrato);
 
@@ -2175,8 +2175,15 @@ public class ContratoService implements IContratoService {
                 continue;
             }
 
-            String titulo = "📅 Contrato próximo a vencer";
-            String cuerpo = String.format(
+            boolean vencido = alertaDto.isVencido();
+            String titulo = vencido ? "⚠️ Contrato vencido" : "📅 Contrato próximo a vencer";
+            String cuerpo = vencido
+                    ? String.format(
+                    "El contrato '%s' venció el %s. Podés renovarlo o finalizarlo.",
+                    alertaDto.getNombreContrato(),
+                    alertaDto.getFechaFin()
+            )
+                    : String.format(
                     "El contrato '%s' vence el %s. Podés renovarlo o finalizarlo.",
                     alertaDto.getNombreContrato(),
                     alertaDto.getFechaFin()
@@ -2257,9 +2264,12 @@ public class ContratoService implements IContratoService {
         contratoNuevo.setActivo(true);
         contratoNuevo.setSuscrito(contratoBase.isSuscrito());
 
+        contratoNuevo.setActivo(true);
         contratoNuevo.setEstado(EstadoContrato.ACTIVO);
-        List<EstadoContrato> estados = new ArrayList<>();
 
+        // tags/historial
+        contratoNuevo.getEstados().clear();
+        contratoNuevo.getEstados().add(EstadoContrato.ACTIVO);
         List<Garante> garantes = new ArrayList<>();
         boolean usarGarantesExistentes = false;
         if (dto.getGarantesIds() != null && !dto.getGarantesIds().isEmpty()) {
@@ -2284,7 +2294,10 @@ public class ContratoService implements IContratoService {
         }
 
         contratoBase.setActivo(false);
-        contratoBase.setEstado(EstadoContrato.RENOVADO);
+        contratoBase.setEstado(EstadoContrato.FINALIZADO);
+        contratoBase.getEstados().add(EstadoContrato.FINALIZADO);
+        contratoBase.getEstados().add(EstadoContrato.INACTIVO);
+        contratoBase.getEstados().add(EstadoContrato.RENOVADO);
         contratoRepository.save(contratoBase);
 
         ingresoMensualService.generarParaContrato(contratoPersistido);
@@ -2303,7 +2316,8 @@ public class ContratoService implements IContratoService {
                         c.getInquilino().getNombre() + " " + c.getInquilino().getApellido(),
                         c.getPropietario().getNombre() + " " + c.getPropietario().getApellido(),
                         c.getPropiedad().getDireccion(),
-                        c.getEstados()
+                        c.getEstados(),
+                        c.isActivo()
                 ))
                 .toList();
     }
@@ -2408,149 +2422,5 @@ public class ContratoService implements IContratoService {
         Contrato guardado = contratoRepository.save(contrato);
         return modelMapper.map(guardado, ContratoSalidaDto.class);
     }
-//    @Transactional
-//    public ContratoSalidaDto  renovarContrato(Long contratoId, RenovarContratoRequest req, Long usuarioId) {
-//
-//        // ✅ SIEMPRE renovamos el último vigente
-//        Contrato original = obtenerContratoVigente(contratoId, usuarioId);
-//
-//        // ===== Validaciones fechas (obligatorias) =====
-//        if (req.fechaInicio() == null || req.fechaFin() == null) {
-//            throw new IllegalArgumentException("fechaInicio y fechaFin son obligatorias para renovar");
-//        }
-//        if (!req.fechaFin().isAfter(req.fechaInicio())) {
-//            throw new IllegalArgumentException("fechaFin debe ser posterior a fechaInicio");
-//        }
-//
-//        // ===== Duración: si viene, validar; si no viene, calcular =====
-//        int duracionMesesCalculada = (int) java.time.temporal.ChronoUnit.MONTHS.between(
-//                req.fechaInicio(), req.fechaFin()
-//        );
-//        if (duracionMesesCalculada <= 0) {
-//            throw new IllegalArgumentException("No se pudo calcular duración válida con esas fechas");
-//        }
-//
-//        int duracionFinal;
-//        if (req.duracion() != null) {
-//            if (req.duracion() <= 0) throw new IllegalArgumentException("duracion debe ser mayor a 0");
-//
-//            duracionFinal = req.duracion();
-//        } else {
-//            duracionFinal = duracionMesesCalculada;
-//        }
-//
-//        // ===== Crear contrato nuevo =====
-//        Contrato nuevo = new Contrato();
-//
-//        // Copia base
-//        nuevo.setUsuario(original.getUsuario());
-//        nuevo.setPropietario(original.getPropietario());
-//        nuevo.setInquilino(original.getInquilino());
-//        nuevo.setPropiedad(original.getPropiedad());
-//
-//        nuevo.setNombreContrato(original.getNombreContrato());
-//        nuevo.setPdfContratoTexto(original.getPdfContratoTexto());
-//
-//        // Servicios (si viene null => copia)
-//        nuevo.setAguaEmpresa(req.aguaEmpresa() != null ? req.aguaEmpresa() : original.getAguaEmpresa());
-//        nuevo.setAguaPorcentaje(req.aguaPorcentaje() != null ? req.aguaPorcentaje() : original.getAguaPorcentaje());
-//        nuevo.setLuzEmpresa(req.luzEmpresa() != null ? req.luzEmpresa() : original.getLuzEmpresa());
-//        nuevo.setLuzPorcentaje(req.luzPorcentaje() != null ? req.luzPorcentaje() : original.getLuzPorcentaje());
-//        nuevo.setGasEmpresa(req.gasEmpresa() != null ? req.gasEmpresa() : original.getGasEmpresa());
-//        nuevo.setGasPorcentaje(req.gasPorcentaje() != null ? req.gasPorcentaje() : original.getGasPorcentaje());
-//        nuevo.setMunicipalEmpresa(req.municipalEmpresa() != null ? req.municipalEmpresa() : original.getMunicipalEmpresa());
-//        nuevo.setMunicipalPorcentaje(req.municipalPorcentaje() != null ? req.municipalPorcentaje() : original.getMunicipalPorcentaje());
-//
-//        // Campos editables
-//        nuevo.setMontoAlquiler(req.montoAlquiler() != null ? req.montoAlquiler() : original.getMontoAlquiler());
-//        nuevo.setActualizacion(req.actualizacion() != null ? req.actualizacion() : original.getActualizacion());
-//        nuevo.setIndiceAjuste(req.indiceAjuste() != null ? req.indiceAjuste() : original.getIndiceAjuste());
-//        nuevo.setMontoAlquilerLetras(req.montoAlquilerLetras() != null ? req.montoAlquilerLetras() : original.getMontoAlquilerLetras());
-//        nuevo.setMultaXDia(req.multaXDia() != null ? req.multaXDia() : original.getMultaXDia());
-//        nuevo.setDestino(req.destino() != null ? req.destino() : original.getDestino());
-//        nuevo.setTipoGarantia(req.tipoGarantia() != null ? req.tipoGarantia() : original.getTipoGarantia());
-//
-//        // Comisiones (si las usás en renovación)
-//        if (req.comisionContratoPorc() != null) nuevo.setComisionContratoPorc(req.comisionContratoPorc());
-//        else nuevo.setComisionContratoPorc(original.getComisionContratoPorc());
-//
-//        if (req.comisionMensualPorc() != null) nuevo.setComisionMensualPorc(req.comisionMensualPorc());
-//        else nuevo.setComisionMensualPorc(original.getComisionMensualPorc());
-//
-//        // Fechas y duración
-//        nuevo.setFecha_inicio(req.fechaInicio());
-//        nuevo.setFecha_fin(req.fechaFin());
-//        nuevo.setDuracion(duracionFinal);
-//
-//        // Flags y links
-//        nuevo.setActivo(true);
-//        nuevo.setEstado(EstadoContrato.ACTIVO);
-//        nuevo.setSuscrito(original.isSuscrito());
-//        nuevo.setContratoAnterior(original);
-//
-//        Contrato nuevoGuardado = contratoRepository.save(nuevo);
-//
-//        // ===== Garantes =====
-//        List<Garante> garantesNuevos = new ArrayList<>();
-//
-//        if (req.garantesIds() == null) {
-//            // clonar garantes del original
-//            Contrato originalConGarantes = contratoRepository.findContratoByIdWithGarantes(original.getId());
-//            if (originalConGarantes.getGarantes() != null) {
-//                for (Garante g : originalConGarantes.getGarantes()) {
-//                    Garante clone = garanteService.clonarGarante(g);
-//                    clone.setContrato(nuevoGuardado);
-//                    clone.setUsuario(original.getUsuario());
-//                    garantesNuevos.add(clone);
-//                }
-//            }
-//        } else if (!req.garantesIds().isEmpty()) {
-//            // clonar garantes seleccionados
-//            List<Garante> base = garanteRepository.findAllById(req.garantesIds());
-//            for (Garante g : base) {
-//                Garante clone = garanteService.clonarGarante(g);
-//                clone.setContrato(nuevoGuardado);
-//                clone.setUsuario(original.getUsuario());
-//                garantesNuevos.add(clone);
-//            }
-//        }
-//
-//        if (!garantesNuevos.isEmpty()) {
-//            garanteRepository.saveAll(garantesNuevos);
-//            nuevoGuardado.setGarantes(garantesNuevos);
-//        } else {
-//            nuevoGuardado.setGarantes(new ArrayList<>());
-//        }
-//
-//        // ===== Marcar original como renovado =====
-//        original.setActivo(false);
-//        original.setEstado(EstadoContrato.RENOVADO);
-//        original.setFechaRenovacion(LocalDate.now());
-//        original.setContratoRenovado(nuevoGuardado);
-//        contratoRepository.save(original);
-//
-//        return modelMapper.map(nuevoGuardado, ContratoSalidaDto.class);
-//    }
-//
-//
-//    private Contrato obtenerContratoVigente(Long contratoId, Long usuarioId) {
-//
-//        Contrato actual = contratoRepository.findByIdAndUsuarioId(contratoId, usuarioId)
-//                .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado"));
-//
-//        // Avanza por la cadena hasta el último
-//        while (actual.getContratoRenovado() != null) {
-//            Long siguienteId = actual.getContratoRenovado().getId();
-//            actual = contratoRepository.findByIdAndUsuarioId(siguienteId, usuarioId)
-//                    .orElseThrow(() ->
-//                            new IllegalStateException("Cadena de renovación inconsistente"));
-//        }
-//
-//        if (!actual.isActivo()) {
-//            throw new IllegalStateException("El contrato vigente no está activo");
-//        }
-//
-//        return actual;
-//    }
 
 }

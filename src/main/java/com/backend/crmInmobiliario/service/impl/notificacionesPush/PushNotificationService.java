@@ -14,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.Security;
 import java.security.spec.InvalidKeySpecException;
+import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
@@ -43,11 +44,11 @@ public class PushNotificationService {
     }
 
     public void enviarNotificacion(PushSubscription sub, String titulo, String cuerpo) {
-        enviarNotificacion(sub, titulo, cuerpo, Map.of(
-                "type", "GENERICA",
-                "contratoId", null,
-                "notaId", null
-        ));
+        Map<String, Object> data = new HashMap<>();
+        data.put("type", "GENERICA");
+        data.put("contratoId", null);
+        data.put("notaId", null);
+        enviarNotificacion(sub, titulo, cuerpo, data);
     }
 
     public void enviarNotificacion(PushSubscription sub, String titulo, String cuerpo, Map<String, Object> data) {

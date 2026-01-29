@@ -17,6 +17,7 @@ public interface PropiedadRepository extends JpaRepository<Propiedad,Long> {
     List<Propiedad> findPropiedadByUsername(@Param("username") String username);
     int countByUsuarioUsername(String username);
 
+    List<Propiedad> findByUsuarioIdNot(Long usuarioId);
 
     @Query("SELECT pr FROM Propiedad pr WHERE pr.propietario.email = :email")
     List<Propiedad> findByPropietarioEmail(@Param("email") String email);

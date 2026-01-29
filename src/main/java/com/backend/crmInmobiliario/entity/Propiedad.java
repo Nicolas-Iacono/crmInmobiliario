@@ -26,6 +26,12 @@ public class Propiedad {
     private String partido;
     private String provincia;
     private Boolean disponibilidad;
+    private Integer cantidadAmbientes;
+    private Boolean pileta;
+    private Boolean cochera;
+    private Boolean jardin;
+    private Boolean patio;
+    private Double precio;
     // Campo largo para el inventario
     @Lob
     @Column(name = "inventario", length = 3000)
