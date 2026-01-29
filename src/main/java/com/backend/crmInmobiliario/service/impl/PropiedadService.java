@@ -166,6 +166,7 @@ public class PropiedadService implements IPropiedadService {
         propiedad.setTipo(propiedadEntradaDto.getTipo());
         propiedad.setInventario(propiedadEntradaDto.getInventario());
         propiedad.setDisponibilidad(propiedadEntradaDto.getDisponibilidad());
+        propiedad.setPrecio(propiedadEntradaDto.getPrecio());
         propiedad.setCantidadAmbientes(propiedadEntradaDto.getCantidadAmbientes());
         propiedad.setPileta(propiedadEntradaDto.getPileta());
         propiedad.setCochera(propiedadEntradaDto.getCochera());
@@ -356,6 +357,7 @@ public class PropiedadService implements IPropiedadService {
         if (dto.getTipo() != null) propiedad.setTipo(dto.getTipo());
         if (dto.getInventario() != null) propiedad.setInventario(dto.getInventario());
         if (dto.getDisponibilidad() != null) propiedad.setDisponibilidad(dto.getDisponibilidad());
+        if (dto.getPrecio() != null) propiedad.setPrecio(dto.getPrecio());
         if (dto.getCantidadAmbientes() != null) propiedad.setCantidadAmbientes(dto.getCantidadAmbientes());
         if (dto.getPileta() != null) propiedad.setPileta(dto.getPileta());
         if (dto.getCochera() != null) propiedad.setCochera(dto.getCochera());
@@ -376,6 +378,7 @@ public class PropiedadService implements IPropiedadService {
     }
     private void notificarProspectosPorPropiedad(Propiedad propiedad) {
         List<Prospecto> prospectos = prospectoRepository.findByUsuarioIdNot(propiedad.getUsuario().getId()).stream()
+                .filter(prospecto -> Boolean.TRUE.equals(prospecto.getVisibilidadPublico()))
                 .filter(prospecto -> prospecto.cumpleConPropiedad(propiedad))
                 .toList();
         if (prospectos.isEmpty()) {

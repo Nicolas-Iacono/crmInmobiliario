@@ -39,6 +39,19 @@ public class Prospecto {
             return false;
         }
 
+        if (rangoPrecioMin != null || rangoPrecioMax != null) {
+            if (propiedad.getPrecio() == null) {
+                return false;
+            }
+            BigDecimal precioPropiedad = BigDecimal.valueOf(propiedad.getPrecio());
+            if (rangoPrecioMin != null && precioPropiedad.compareTo(rangoPrecioMin) < 0) {
+                return false;
+            }
+            if (rangoPrecioMax != null && precioPropiedad.compareTo(rangoPrecioMax) > 0) {
+                return false;
+            }
+        }
+
         if (zonaPreferencia != null && !zonaPreferencia.isBlank()) {
             String zona = zonaPreferencia.toLowerCase();
             String localidad = propiedad.getLocalidad() != null ? propiedad.getLocalidad().toLowerCase() : "";
