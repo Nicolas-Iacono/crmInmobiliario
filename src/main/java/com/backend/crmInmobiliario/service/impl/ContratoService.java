@@ -1690,6 +1690,9 @@ public class ContratoService implements IContratoService {
 
         contrato.setActivo(false);
         contrato.setEstado(EstadoContrato.FINALIZADO);
+        contrato.getEstados().add(EstadoContrato.FINALIZADO);
+        contrato.getEstados().add(EstadoContrato.INACTIVO);
+        contrato.getEstados().remove(EstadoContrato.ACTIVO);
         contratoRepository.save(contrato);
 
         Propiedad propiedad = contrato.getPropiedad();

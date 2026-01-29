@@ -6,10 +6,13 @@ import com.backend.crmInmobiliario.DTO.modificacion.PropiedadModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSoloSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.prospecto.ProspectoSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.PropietarioRepository;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.service.impl.PropiedadService;
+import com.backend.crmInmobiliario.service.impl.ProspectoService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
 import com.backend.crmInmobiliario.utils.AuthUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,7 +38,7 @@ public class PropiedadController {
     private final ImagenService imagenService;
     private final PropietarioRepository propietarioRepository;
     private final AuthUtil authUtil;
-
+    private final ProspectoService prospectoService;
 
     @Transactional
     @GetMapping("/enum/{username}")
@@ -66,7 +69,16 @@ public class PropiedadController {
         }
     }
 
-
+    @GetMapping("/buscar/{id}")
+    public ResponseEntity<ApiResponse<PropiedadSalidaDto>> buscarPropiedadPorId(@PathVariable Long id){
+        try{
+            PropiedadSalidaDto propiedadBuscada = propiedadService.buscarPropiedadPorId(id);
+            return  ResponseEntity.ok(new ApiResponse<>("Propiedad encontrada, ", propiedadBuscada));
+        }catch (ResourceNotFoundException  e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>("No se encontro la propiedad buscada, ", null));
+        }
+    }
 
     @PutMapping("/propiedad/{id}/asignar-propietario/{propietarioId}")
     public ResponseEntity<?> asignarPropietario(@PathVariable Long id, @PathVariable Long propietarioId) {
@@ -174,5 +186,23 @@ public class PropiedadController {
         Long userId = authUtil.extractUserId();
         return ResponseEntity.ok(propiedadService.listarPropiedadesPorUsuarioId(userId));
     }
-
+    @GetMapping("/{id}/prospectos-compatibles")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<ProspectoSalidaDto>>> listarProspectosCompatibles(@PathVariable Long id) {
+        try {
+            Long userId = authUtil.extractUserId();
+            if (userId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ApiResponse<>("Usuario no autenticado", null));
+            }
+            List<ProspectoSalidaDto> salida = prospectoService.listarProspectosCompatibles(id, userId);
+            return ResponseEntity.ok(new ApiResponse<>("Prospectos compatibles con la propiedad.", salida));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al listar prospectos compatibles", null));
+        }
+    }
 }

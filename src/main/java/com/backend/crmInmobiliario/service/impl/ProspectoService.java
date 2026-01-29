@@ -184,7 +184,10 @@ public class ProspectoService implements IProspectoService {
     private ProspectoSalidaDto mapSalida(Prospecto prospecto) {
         ProspectoSalidaDto dto = modelMapper.map(prospecto, ProspectoSalidaDto.class);
         if (prospecto.getUsuario() != null) {
-            dto.setUsuarioDtoSalida(modelMapper.map(prospecto.getUsuario(), UsuarioDtoSalida.class));
+            Usuario usuario = prospecto.getUsuario();
+            dto.setNombreNegocio(usuario.getNombreNegocio());
+            dto.setTelefonoUsuario(usuario.getTelefono());
+            dto.setLogo(usuario.getLogoInmobiliaria() != null ? usuario.getLogoInmobiliaria().getImageUrl() : null);
         }
         return dto;
     }
