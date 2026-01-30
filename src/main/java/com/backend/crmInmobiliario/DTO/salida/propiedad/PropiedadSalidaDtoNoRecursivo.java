@@ -25,6 +25,7 @@ public class PropiedadSalidaDtoNoRecursivo {
     private Boolean cochera;
     private Boolean jardin;
     private Boolean patio;
+    private boolean visibleAOtros;
     private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
 
 }

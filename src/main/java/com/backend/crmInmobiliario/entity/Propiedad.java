@@ -26,6 +26,10 @@ public class Propiedad {
     private String partido;
     private String provincia;
     private Boolean disponibilidad;
+
+    @Column(name = "visible_a_otros", nullable = false)
+    private boolean visibleAOtros = false;
+
     private Integer cantidadAmbientes;
     private Boolean pileta;
     private Boolean cochera;

@@ -27,4 +27,8 @@ public interface PropiedadRepository extends JpaRepository<Propiedad,Long> {
 
     List<Propiedad> findByUsuarioId(Long userId);
     int countByUsuarioId(Long userId);
+
+    List<Propiedad> findByUsuarioIdAndDisponibilidadTrue(Long usuarioId);
+
+    List<Propiedad> findByUsuarioIdNotAndVisibleAOtrosTrueAndDisponibilidadTrue(Long usuarioId);
 }

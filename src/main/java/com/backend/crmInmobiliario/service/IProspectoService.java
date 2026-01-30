@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.service;
 
 import com.backend.crmInmobiliario.DTO.entrada.prospecto.ProspectoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ProspectoModificacionDto;
+import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.prospecto.ProspectoSalidaDto;
 import com.backend.crmInmobiliario.entity.Propiedad;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -22,4 +23,9 @@ public interface IProspectoService {
 
     @Transactional
     List<ProspectoSalidaDto> listarProspectosCompatibles(Long propiedadId, Long userId);
+
+
+    List<PropiedadSalidaDto> listarPropiedadesCompatibles(Long usuarioId, Long prospectoId) throws ResourceNotFoundException;
+
+    void notificarPropiedadCompatible(Long usuarioId, Long prospectoId, Long propiedadId) throws ResourceNotFoundException;
 }

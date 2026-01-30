@@ -3,24 +3,29 @@ package com.backend.crmInmobiliario.entity;
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Data
-@Table(name = "usuario")
-@Entity
+@Getter
+@Setter
 @NoArgsConstructor
+@Entity
+@Table(name = "usuario")
+@ToString(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Usuario  implements UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
+
+    @ToString.Include
     private String username;
+
     private String password;
     private String nombreNegocio;
     private String email;
@@ -31,29 +36,36 @@ public class Usuario  implements UserDetails {
     private String provincia;
     private String cuit;
     private String telefono;
+
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL)
+    @ToString.Exclude
     private ImageUrls logoInmobiliaria;
 
-    // Relación con las demás entidades
     @OneToMany(mappedBy = "usuario")
+    @ToString.Exclude
     private List<Inquilino> inquilinos;
 
     @OneToMany(mappedBy = "usuario")
+    @ToString.Exclude
     private List<Propietario> propietarios;
 
     @OneToMany(mappedBy = "usuario")
+    @ToString.Exclude
     private List<Propiedad> propiedades;
 
     @OneToMany(mappedBy = "usuario")
+    @ToString.Exclude
     private List<Contrato> contratos;
 
     @OneToMany(mappedBy = "usuario")
+    @ToString.Exclude
     private List<Garante> garantes;
 
     private String googleId;
     private String googleEmail;
 
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @ToString.Exclude
     private UsuarioGoogleAccount googleAccount;
 
     @ManyToMany(fetch = FetchType.LAZY, targetEntity = Role.class, cascade = {CascadeType.MERGE, CascadeType.PERSIST})

@@ -96,4 +96,27 @@ public class PushNotificationService {
         if (s == null) return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
+
+    public void enviarNotificacionConIcono(PushSubscription sub, String titulo, String cuerpo, String iconUrl) {
+        try {
+            String iconPart = iconUrl != null && !iconUrl.isBlank()
+                    ? String.format(", \"icon\": \"%s\"", iconUrl)
+                    : "";
+            String payload = String.format("{\"title\": \"%s\", \"body\": \"%s\"%s}", titulo, cuerpo, iconPart);
+            Notification notification = new Notification(
+                    sub.getEndpoint(),
+                    sub.getP256dh(),
+                    sub.getAuth(),
+                    payload.getBytes()
+            );
+            pushService.send(notification);
+            System.out.println("✅ Notificación enviada correctamente");
+        } catch (IOException | GeneralSecurityException |
+                 org.jose4j.lang.JoseException |
+                 java.util.concurrent.ExecutionException |
+                 InterruptedException e) {
+            System.err.println("❌ Error al enviar notificación push:");
+            e.printStackTrace();
+        }
+    }
 }

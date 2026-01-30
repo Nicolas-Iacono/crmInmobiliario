@@ -15,12 +15,14 @@ public class PropiedadSoloSalidaDto {
     private String partido;
     private String provincia;
     private Boolean disponibilidad;
+    private boolean propia;
     private Integer cantidadAmbientes;
     private Boolean pileta;
     private Boolean cochera;
     private Boolean jardin;
     private Boolean patio;
     private Double precio;
+    private boolean visibleAOtros;
     private PropietarioContratoDtoSalida propietarioContratoDtoSalida;
     private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
     private UsuarioDtoSalida usuarioDtoSalida;

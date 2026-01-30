@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.controller;
 
 import com.backend.crmInmobiliario.DTO.entrada.prospecto.ProspectoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ProspectoModificacionDto;
+import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.prospecto.ProspectoSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ProspectoService;
@@ -111,6 +112,55 @@ public class ProspectoController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>("Error interno al eliminar el prospecto", null));
+        }
+    }
+
+
+    @GetMapping("/{id}/propiedades-compatibles")
+    public ResponseEntity<ApiResponse<List<PropiedadSalidaDto>>> listarPropiedadesCompatibles(
+            @PathVariable Long id) {
+        try {
+            Long userId = authUtil.extractUserId();
+
+            List<PropiedadSalidaDto> salida =
+                    prospectoService.listarPropiedadesCompatibles(userId, id);
+
+            return ResponseEntity.ok(new ApiResponse<>("Propiedades compatibles.", salida));
+
+        } catch (org.springframework.security.access.AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>("Usuario no autenticado", null));
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al listar propiedades compatibles", null));
+        }
+    }
+    @Transactional
+    @PostMapping("/{id}/notificar-propiedad/{propiedadId}")
+    public ResponseEntity<ApiResponse<?>> notificarPropiedadCompatible(
+            @PathVariable Long id,
+            @PathVariable Long propiedadId) {
+        try {
+            Long userId = authUtil.extractUserId();
+
+            prospectoService.notificarPropiedadCompatible(userId, id, propiedadId);
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>("Notificación enviada correctamente.", null)
+            );
+
+        } catch (ResourceNotFoundException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al enviar la notificación", null));
         }
     }
 }

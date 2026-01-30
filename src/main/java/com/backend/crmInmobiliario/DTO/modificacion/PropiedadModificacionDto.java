@@ -18,6 +18,7 @@ public class PropiedadModificacionDto {
     private Boolean cochera;
     private Boolean jardin;
     private Boolean patio;
+    private boolean visibleAOtros;
 
     private Long propietarioId;
 }

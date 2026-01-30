@@ -1,11 +1,13 @@
 package com.backend.crmInmobiliario.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.Date;
 
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(
         name = "usuario_google_account",
@@ -14,20 +16,23 @@ import java.util.Date;
                 @UniqueConstraint(name = "uk_user_google", columnNames = {"usuario_id"})
         }
 )
-@Data
-@NoArgsConstructor
+@ToString(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class UsuarioGoogleAccount {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
+    @ToString.Exclude
     private Usuario usuario;
 
+    @ToString.Include
     @Column(name = "google_sub", nullable = false, length = 64)
-    private String googleSub; // ID inmutable de Google
+    private String googleSub;
 
     @Column(name = "email", nullable = false)
     private String email;

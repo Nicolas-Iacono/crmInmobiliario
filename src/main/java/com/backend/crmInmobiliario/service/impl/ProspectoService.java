@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.entrada.prospecto.ProspectoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ProspectoModificacionDto;
+import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.prospecto.ProspectoSalidaDto;
 import com.backend.crmInmobiliario.entity.Propiedad;
@@ -24,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 @Service
 public class ProspectoService implements IProspectoService {
@@ -245,5 +247,84 @@ public class ProspectoService implements IProspectoService {
 
     private ProspectoSalidaDto mapProspectoSalida(Prospecto prospecto) {
         return mapSalida(prospecto);
+    }
+
+    @Override
+    @Transactional
+    public List<PropiedadSalidaDto> listarPropiedadesCompatibles(Long usuarioId, Long prospectoId)
+            throws ResourceNotFoundException {
+
+        Prospecto prospecto = prospectoRepository.findById(prospectoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prospecto no encontrado"));
+        validarPropietario(usuarioId, prospecto);
+
+        // ✅ propias: disponibles (sin importar visibleAOtros)
+        List<Propiedad> propias = propiedadRepository.findByUsuarioIdAndDisponibilidadTrue(usuarioId);
+
+        // ✅ ajenas: visibles + disponibles
+        List<Propiedad> ajenasVisibles = propiedadRepository
+                .findByUsuarioIdNotAndVisibleAOtrosTrueAndDisponibilidadTrue(usuarioId);
+
+        return Stream.concat(propias.stream(), ajenasVisibles.stream())
+                .filter(prospecto::cumpleConPropiedad)
+                .map(p -> {
+                    PropiedadSalidaDto dto = modelMapper.map(p, PropiedadSalidaDto.class);
+                    dto.setPropia(p.getUsuario() != null && p.getUsuario().getId().equals(usuarioId));
+                    return dto;
+                })
+                .toList();
+    }
+    @Override
+    @Transactional
+    public void notificarPropiedadCompatible(Long usuarioId, Long prospectoId, Long propiedadId) throws ResourceNotFoundException {
+        Prospecto prospecto = prospectoRepository.findById(prospectoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prospecto no encontrado"));
+        validarPropietario(usuarioId, prospecto);
+
+        Propiedad propiedad = propiedadRepository.findById(propiedadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Propiedad no encontrada"));
+
+        if (propiedad.getUsuario() == null || propiedad.getUsuario().getId() == null) {
+            throw new IllegalArgumentException("La propiedad no tiene usuario asociado");
+        }
+        if (propiedad.getUsuario().getId().equals(usuarioId)) {
+            throw new IllegalArgumentException("No puedes notificar una propiedad propia");
+        }
+        if (!prospecto.cumpleConPropiedad(propiedad)) {
+            throw new IllegalArgumentException("La propiedad no es compatible con este prospecto");
+        }
+
+        Usuario remitente = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+        String nombreRemitente = remitente.getNombreNegocio() != null && !remitente.getNombreNegocio().isBlank()
+                ? remitente.getNombreNegocio()
+                : remitente.getUsername();
+        String logoUrl = remitente.getLogoInmobiliaria() != null
+                ? remitente.getLogoInmobiliaria().getImageUrl()
+                : null;
+
+        pushSubscriptionRepository.findByUserId(propiedad.getUsuario().getId())
+                .forEach(sub -> pushNotificationService.enviarNotificacionConIcono(
+                        sub,
+                        "🔔 Recomendación de prospecto",
+                        String.format("%s te recomendó un prospecto compatible.", nombreRemitente),
+                        logoUrl
+                ));
+    }
+
+
+    private void validarPropietario(Long usuarioId, Prospecto prospecto) {
+        if (usuarioId == null) {
+            throw new IllegalArgumentException("El usuario es obligatorio");
+        }
+        if (prospecto == null) {
+            throw new IllegalArgumentException("El prospecto es obligatorio");
+        }
+        if (prospecto.getUsuario() == null || prospecto.getUsuario().getId() == null) {
+            throw new IllegalArgumentException("El prospecto no tiene usuario asociado");
+        }
+        if (!prospecto.getUsuario().getId().equals(usuarioId)) {
+            throw new IllegalArgumentException("No tienes permisos para modificar este prospecto");
+        }
     }
 }

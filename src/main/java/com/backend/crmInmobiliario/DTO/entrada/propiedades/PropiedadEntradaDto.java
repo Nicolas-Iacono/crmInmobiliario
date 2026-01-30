@@ -28,7 +28,7 @@ public class PropiedadEntradaDto {
     private Boolean cochera;
     private Boolean jardin;
     private Boolean patio;
-
+    private boolean visibleAOtros;
 
     private Long id_propietario;
 

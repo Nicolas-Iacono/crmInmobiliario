@@ -22,5 +22,8 @@ public class PropiedadContratoSalidaDto {
     private Boolean jardin;
     private Boolean patio;
     private Double precio;
+    private boolean visibleAOtros;
+    private boolean propia;
+
     private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
 }
