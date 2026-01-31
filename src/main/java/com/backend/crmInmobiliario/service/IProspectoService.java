@@ -14,6 +14,7 @@ public interface IProspectoService {
     ProspectoSalidaDto crearProspecto(ProspectoEntradaDto dto) throws ResourceNotFoundException;
 
     ProspectoSalidaDto actualizarProspecto(Long id, ProspectoModificacionDto dto) throws ResourceNotFoundException;
+    ProspectoSalidaDto actualizarDisponibilidad(Long id, Boolean disponible) throws ResourceNotFoundException;
 
     List<ProspectoSalidaDto> listarMisProspectos();
 
