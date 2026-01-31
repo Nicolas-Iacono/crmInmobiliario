@@ -25,7 +25,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Stream;
 
 @Service
 public class ProspectoService implements IProspectoService {
@@ -266,11 +265,10 @@ public class ProspectoService implements IProspectoService {
             throw new ResourceNotFoundException("Propiedad no encontrada");
         }
 
-        // Buscar prospectos de otros usuarios (marketplace)
-        List<Prospecto> prospectos = prospectoRepository.findByUsuarioIdNot(userId);
+        // Buscar solo prospectos propios
+        List<Prospecto> prospectos = prospectoRepository.findByUsuarioId(userId);
 
         return prospectos.stream()
-                .filter(p -> Boolean.TRUE.equals(p.getVisibilidadPublico()))
                 .filter(p -> p.cumpleConPropiedad(propiedad))
                 .map(this::mapProspectoSalida) // o modelMapper directo
                 .toList();
@@ -289,27 +287,21 @@ public class ProspectoService implements IProspectoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Prospecto no encontrado"));
         validarPropietario(usuarioId, prospecto);
 
-        // ✅ propias: disponibles (sin importar visibleAOtros)
+        // ✅ propias: disponibles
         List<Propiedad> propias = propiedadRepository.findByUsuarioIdAndDisponibilidadTrue(usuarioId);
-
-        // ✅ ajenas: visibles + disponibles
-        List<Propiedad> ajenasVisibles = propiedadRepository
-                .findByUsuarioIdNotAndVisibleAOtrosTrueAndDisponibilidadTrue(usuarioId);
 
         LOGGER.info("Compatibles: usuarioId={}, prospectoId={}", usuarioId, prospectoId);
         LOGGER.info("Propias disponibles: {}", propias.size());
-        LOGGER.info("Ajenas visibles disponibles: {}", ajenasVisibles.size());
 
         long propiasOk = propias.stream().filter(prospecto::cumpleConPropiedad).count();
-        long ajenasOk = ajenasVisibles.stream().filter(prospecto::cumpleConPropiedad).count();
 
-        LOGGER.info("Luego de cumpleConPropiedad -> propiasOk={}, ajenasOk={}", propiasOk, ajenasOk);
+        LOGGER.info("Luego de cumpleConPropiedad -> propiasOk={}", propiasOk);
 
-        return Stream.concat(propias.stream(), ajenasVisibles.stream())
+        return propias.stream()
                 .filter(prospecto::cumpleConPropiedad)
                 .map(p -> {
                     PropiedadSalidaDto dto = modelMapper.map(p, PropiedadSalidaDto.class);
-                    dto.setPropia(p.getUsuario() != null && p.getUsuario().getId().equals(usuarioId));
+                    dto.setPropia(true);
                     return dto;
                 })
                 .toList();
