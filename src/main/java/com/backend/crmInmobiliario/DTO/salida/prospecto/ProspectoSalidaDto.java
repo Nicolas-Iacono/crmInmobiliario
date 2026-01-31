@@ -22,6 +22,10 @@ public class ProspectoSalidaDto {
     private Boolean patio;
     private Boolean jardin;
     private Boolean pileta;
+    private Boolean visibilidadPublico;
+    private Boolean destino;
+    private Boolean mascotas;
+    private Boolean disponible;
     private String nombreNegocio;
     private String logo;
     private String telefonoUsuario;

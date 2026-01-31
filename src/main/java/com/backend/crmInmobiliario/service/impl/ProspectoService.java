@@ -75,7 +75,10 @@ public class ProspectoService implements IProspectoService {
                 .addMapping(ProspectoEntradaDto::getPatio, Prospecto::setPatio)
                 .addMapping(ProspectoEntradaDto::getJardin, Prospecto::setJardin)
                 .addMapping(ProspectoEntradaDto::getPileta, Prospecto::setPileta)
-                .addMapping(ProspectoEntradaDto::getVisibilidadPublico, Prospecto::setVisibilidadPublico);
+                .addMapping(ProspectoEntradaDto::getVisibilidadPublico, Prospecto::setVisibilidadPublico)
+                .addMapping(ProspectoEntradaDto::getDestino, Prospecto::setDestino)
+                .addMapping(ProspectoEntradaDto::getMascotas, Prospecto::setMascotas)
+                .addMapping(ProspectoEntradaDto::getDisponible, Prospecto::setDisponible);
 
         modelMapper.typeMap(Prospecto.class,ProspectoSalidaDto.class)
                 .addMapping(Prospecto::getNombre, ProspectoSalidaDto::setNombre)
@@ -88,7 +91,11 @@ public class ProspectoService implements IProspectoService {
                 .addMapping(Prospecto::getRangoPrecioMax, ProspectoSalidaDto::setRangoPrecioMax)
                 .addMapping(Prospecto::getCochera, ProspectoSalidaDto::setCochera)
                 .addMapping(Prospecto::getPatio, ProspectoSalidaDto::setPatio)
-                .addMapping(Prospecto::getJardin, ProspectoSalidaDto::setJardin);
+                .addMapping(Prospecto::getJardin, ProspectoSalidaDto::setJardin)
+                .addMapping(Prospecto::getVisibilidadPublico, ProspectoSalidaDto::setVisibilidadPublico)
+                .addMapping(Prospecto::getDestino, ProspectoSalidaDto::setDestino)
+                .addMapping(Prospecto::getMascotas, ProspectoSalidaDto::setMascotas)
+                .addMapping(Prospecto::getDisponible, ProspectoSalidaDto::setDisponible);
 
     }
         @Override
@@ -115,6 +122,9 @@ public class ProspectoService implements IProspectoService {
         prospecto.setJardin(dto.getJardin());
         prospecto.setPileta(dto.getPileta());
         prospecto.setVisibilidadPublico(dto.getVisibilidadPublico() != null ? dto.getVisibilidadPublico() : Boolean.TRUE);
+        prospecto.setDestino(dto.getDestino());
+        prospecto.setMascotas(dto.getMascotas());
+        prospecto.setDisponible(Boolean.TRUE);
 
         Prospecto guardado = prospectoRepository.save(prospecto);
         return mapSalida(guardado);
@@ -155,11 +165,32 @@ public class ProspectoService implements IProspectoService {
         if (dto.getJardin() != null) { prospecto.setJardin(dto.getJardin()); cambioFiltros = true; }
         if (dto.getPileta() != null) { prospecto.setPileta(dto.getPileta()); cambioFiltros = true; }
         if (dto.getVisibilidadPublico() != null) { prospecto.setVisibilidadPublico(dto.getVisibilidadPublico()); cambioFiltros = true; }
+        if (dto.getDestino() != null) { prospecto.setDestino(dto.getDestino()); cambioFiltros = true; }
+        if (dto.getMascotas() != null) { prospecto.setMascotas(dto.getMascotas()); cambioFiltros = true; }
+        if (dto.getDisponible() != null) { prospecto.setDisponible(dto.getDisponible()); }
 
         // 4) Guardar
         Prospecto actualizado = prospectoRepository.save(prospecto);
 
 
+        return mapSalida(actualizado);
+    }
+
+    @Override
+    @Transactional
+    public ProspectoSalidaDto actualizarDisponibilidad(Long id, Boolean disponible) throws ResourceNotFoundException {
+        if (disponible == null) {
+            throw new IllegalArgumentException("La disponibilidad es obligatoria");
+        }
+
+        Long idUser = authUtil.extractUserId();
+        Prospecto prospecto = prospectoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Prospecto no encontrado"));
+
+        validarPropietario(idUser, prospecto);
+
+        prospecto.setDisponible(disponible);
+        Prospecto actualizado = prospectoRepository.save(prospecto);
         return mapSalida(actualizado);
     }
 
