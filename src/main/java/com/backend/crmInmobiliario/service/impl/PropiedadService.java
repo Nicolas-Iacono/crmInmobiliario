@@ -172,6 +172,7 @@ public class PropiedadService implements IPropiedadService {
         propiedad.setCochera(propiedadEntradaDto.getCochera());
         propiedad.setJardin(propiedadEntradaDto.getJardin());
         propiedad.setPatio(propiedadEntradaDto.getPatio());
+        propiedad.setVisibleAOtros(propiedadEntradaDto.isVisibleAOtros());
         propiedad.setUsuario(usuario);
 
         // 🔹 4️⃣ Asignar propietario (opcional)
@@ -363,6 +364,7 @@ public class PropiedadService implements IPropiedadService {
         if (dto.getCochera() != null) propiedad.setCochera(dto.getCochera());
         if (dto.getJardin() != null) propiedad.setJardin(dto.getJardin());
         if (dto.getPatio() != null) propiedad.setPatio(dto.getPatio());
+        propiedad.setVisibleAOtros(dto.isVisibleAOtros());
 
         if (dto.getPropietarioId() != null) {
             Propietario propietario = propietarioRepository.findById(dto.getPropietarioId())

@@ -265,6 +265,15 @@ public class ProspectoService implements IProspectoService {
         List<Propiedad> ajenasVisibles = propiedadRepository
                 .findByUsuarioIdNotAndVisibleAOtrosTrueAndDisponibilidadTrue(usuarioId);
 
+        LOGGER.info("Compatibles: usuarioId={}, prospectoId={}", usuarioId, prospectoId);
+        LOGGER.info("Propias disponibles: {}", propias.size());
+        LOGGER.info("Ajenas visibles disponibles: {}", ajenasVisibles.size());
+
+        long propiasOk = propias.stream().filter(prospecto::cumpleConPropiedad).count();
+        long ajenasOk = ajenasVisibles.stream().filter(prospecto::cumpleConPropiedad).count();
+
+        LOGGER.info("Luego de cumpleConPropiedad -> propiasOk={}, ajenasOk={}", propiasOk, ajenasOk);
+
         return Stream.concat(propias.stream(), ajenasVisibles.stream())
                 .filter(prospecto::cumpleConPropiedad)
                 .map(p -> {

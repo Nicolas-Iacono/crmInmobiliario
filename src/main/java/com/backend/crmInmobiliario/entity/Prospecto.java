@@ -5,7 +5,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Data
@@ -32,69 +34,76 @@ public class Prospecto {
     @CollectionTable(name = "prospecto_zonas", joinColumns = @JoinColumn(name = "prospecto_id"))
     @Column(name = "zona_preferencia")
     private List<String> zonaPreferencia = new ArrayList<>();
+    private Boolean destino;
     private Integer cantidadAmbientes;
     private Boolean cochera;
     private Boolean patio;
     private Boolean jardin;
     private Boolean pileta;
     private Boolean visibilidadPublico;
+    private Boolean disponible;
+    private Boolean mascotas;
+
+    private String norm(String s) {
+        if (s == null) return "";
+        String x = s.trim().toLowerCase();
+
+        // saca tildes/acentos
+        x = Normalizer.normalize(x, Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+
+        // colapsa espacios
+        x = x.replaceAll("\\s+", " ");
+        return x;
+    }
 
     public boolean cumpleConPropiedad(Propiedad propiedad) {
-        if (propiedad == null) {
-            return false;
-        }
+        if (propiedad == null) return false;
 
+        // Precio
         if (rangoPrecioMin != null || rangoPrecioMax != null) {
-            if (propiedad.getPrecio() == null) {
-                return false;
-            }
+            if (propiedad.getPrecio() == null) return false;
+
             BigDecimal precioPropiedad = BigDecimal.valueOf(propiedad.getPrecio());
-            if (rangoPrecioMin != null && precioPropiedad.compareTo(rangoPrecioMin) < 0) {
-                return false;
-            }
-            if (rangoPrecioMax != null && precioPropiedad.compareTo(rangoPrecioMax) > 0) {
-                return false;
-            }
+            if (rangoPrecioMin != null && precioPropiedad.compareTo(rangoPrecioMin) < 0) return false;
+            if (rangoPrecioMax != null && precioPropiedad.compareTo(rangoPrecioMax) > 0) return false;
         }
 
+        // Zonas
         if (zonaPreferencia != null && !zonaPreferencia.isEmpty()) {
 
-            String localidad = propiedad.getLocalidad() != null ? propiedad.getLocalidad().toLowerCase() : "";
-            String partido = propiedad.getPartido() != null ? propiedad.getPartido().toLowerCase() : "";
-            String provincia = propiedad.getProvincia() != null ? propiedad.getProvincia().toLowerCase() : "";
-            String direccion = propiedad.getDireccion() != null ? propiedad.getDireccion().toLowerCase() : "";
+            String localidad = norm(propiedad.getLocalidad());
+            String partido = norm(propiedad.getPartido());
+            String provincia = norm(propiedad.getProvincia());
+            String direccion = norm(propiedad.getDireccion());
 
             boolean matchZona = zonaPreferencia.stream()
-                    .filter(zona -> zona != null && !zona.isBlank())
-                    .map(String::toLowerCase)
-                    .anyMatch(zona -> localidad.contains(zona)
-                            || partido.contains(zona)
-                            || provincia.contains(zona)
-                            || direccion.contains(zona));
+                    .filter(z -> z != null && !z.isBlank())
+                    .flatMap(z -> Arrays.stream(norm(z).split("[,;/\\-]"))) // tokeniza "quilmes, bs as"
+                    .map(String::trim)
+                    .filter(tok -> !tok.isBlank())
+                    .anyMatch(tok ->
+                            localidad.contains(tok) ||
+                                    partido.contains(tok) ||
+                                    provincia.contains(tok) ||
+                                    direccion.contains(tok)
+                    );
 
-            if (!matchZona) {
-                return false;
-            }
+            if (!matchZona) return false;
         }
 
+        // Ambientes
         if (cantidadAmbientes != null) {
             if (propiedad.getCantidadAmbientes() == null || propiedad.getCantidadAmbientes() < cantidadAmbientes) {
                 return false;
             }
         }
 
-        if (Boolean.TRUE.equals(cochera) && !Boolean.TRUE.equals(propiedad.getCochera())) {
-            return false;
-        }
-        if (Boolean.TRUE.equals(patio) && !Boolean.TRUE.equals(propiedad.getPatio())) {
-            return false;
-        }
-        if (Boolean.TRUE.equals(jardin) && !Boolean.TRUE.equals(propiedad.getJardin())) {
-            return false;
-        }
-        if (Boolean.TRUE.equals(pileta) && !Boolean.TRUE.equals(propiedad.getPileta())) {
-            return false;
-        }
+        // Features
+        if (Boolean.TRUE.equals(cochera) && !Boolean.TRUE.equals(propiedad.getCochera())) return false;
+        if (Boolean.TRUE.equals(patio) && !Boolean.TRUE.equals(propiedad.getPatio())) return false;
+        if (Boolean.TRUE.equals(jardin) && !Boolean.TRUE.equals(propiedad.getJardin())) return false;
+        if (Boolean.TRUE.equals(pileta) && !Boolean.TRUE.equals(propiedad.getPileta())) return false;
 
         return true;
     }

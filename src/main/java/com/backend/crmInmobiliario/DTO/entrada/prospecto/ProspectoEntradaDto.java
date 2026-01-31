@@ -21,4 +21,7 @@ public class ProspectoEntradaDto {
     private Boolean patio;
     private Boolean jardin;
     private Boolean pileta;
+    private Boolean mascotas;
+    private Boolean disponible;
+    private Boolean destino;
 }
