@@ -50,9 +50,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -1381,6 +1383,42 @@ public class ContratoService implements IContratoService {
         }
     }
 
+    public void validarAccesoPorSuscripcion(Usuario usuario) {
+        if (usuario == null) {
+            return;
+        }
+
+        Optional<Subscription> optSub = subscriptionRepository.findByUsuarioId(usuario.getId());
+        if (optSub.isEmpty()) {
+            return;
+        }
+
+        Subscription sub = optSub.get();
+        Plan plan = sub.getPlan();
+        if (plan == null) {
+            return;
+        }
+
+        Integer limite = plan.getContractLimit();
+        if (limite == null || limite <= 3) {
+            return;
+        }
+
+        if (!esSuscripcionActiva(sub)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Suscripción vencida: acceso bloqueado a contratos y recibos hasta regularizar el pago."
+            );
+        }
+    }
+
+    private boolean esSuscripcionActiva(Subscription sub) {
+        Subscription.Status status = sub.getStatus();
+        return status == Subscription.Status.ACTIVE
+                || status == Subscription.Status.AUTHORIZED
+                || status == Subscription.Status.TRIALING;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<ContratoSalidaDto> buscarContratoPorUsuario(String username) {
@@ -1444,6 +1482,8 @@ public class ContratoService implements IContratoService {
         Contrato contrato = contratoRepository.findById(contratoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado con ID: " + contratoId));
 
+        validarAccesoPorSuscripcion(contrato.getUsuario());
+
         // Actualizar el campo pdfContratoTexto si está presente
         if (actualizacion.getPdfContratoTexto() != null) {
             contrato.setPdfContratoTexto(actualizacion.getPdfContratoTexto());
@@ -1469,6 +1509,8 @@ public class ContratoService implements IContratoService {
             throw new EntityNotFoundException("Contrato no encontrado");
         }
 
+        validarAccesoPorSuscripcion(contrato.getUsuario());
+
         // 1) Garantes
         List<Garante> garantes = garanteRepository.findGarantesByContratoId(id);
         contrato.setGarantes(garantes);
@@ -1490,6 +1532,8 @@ public class ContratoService implements IContratoService {
         if (contrato == null) {
             throw new EntityNotFoundException("Contrato no encontrado");
         }
+
+        validarAccesoPorSuscripcion(contrato.getUsuario());
 
         // Garantes sin generar bags
         List<Garante> garantes = garanteRepository.findGarantesByContratoId(id);
@@ -1901,6 +1945,8 @@ public class ContratoService implements IContratoService {
         Contrato contrato = contratoRepository.findByNombreContratoCompleto(nombreContrato)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encontró contrato con el nombre: " + nombreContrato));
 
+        validarAccesoPorSuscripcion(contrato.getUsuario());
+
         // Inicializamos las colecciones lazy
         Hibernate.initialize(contrato.getGarantes());
         Hibernate.initialize(contrato.getRecibos());
@@ -1953,6 +1999,8 @@ public class ContratoService implements IContratoService {
     @Override
     @Transactional(readOnly = true)
     public List<ContratoSalidaDto> listarContratosPorUsuarioId(Long userId) {
+
+        usuarioRepository.findById(userId).ifPresent(this::validarAccesoPorSuscripcion);
 
         List<Contrato> contratoList = contratoRepository.findByUsuarioId(userId);
 
