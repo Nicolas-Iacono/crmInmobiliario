@@ -175,6 +175,8 @@ public class ReciboService implements IReciboService {
                     return new ResourceNotFoundException("Contrato no encontrado");
                 });
 
+        contratoService.validarAccesoPorSuscripcion(contrato.getUsuario());
+
         // 2. Crear el recibo
         Recibo recibo = new Recibo();
         recibo.setContrato(contrato);
