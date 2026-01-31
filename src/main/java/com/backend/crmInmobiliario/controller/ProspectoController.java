@@ -1,6 +1,7 @@
 package com.backend.crmInmobiliario.controller;
 
 import com.backend.crmInmobiliario.DTO.entrada.prospecto.ProspectoEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.ProspectoDisponibilidadDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ProspectoModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.prospecto.ProspectoSalidaDto;
@@ -68,6 +69,23 @@ public class ProspectoController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>("Error interno al actualizar el prospecto", null));
+        }
+    }
+
+    @Transactional
+    @PatchMapping("/{id}/disponibilidad")
+    public ResponseEntity<ApiResponse<ProspectoSalidaDto>> actualizarDisponibilidad(
+            @PathVariable Long id,
+            @RequestBody ProspectoDisponibilidadDto dto) {
+        try {
+            ProspectoSalidaDto salida = prospectoService.actualizarDisponibilidad(id, dto.getDisponible());
+            return ResponseEntity.ok(new ApiResponse<>("Disponibilidad actualizada correctamente.", salida));
+        } catch (ResourceNotFoundException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Error interno al actualizar la disponibilidad", null));
         }
     }
 
