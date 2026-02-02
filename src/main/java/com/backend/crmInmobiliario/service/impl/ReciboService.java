@@ -1,5 +1,5 @@
 package com.backend.crmInmobiliario.service.impl;
-
+import org.springframework.http.MediaType;
 import com.backend.crmInmobiliario.DTO.entrada.ImpuestoEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.ReciboEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboEstadoActualizadoEvent;
@@ -24,7 +24,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
-import okhttp3.*;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import org.hibernate.Hibernate;
 import org.hibernate.collection.spi.PersistentBag;
 import org.modelmapper.ModelMapper;
@@ -36,7 +39,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -452,7 +454,7 @@ public class ReciboService implements IReciboService {
 
         Request request = new Request.Builder()
                 .url(SUPABASE_URL + "/rest/v1/recibos")
-                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .post(RequestBody.create(json, okhttp3.MediaType.parse("application/json")))
                 .addHeader("Content-Type", "application/json")
                 // 👇 upsert: si ya existe el id, hace merge
                 .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
@@ -506,7 +508,7 @@ public class ReciboService implements IReciboService {
 
         Request request = new Request.Builder()
                 .url(SUPABASE_URL + "/rest/v1/recibos_embeddings")
-                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .post(RequestBody.create(json, okhttp3.MediaType.parse("application/json")))
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Prefer", "resolution=merge-duplicates")
                 .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
@@ -726,7 +728,7 @@ public class ReciboService implements IReciboService {
 
         Request request = new Request.Builder()
                 .url(SUPABASE_URL + "/rest/v1/recibos")
-                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .post(RequestBody.create(json, okhttp3.MediaType.parse("application/json")))
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
                 .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
@@ -764,7 +766,7 @@ public class ReciboService implements IReciboService {
 
         Request request = new Request.Builder()
                 .url(SUPABASE_URL + "/rest/v1/recibos_embeddings")
-                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .post(RequestBody.create(json, okhttp3.MediaType.parse("application/json")))
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Prefer", "resolution=merge-duplicates")
                 .addHeader("apikey", SUPABASE_SERVICE_ROLE_KEY)
