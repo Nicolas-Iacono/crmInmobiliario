@@ -1,12 +1,16 @@
 package com.backend.crmInmobiliario.service.impl.mercadoPago;
 
 import com.backend.crmInmobiliario.entity.Usuario;
+import com.backend.crmInmobiliario.entity.Recibo;
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Subscription;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import com.backend.crmInmobiliario.repository.ReciboRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.PlanRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.SubscriptionRepository;
+import com.backend.crmInmobiliario.repository.notificacionesPush.PushSubscriptionRepository;
+import com.backend.crmInmobiliario.service.impl.notificacionesPush.PushNotificationService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -34,14 +38,21 @@ public class WebhookService {
     private final SubscriptionRepository subscriptionRepository;
     private final UsuarioRepository usuarioRepository;
     private final PlanRepository planRepository;
+    private final ReciboRepository reciboRepository;
+    private final PushSubscriptionRepository pushSubscriptionRepository;
+    private final PushNotificationService pushNotificationService;
     private PaymentService paymentService;
     public WebhookService(PaymentService paymentService, RestTemplate restTemplate, SubscriptionRepository subscriptionRepository,
-                          UsuarioRepository usuarioRepository, PlanRepository planRepository) {
+                          UsuarioRepository usuarioRepository, PlanRepository planRepository, ReciboRepository reciboRepository,
+                          PushSubscriptionRepository pushSubscriptionRepository, PushNotificationService pushNotificationService) {
         this.restTemplate = restTemplate;
         this.subscriptionRepository = subscriptionRepository;
         this.usuarioRepository = usuarioRepository;
         this.planRepository = planRepository;
         this.paymentService = paymentService;
+        this.reciboRepository = reciboRepository;
+        this.pushSubscriptionRepository = pushSubscriptionRepository;
+        this.pushNotificationService = pushNotificationService;
     }
 
     /**
@@ -140,9 +151,16 @@ public class WebhookService {
                 }
             }
 
-            // 4️⃣ Si sigue sin aparecer, NO usar external_reference (porque es el userId)
+            // 4️⃣ Si no hay preapproval, puede ser pago de recibo
             if (preapprovalId == null || preapprovalId.isEmpty()) {
-                System.out.println("⚠️ Pago (" + paymentId + ") sin preapproval_id, no se procesará como suscripción.");
+                Map<String, Object> metadata = (Map<String, Object>) mpPayment.get("metadata");
+                String status = String.valueOf(mpPayment.get("status"));
+                if (metadata != null && metadata.containsKey("recibo_id")) {
+                    Long reciboId = Long.valueOf(String.valueOf(metadata.get("recibo_id")));
+                    procesarPagoRecibo(reciboId, status);
+                } else {
+                    System.out.println("⚠️ Pago (" + paymentId + ") sin preapproval_id ni metadata de recibo.");
+                }
                 return;
             }
 
@@ -152,6 +170,39 @@ public class WebhookService {
 
         } catch (Exception e) {
             System.err.println("❌ Error al procesar el pago Webhook MP " + paymentId + ": " + e.getMessage());
+        }
+    }
+
+    private void procesarPagoRecibo(Long reciboId, String status) {
+        if (!"approved".equalsIgnoreCase(status)) {
+            System.out.println("ℹ️ Pago de recibo " + reciboId + " con estado " + status + ", no se marca como pagado.");
+            return;
+        }
+
+        Recibo recibo = reciboRepository.findById(reciboId).orElse(null);
+        if (recibo == null) {
+            System.out.println("⚠️ Recibo no encontrado para pago: " + reciboId);
+            return;
+        }
+
+        if (Boolean.TRUE.equals(recibo.getEstado())) {
+            System.out.println("ℹ️ Recibo " + reciboId + " ya estaba pagado.");
+            return;
+        }
+
+        recibo.setEstado(true);
+        reciboRepository.save(recibo);
+
+        if (recibo.getContrato() != null && recibo.getContrato().getUsuario() != null) {
+            Long ownerId = recibo.getContrato().getUsuario().getId();
+            pushSubscriptionRepository.findByUserId(ownerId).forEach(sub ->
+                    pushNotificationService.enviarNotificacion(
+                            sub,
+                            "✅ Recibo pagado",
+                            String.format("El inquilino abonó el recibo del período %s.", recibo.getPeriodo()),
+                            Map.of("reciboId", reciboId)
+                    )
+            );
         }
     }
 
