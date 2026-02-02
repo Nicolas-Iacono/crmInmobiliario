@@ -1,15 +1,17 @@
 package com.backend.crmInmobiliario.service.impl.mercadoPago;
 
 import com.backend.crmInmobiliario.entity.Usuario;
-import com.backend.crmInmobiliario.entity.Recibo;
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Subscription;
+import com.backend.crmInmobiliario.DTO.modificacion.ReciboModificacionDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.ReciboRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.PlanRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.SubscriptionRepository;
 import com.backend.crmInmobiliario.repository.notificacionesPush.PushSubscriptionRepository;
+import com.backend.crmInmobiliario.repository.projections.ReciboSyncProjection;
+import com.backend.crmInmobiliario.service.impl.ReciboService;
 import com.backend.crmInmobiliario.service.impl.notificacionesPush.PushNotificationService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -41,15 +43,23 @@ public class WebhookService {
     private final ReciboRepository reciboRepository;
     private final PushSubscriptionRepository pushSubscriptionRepository;
     private final PushNotificationService pushNotificationService;
-    private PaymentService paymentService;
-    public WebhookService(PaymentService paymentService, RestTemplate restTemplate, SubscriptionRepository subscriptionRepository,
-                          UsuarioRepository usuarioRepository, PlanRepository planRepository, ReciboRepository reciboRepository,
-                          PushSubscriptionRepository pushSubscriptionRepository, PushNotificationService pushNotificationService) {
+    private final PaymentService paymentService;
+    private final ReciboService reciboService;
+    public WebhookService(PaymentService paymentService,
+                          ReciboService reciboService,
+                          RestTemplate restTemplate,
+                          SubscriptionRepository subscriptionRepository,
+                          UsuarioRepository usuarioRepository,
+                          PlanRepository planRepository,
+                          ReciboRepository reciboRepository,
+                          PushSubscriptionRepository pushSubscriptionRepository,
+                          PushNotificationService pushNotificationService) {
         this.restTemplate = restTemplate;
         this.subscriptionRepository = subscriptionRepository;
         this.usuarioRepository = usuarioRepository;
         this.planRepository = planRepository;
         this.paymentService = paymentService;
+        this.reciboService = reciboService;
         this.reciboRepository = reciboRepository;
         this.pushSubscriptionRepository = pushSubscriptionRepository;
         this.pushNotificationService = pushNotificationService;
@@ -179,27 +189,34 @@ public class WebhookService {
             return;
         }
 
-        Recibo recibo = reciboRepository.findById(reciboId).orElse(null);
-        if (recibo == null) {
+        ReciboSyncProjection syncData = reciboRepository.findSyncData(reciboId);
+        if (syncData == null) {
             System.out.println("⚠️ Recibo no encontrado para pago: " + reciboId);
             return;
         }
 
-        if (Boolean.TRUE.equals(recibo.getEstado())) {
+        if (Boolean.TRUE.equals(syncData.getEstado())) {
             System.out.println("ℹ️ Recibo " + reciboId + " ya estaba pagado.");
             return;
         }
 
-        recibo.setEstado(true);
-        reciboRepository.save(recibo);
+        ReciboModificacionDto dto = new ReciboModificacionDto();
+        dto.setId(reciboId);
+        dto.setEstado(true);
+        try {
+            reciboService.modificarEstado(dto);
+        } catch (ResourceNotFoundException e) {
+            System.out.println("⚠️ Recibo no encontrado al intentar marcar como pagado: " + reciboId);
+            return;
+        }
 
-        if (recibo.getContrato() != null && recibo.getContrato().getUsuario() != null) {
-            Long ownerId = recibo.getContrato().getUsuario().getId();
+        if (syncData.getUserId() != null) {
+            Long ownerId = syncData.getUserId();
             pushSubscriptionRepository.findByUserId(ownerId).forEach(sub ->
                     pushNotificationService.enviarNotificacion(
                             sub,
                             "✅ Recibo pagado",
-                            String.format("El inquilino abonó el recibo del período %s.", recibo.getPeriodo()),
+                            String.format("El inquilino abonó el recibo del período %s.", syncData.getPeriodo()),
                             Map.of("reciboId", reciboId)
                     )
             );

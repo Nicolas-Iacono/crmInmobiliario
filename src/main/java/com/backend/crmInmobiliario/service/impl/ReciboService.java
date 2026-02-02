@@ -856,6 +856,9 @@ public class ReciboService implements IReciboService {
         }
 
         String accessToken = mercadoPagoOAuthService.getValidAccessToken(inmobiliaria);
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La inmobiliaria no tiene Mercado Pago conectado");
+        }
 
         // 5) Crear preference
         Map<String, Object> item = new HashMap<>();
@@ -872,6 +875,7 @@ public class ReciboService implements IReciboService {
         metadata.put("recibo_id", recibo.getId());
         metadata.put("contrato_id", contrato.getId());
         metadata.put("user_inmobiliaria_id", inmobiliaria.getId());
+        metadata.put("inquilino_user_id", usuarioLogueado.getId());
         preference.put("metadata", metadata);
 
         if (mpSuccessUrl != null && !mpSuccessUrl.isBlank()) {
@@ -885,6 +889,13 @@ public class ReciboService implements IReciboService {
 
         if (mpNotificationUrl != null && !mpNotificationUrl.isBlank()) {
             preference.put("notification_url", mpNotificationUrl);
+        }
+
+        String email = usuarioLogueado.getEmail();
+        if (email != null && !email.isBlank()) {
+            Map<String, Object> payer = new HashMap<>();
+            payer.put("email", email);
+            preference.put("payer", payer);
         }
 
         HttpHeaders headers = new HttpHeaders();
