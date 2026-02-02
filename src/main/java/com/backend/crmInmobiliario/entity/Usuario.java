@@ -7,6 +7,7 @@ import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -129,8 +130,24 @@ public class Usuario  implements UserDetails {
     @JsonIgnore
     private List<PlantillaContrato> plantillasContrato = new ArrayList<>();
 
+    @JsonIgnore
+    @Column(name = "mp_access_token", length = 2048)
+    private String mpAccessToken;
+
+    @JsonIgnore
+    @Column(name = "mp_refresh_token", length = 2048)
+    private String mpRefreshToken;
+
+    @Column(name = "mp_token_expires_at")
+    private LocalDateTime mpTokenExpiresAt;
+
+    @Column(name = "mp_user_id")
+    private String mpUserId;
+
+    @Column(name = "mp_connected", nullable = false)
+    private boolean mpConnected = false;
+
     // Getters y setters
 
 
 }
-
