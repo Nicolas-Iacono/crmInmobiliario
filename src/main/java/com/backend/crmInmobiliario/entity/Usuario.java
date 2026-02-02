@@ -36,6 +36,13 @@ public class Usuario  implements UserDetails {
     private String provincia;
     private String cuit;
     private String telefono;
+    @JsonIgnore
+    @Column(name = "mp_access_token", length = 2048)
+    private String mpAccessToken;
+    @Column(name = "mp_account_email")
+    private String mpAccountEmail;
+    @Column(name = "mp_account_username")
+    private String mpAccountUsername;
 
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL)
     @ToString.Exclude
@@ -133,4 +140,3 @@ public class Usuario  implements UserDetails {
 
 
 }
-

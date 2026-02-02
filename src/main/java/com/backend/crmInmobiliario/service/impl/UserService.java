@@ -333,12 +333,16 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
         Long userId = usuario.getId();
         String accessToken = jwtUtil.createAccessToken(authentication, userId);
+        String refreshToken = jwtUtil.createRefreshToken(authentication);
 
         // 5️⃣ Responder
         return new AuthResponse(
                 usuario.getUsername(), // ✅ devolvé el username real (interno)
                 "Usuario logueado correctamente",
                 accessToken,
+                refreshToken,
+                "Bearer",
+                jwtUtil.getAccessTokenTtlSeconds(),
                 true
         );
     }
@@ -372,11 +376,15 @@ public class UserService implements IUsuarioService, UserDetailsService {
                 .orElse(null);
 
         String accessToken = jwtUtil.createAccessToken(authentication, userId);
+        String refreshToken = jwtUtil.createRefreshToken(authentication);
 
         return new AuthResponse(
                 email,
                 "Inquilino logueado correctamente",
                 accessToken,
+                refreshToken,
+                "Bearer",
+                jwtUtil.getAccessTokenTtlSeconds(),
                 true
         );
     }
@@ -396,11 +404,15 @@ public class UserService implements IUsuarioService, UserDetailsService {
                 .orElse(null);
 
         String accessToken = jwtUtil.createAccessToken(authentication, userId);
+        String refreshToken = jwtUtil.createRefreshToken(authentication);
 
         return new AuthResponse(
                 email,
                 "Propietario logueado correctamente",
                 accessToken,
+                refreshToken,
+                "Bearer",
+                jwtUtil.getAccessTokenTtlSeconds(),
                 true
         );
     }
@@ -460,6 +472,9 @@ public class UserService implements IUsuarioService, UserDetailsService {
         if (dto.getProvincia() != null) usuario.setProvincia(dto.getProvincia());
         if (dto.getCuit() != null) usuario.setCuit(dto.getCuit());
         if (dto.getTelefono() != null) usuario.setTelefono(dto.getTelefono());
+        if (dto.getMpAccessToken() != null) usuario.setMpAccessToken(dto.getMpAccessToken());
+        if (dto.getMpAccountEmail() != null) usuario.setMpAccountEmail(dto.getMpAccountEmail());
+        if (dto.getMpAccountUsername() != null) usuario.setMpAccountUsername(dto.getMpAccountUsername());
 
         Usuario usuarioActualizado = usuarioRepository.save(usuario);
         return modelMapper.map(usuarioActualizado, UsuarioDtoSalida.class);

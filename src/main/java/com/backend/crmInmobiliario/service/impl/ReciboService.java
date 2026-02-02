@@ -34,7 +34,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -67,8 +72,21 @@ public class ReciboService implements IReciboService {
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
     private final ImpuestoCalculoService impuestoCalculoService;
+    private final RestTemplate restTemplate;
 
-    public ReciboService(ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService) {
+    @Value("${mp.success-url:}")
+    private String mpSuccessUrl;
+
+    @Value("${mp.pending-url:}")
+    private String mpPendingUrl;
+
+    @Value("${mp.failure-url:}")
+    private String mpFailureUrl;
+
+    @Value("${mp.notification.url:}")
+    private String mpNotificationUrl;
+
+    public ReciboService(ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService, RestTemplate restTemplate) {
         this.modelMapper = modelMapper;
         this.reciboRepository = reciboRepository;
         this.contratoRepository = contratoRepository;
@@ -80,6 +98,7 @@ public class ReciboService implements IReciboService {
         this.contratoService = contratoService;
         this.impuestoCalculoService = impuestoCalculoService;
         this.impuestoRepository = impuestoRepository;
+        this.restTemplate = restTemplate;
         configureMapping();
     }
 
@@ -175,6 +194,8 @@ public class ReciboService implements IReciboService {
                     return new ResourceNotFoundException("Contrato no encontrado");
                 });
 
+        contratoService.validarAccesoPorSuscripcion(contrato.getUsuario());
+
         // 2. Crear el recibo
         Recibo recibo = new Recibo();
         recibo.setContrato(contrato);
@@ -243,6 +264,88 @@ public class ReciboService implements IReciboService {
         return reciboSalidaDto;
 
 
+    }
+
+    public String iniciarPagoRecibo(Long reciboId, Long usuarioInquilinoId) {
+        Recibo recibo = reciboRepository.findById(reciboId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado"));
+
+        Contrato contrato = recibo.getContrato();
+        if (contrato == null || contrato.getInquilino() == null) {
+            throw new ResourceNotFoundException("Recibo sin contrato o inquilino asociado");
+        }
+
+        if (contrato.getInquilino().getUsuarioCuentaInquilino() == null
+                || !Objects.equals(contrato.getInquilino().getUsuarioCuentaInquilino().getId(), usuarioInquilinoId)) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "No tenés permiso para pagar este recibo");
+        }
+
+        if (Boolean.TRUE.equals(recibo.getEstado())) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "El recibo ya está pagado");
+        }
+
+        Map<String, Object> preference = new HashMap<>();
+        Map<String, Object> item = new HashMap<>();
+        item.put("title", "Recibo " + recibo.getPeriodo());
+        item.put("quantity", 1);
+        item.put("unit_price", recibo.getMontoTotal() != null ? recibo.getMontoTotal() : BigDecimal.ZERO);
+        preference.put("items", List.of(item));
+
+        if (mpSuccessUrl != null && !mpSuccessUrl.isBlank()) {
+            Map<String, Object> backUrls = new HashMap<>();
+            backUrls.put("success", mpSuccessUrl);
+            backUrls.put("pending", mpPendingUrl);
+            backUrls.put("failure", mpFailureUrl);
+            preference.put("back_urls", backUrls);
+            preference.put("auto_return", "approved");
+        }
+
+        if (mpNotificationUrl != null && !mpNotificationUrl.isBlank()) {
+            preference.put("notification_url", mpNotificationUrl);
+        }
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("recibo_id", recibo.getId());
+        metadata.put("contrato_id", contrato.getId());
+        preference.put("metadata", metadata);
+
+        if (contrato.getInquilino().getUsuarioCuentaInquilino() != null) {
+            String email = contrato.getInquilino().getUsuarioCuentaInquilino().getEmail();
+            if (email != null && !email.isBlank()) {
+                Map<String, Object> payer = new HashMap<>();
+                payer.put("email", email);
+                preference.put("payer", payer);
+            }
+        }
+
+        String accessToken = contrato.getUsuario() != null ? contrato.getUsuario().getMpAccessToken() : null;
+        if (accessToken == null || accessToken.isBlank()) {
+            String emailMp = contrato.getUsuario() != null ? contrato.getUsuario().getMpAccountEmail() : null;
+            String usernameMp = contrato.getUsuario() != null ? contrato.getUsuario().getMpAccountUsername() : null;
+            if ((emailMp == null || emailMp.isBlank()) && (usernameMp == null || usernameMp.isBlank())) {
+                throw new ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                        "El usuario inmobiliario debe vincular su cuenta de Mercado Pago (email/usuario) y configurar su access token."
+                );
+            }
+            throw new ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "El usuario inmobiliario debe configurar su access token de Mercado Pago."
+            );
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(accessToken);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(preference, headers);
+
+        String url = "https://api.mercadopago.com/checkout/preferences";
+        Map<String, Object> response = restTemplate.postForObject(url, entity, Map.class);
+        if (response == null || !response.containsKey("init_point")) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY, "No se pudo iniciar el pago en Mercado Pago");
+        }
+
+        return String.valueOf(response.get("init_point"));
     }
 
     // Método para convertir ImpuestoEntradaDto a Impuesto (como se definió anteriormente)

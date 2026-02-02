@@ -35,6 +35,14 @@ public class JwtUtil {
     ;   // 3 horas
     private static final long REFRESH_TTL_MS = 7L * 24 * 60 * 60 * 1000; // 7 días
 
+    public int getAccessTokenTtlSeconds() {
+        return (int) (ACCESS_TTL_MS / 1000);
+    }
+
+    public int getRefreshTokenTtlSeconds() {
+        return (int) (REFRESH_TTL_MS / 1000);
+    }
+
     private Algorithm alg() {
         return Algorithm.HMAC256(this.privateKey);
     }

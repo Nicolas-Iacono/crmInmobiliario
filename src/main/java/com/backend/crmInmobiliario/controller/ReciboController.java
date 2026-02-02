@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.controller;
 
 import com.backend.crmInmobiliario.DTO.entrada.ReciboEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboModificacionDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.CheckoutResponse;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -127,6 +128,14 @@ public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @ModelAtt
         return ResponseEntity.ok(
                 new ApiResponse<>("Recibo eliminado correctamente", null)
         );
+    }
+
+    @PostMapping("/{id}/pagar")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CheckoutResponse> iniciarPagoRecibo(@PathVariable Long id) {
+        Long userId = authUtil.extractUserId();
+        String initPoint = reciboService.iniciarPagoRecibo(id, userId);
+        return ResponseEntity.ok(new CheckoutResponse(initPoint));
     }
 
 }

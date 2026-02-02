@@ -216,16 +216,18 @@ public class UsuarioController {
 
             // Cargamos authorities frescos
             UserDetails ud = userService.loadUserByUsername(username);
+            Long userId = usuarioRepository.findByUsername(username)
+                    .map(Usuario::getId)
+                    .orElse(null);
 
             Authentication auth = new UsernamePasswordAuthenticationToken(
                     ud, null, ud.getAuthorities()
             );
 
-            String newAccess = jwtUtil.createAccessToken(auth, ud instanceof com.backend.crmInmobiliario.entity.Usuario usuario
-                    ? usuario.getId()
-                    : null);
+            String newAccess = jwtUtil.createAccessToken(auth, userId);
+            String newRefresh = jwtUtil.createRefreshToken(auth);
 
-            return ResponseEntity.ok(new RefreshResponse(newAccess, null, "Bearer", 15 * 60));
+            return ResponseEntity.ok(new RefreshResponse(newAccess, newRefresh, "Bearer", jwtUtil.getAccessTokenTtlSeconds()));
         } catch (com.auth0.jwt.exceptions.TokenExpiredException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ErrorResponse("refresh_token_expired"));
