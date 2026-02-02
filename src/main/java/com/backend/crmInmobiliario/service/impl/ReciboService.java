@@ -289,6 +289,16 @@ public class ReciboService implements IReciboService {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "El recibo ya está pagado");
         }
 
+        Usuario usuarioInmobiliaria = contrato.getUsuario();
+        if (usuarioInmobiliaria == null) {
+            throw new ResourceNotFoundException("Contrato sin inmobiliaria asociada");
+        }
+
+        String accessToken = resolveMercadoPagoAccessToken(usuarioInmobiliaria);
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "La inmobiliaria no tiene Mercado Pago conectado");
+        }
+
         Map<String, Object> preference = new HashMap<>();
         Map<String, Object> item = new HashMap<>();
         item.put("title", "Recibo " + recibo.getPeriodo());
@@ -325,7 +335,7 @@ public class ReciboService implements IReciboService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(mpAccessToken);
+        headers.setBearerAuth(accessToken);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(preference, headers);
 
         String url = "https://api.mercadopago.com/checkout/preferences";
@@ -335,6 +345,14 @@ public class ReciboService implements IReciboService {
         }
 
         return String.valueOf(response.get("init_point"));
+    }
+
+    private String resolveMercadoPagoAccessToken(Usuario usuario) {
+        if (usuario.isMpConnected() && usuario.getMpAccessToken() != null && !usuario.getMpAccessToken().isBlank()) {
+            return usuario.getMpAccessToken();
+        }
+
+        return mpAccessToken;
     }
 
     // Método para convertir ImpuestoEntradaDto a Impuesto (como se definió anteriormente)
