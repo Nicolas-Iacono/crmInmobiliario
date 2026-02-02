@@ -14,6 +14,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,4 +64,19 @@ public class Recibo {
         }
         if (this.estado == null) this.estado = Boolean.FALSE;
     }
+
+    @Column(name = "liquidado", nullable = false)
+    private Boolean liquidado = Boolean.FALSE;
+
+    @Column(name = "liquidado_at")
+    private LocalDateTime liquidadoAt;
+
+    @Column(name = "monto_comision")
+    private BigDecimal montoComision;
+
+    @Column(name = "monto_liquidado")
+    private BigDecimal montoLiquidado;
+
+    @Column(name = "liquidacion_ref")
+    private String liquidacionRef; // id de transferencia / comprobante
 }

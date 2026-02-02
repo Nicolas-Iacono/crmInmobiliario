@@ -62,6 +62,11 @@ public class SecurityConfig {
                                 "/api/webhooks/n8n/stripe/past-due",
                                 "/api/subscriptions/provider-event").permitAll()
 
+                        // --- Mercado Pago OAuth (MP vuelve sin JWT) ---
+                        .requestMatchers("/api/mercadopago/oauth/callback").permitAll()
+                        .requestMatchers("/api/mercadopago/oauth/authorize").authenticated()
+                        .requestMatchers("/api/mercadopago/oauth/**").authenticated()
+
                         // --- Auth pública ---
                         .requestMatchers(HttpMethod.GET, "/usuario/check-username").permitAll()
                         .requestMatchers("/api/user/**", "/auth/**", "/oauth2/**", "/google/**").permitAll()

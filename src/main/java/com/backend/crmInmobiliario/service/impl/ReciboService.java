@@ -1,4 +1,7 @@
 package com.backend.crmInmobiliario.service.impl;
+import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
+import com.backend.crmInmobiliario.service.impl.mercadoPago.MercadoPagoOAuthService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import com.backend.crmInmobiliario.DTO.entrada.ImpuestoEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.ReciboEntradaDto;
@@ -75,6 +78,9 @@ public class ReciboService implements IReciboService {
     private ApplicationEventPublisher applicationEventPublisher;
     private final ImpuestoCalculoService impuestoCalculoService;
     private final RestTemplate restTemplate;
+    private UsuarioRepository usuarioRepository;
+    private MercadoPagoOAuthService mercadoPagoOAuthService;
+
 
     @Value("${mp.access.token:}")
     private String mpAccessToken;
@@ -91,7 +97,7 @@ public class ReciboService implements IReciboService {
     @Value("${mp.notification.url:}")
     private String mpNotificationUrl;
 
-    public ReciboService(ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService, RestTemplate restTemplate) {
+    public ReciboService(MercadoPagoOAuthService mercadoPagoOAuthService, UsuarioRepository usuarioRepository, ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService, RestTemplate restTemplate) {
         this.modelMapper = modelMapper;
         this.reciboRepository = reciboRepository;
         this.contratoRepository = contratoRepository;
@@ -104,6 +110,8 @@ public class ReciboService implements IReciboService {
         this.impuestoCalculoService = impuestoCalculoService;
         this.impuestoRepository = impuestoRepository;
         this.restTemplate = restTemplate;
+        this.usuarioRepository = usuarioRepository;
+        this.mercadoPagoOAuthService = mercadoPagoOAuthService;
         configureMapping();
     }
 
@@ -294,7 +302,18 @@ public class ReciboService implements IReciboService {
             throw new ResourceNotFoundException("Contrato sin inmobiliaria asociada");
         }
 
-        String accessToken = resolveMercadoPagoAccessToken(usuarioInmobiliaria);
+
+
+
+
+
+
+        if (!usuarioInmobiliaria.isMpConnected() || usuarioInmobiliaria.getMpAccessToken() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La inmobiliaria no tiene Mercado Pago conectado");
+        }
+
+        String accessToken = mercadoPagoOAuthService.getValidAccessToken(usuarioInmobiliaria);
         if (accessToken == null || accessToken.isBlank()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "La inmobiliaria no tiene Mercado Pago conectado");
         }
@@ -347,13 +366,7 @@ public class ReciboService implements IReciboService {
         return String.valueOf(response.get("init_point"));
     }
 
-    private String resolveMercadoPagoAccessToken(Usuario usuario) {
-        if (usuario.isMpConnected() && usuario.getMpAccessToken() != null && !usuario.getMpAccessToken().isBlank()) {
-            return usuario.getMpAccessToken();
-        }
 
-        return mpAccessToken;
-    }
 
     // Método para convertir ImpuestoEntradaDto a Impuesto (como se definió anteriormente)
     private Impuesto convertToImpuesto(ImpuestoEntradaDto dto) {
@@ -806,6 +819,88 @@ public class ReciboService implements IReciboService {
                 " | periodo=" + d.getPeriodo() +
                 " | monto=" + d.getMontoTotal() +
                 " | pagado=" + (Boolean.TRUE.equals(d.getEstado()) ? "sí" : "no");
+    }
+    @Transactional
+    public String iniciarPagoReciboParaInquilino(Long reciboId, String usernameInquilino) {
+
+        Recibo recibo = reciboRepository.findById(reciboId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado"));
+
+        Contrato contrato = recibo.getContrato();
+        if (contrato == null || contrato.getInquilino() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Recibo sin contrato o inquilino asociado");
+        }
+
+        // 1) Usuario logueado (inquilino)
+        Usuario usuarioLogueado = usuarioRepository.findByUsername(usernameInquilino)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario inválido"));
+
+        // 2) Validar que sea el inquilino de ese contrato
+        Usuario cuentaInquilino = contrato.getInquilino().getUsuarioCuentaInquilino();
+        if (cuentaInquilino == null || !Objects.equals(cuentaInquilino.getId(), usuarioLogueado.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tenés permiso para pagar este recibo");
+        }
+
+        // 3) Validar estado
+        if (Boolean.TRUE.equals(recibo.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El recibo ya está pagado");
+        }
+
+        // 4) Cobrar en la cuenta MP de la inmobiliaria (Contrato.usuario)
+        Usuario inmobiliaria = contrato.getUsuario();
+        if (inmobiliaria == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Contrato sin inmobiliaria asociada");
+        }
+        if (!inmobiliaria.isMpConnected() || inmobiliaria.getMpAccessToken() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La inmobiliaria no tiene Mercado Pago conectado");
+        }
+
+        String accessToken = mercadoPagoOAuthService.getValidAccessToken(inmobiliaria);
+
+        // 5) Crear preference
+        Map<String, Object> item = new HashMap<>();
+        item.put("title", "Recibo " + (recibo.getPeriodo() != null ? recibo.getPeriodo() : ""));
+        item.put("quantity", 1);
+
+        BigDecimal total = recibo.getMontoTotal() != null ? recibo.getMontoTotal() : BigDecimal.ZERO;
+        item.put("unit_price", total);
+
+        Map<String, Object> preference = new HashMap<>();
+        preference.put("items", List.of(item));
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("recibo_id", recibo.getId());
+        metadata.put("contrato_id", contrato.getId());
+        metadata.put("user_inmobiliaria_id", inmobiliaria.getId());
+        preference.put("metadata", metadata);
+
+        if (mpSuccessUrl != null && !mpSuccessUrl.isBlank()) {
+            Map<String, Object> backUrls = new HashMap<>();
+            backUrls.put("success", mpSuccessUrl);
+            backUrls.put("pending", mpPendingUrl);
+            backUrls.put("failure", mpFailureUrl);
+            preference.put("back_urls", backUrls);
+            preference.put("auto_return", "approved");
+        }
+
+        if (mpNotificationUrl != null && !mpNotificationUrl.isBlank()) {
+            preference.put("notification_url", mpNotificationUrl);
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(accessToken);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(preference, headers);
+
+        String url = "https://api.mercadopago.com/checkout/preferences";
+        Map<String, Object> response = restTemplate.postForObject(url, entity, Map.class);
+
+        if (response == null || !response.containsKey("init_point")) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "No se pudo iniciar el pago en Mercado Pago");
+        }
+
+        return String.valueOf(response.get("init_point"));
     }
 
 //    @Override

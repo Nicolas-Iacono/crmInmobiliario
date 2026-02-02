@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -136,6 +137,12 @@ public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @ModelAtt
         Long userId = authUtil.extractUserId();
         String initPoint = reciboService.iniciarPagoRecibo(id, userId);
         return ResponseEntity.ok(new CheckoutResponse(initPoint));
+    }
+
+    @PostMapping("/{reciboId}/iniciar-pago")
+    public Map<String, String> iniciarPago(@PathVariable Long reciboId, Authentication auth) {
+        String initPoint = reciboService.iniciarPagoReciboParaInquilino(reciboId, auth.getName());
+        return Map.of("init_point", initPoint);
     }
 
 }
