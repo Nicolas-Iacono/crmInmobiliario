@@ -21,19 +21,19 @@ import java.util.List;
 @Service
 public class MercadoPagoReciboService {
 
-    @Value("${mercadopago.access-token}")
+    @Value("${mp.access.token}")
     private String accessToken;
 
-    @Value("${mercadopago.webhook-url}")
+    @Value("${mp.notification.url}")
     private String webhookUrl;
 
-    @Value("${mercadopago.success-url}")
+    @Value("${mp.success-url}")
     private String successUrl;
 
-    @Value("${mercadopago.failure-url}")
+    @Value("${mp.failure-url}")
     private String failureUrl;
 
-    @Value("${mercadopago.pending-url}")
+    @Value("${mp.pending-url}")
     private String pendingUrl;
 
     private final ReciboRepository reciboRepository;
@@ -46,6 +46,10 @@ public class MercadoPagoReciboService {
 
     @Transactional
     public MpInitPointResponse crearLinkPagoRecibo(Long reciboId, Long userInquilinoId) throws Exception {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalStateException("Mercado Pago access token no configurado");
+        }
+
         Usuario usuario = usuarioRepository.findUserById(userInquilinoId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
@@ -70,6 +74,9 @@ public class MercadoPagoReciboService {
         MercadoPagoConfig.setAccessToken(accessToken);
 
         BigDecimal monto = recibo.getMontoTotal() != null ? recibo.getMontoTotal() : BigDecimal.ZERO;
+        if (monto.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("El monto del recibo debe ser mayor a cero");
+        }
 
         String externalRef = "RECIBO-" + recibo.getId() + "-USR-" + usuario.getId();
 
@@ -86,14 +93,18 @@ public class MercadoPagoReciboService {
                 .pending(pendingUrl)
                 .build();
 
-        PreferenceRequest request = PreferenceRequest.builder()
+        PreferenceRequest.PreferenceRequestBuilder requestBuilder = PreferenceRequest.builder()
                 .items(List.of(item))
                 .externalReference(externalRef)
-                .notificationUrl(webhookUrl)
                 .backUrls(backUrls)
                 // auto_return: cuando se acredita, vuelve solo (opcional)
-                .autoReturn("approved")
-                .build();
+                .autoReturn("approved");
+
+        if (webhookUrl != null && !webhookUrl.isBlank()) {
+            requestBuilder.notificationUrl(webhookUrl);
+        }
+
+        PreferenceRequest request = requestBuilder.build();
 
         PreferenceClient client = new PreferenceClient();
         Preference pref = client.create(request);
