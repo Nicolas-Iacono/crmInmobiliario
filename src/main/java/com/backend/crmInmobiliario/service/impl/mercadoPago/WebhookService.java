@@ -1,9 +1,11 @@
 package com.backend.crmInmobiliario.service.impl.mercadoPago;
 
+import com.backend.crmInmobiliario.entity.Recibo;
 import com.backend.crmInmobiliario.entity.Usuario;
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Subscription;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import com.backend.crmInmobiliario.repository.ReciboRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.PlanRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.SubscriptionRepository;
@@ -34,14 +36,16 @@ public class WebhookService {
     private final SubscriptionRepository subscriptionRepository;
     private final UsuarioRepository usuarioRepository;
     private final PlanRepository planRepository;
+    private final ReciboRepository reciboRepository;
     private PaymentService paymentService;
-    public WebhookService(PaymentService paymentService, RestTemplate restTemplate, SubscriptionRepository subscriptionRepository,
+    public WebhookService(ReciboRepository reciboRepository, PaymentService paymentService, RestTemplate restTemplate, SubscriptionRepository subscriptionRepository,
                           UsuarioRepository usuarioRepository, PlanRepository planRepository) {
         this.restTemplate = restTemplate;
         this.subscriptionRepository = subscriptionRepository;
         this.usuarioRepository = usuarioRepository;
         this.planRepository = planRepository;
         this.paymentService = paymentService;
+        this.reciboRepository = reciboRepository;
     }
 
     /**
@@ -119,46 +123,141 @@ public class WebhookService {
 //        }
 //    }
 
+//    private void processPayment(String paymentId) {
+//        try {
+//            // 1️⃣ Consultar el detalle del pago a través del microservicio Node.js
+//            String url = mpServiceUrl + "/api/mp/payments/" + paymentId;
+//            Map<String, Object> mpPayment = restTemplate.getForObject(url, Map.class);
+//            if (mpPayment == null) return;
+//
+//            System.out.println("📦 Datos de pago recibidos: " + mpPayment);
+//
+//            // 2️⃣ Intentar obtener el preapproval_id real
+//            String preapprovalId = (String) mpPayment.get("preapproval_id"); // ✅ este es el correcto
+//
+//            // 3️⃣ Fallbacks si no vino explícitamente
+//            if (preapprovalId == null || preapprovalId.isEmpty()) {
+//                // A veces Mercado Pago lo manda en metadata
+//                Map<String, Object> metadata = (Map<String, Object>) mpPayment.get("metadata");
+//                if (metadata != null && metadata.containsKey("preapproval_id")) {
+//                    preapprovalId = String.valueOf(metadata.get("preapproval_id"));
+//                }
+//            }
+//
+//            // 4️⃣ Si sigue sin aparecer, NO usar external_reference (porque es el userId)
+//            if (preapprovalId == null || preapprovalId.isEmpty()) {
+//                System.out.println("⚠️ Pago (" + paymentId + ") sin preapproval_id, no se procesará como suscripción.");
+//                return;
+//            }
+//
+//            // 5️⃣ Procesar correctamente la suscripción
+//            System.out.println("💳 Pago (" + paymentId + ") asociado a Preapproval (" + preapprovalId + "). Procesando...");
+//            processPreapproval(preapprovalId);
+//
+//        } catch (Exception e) {
+//            System.err.println("❌ Error al procesar el pago Webhook MP " + paymentId + ": " + e.getMessage());
+//        }
+//    }
     private void processPayment(String paymentId) {
         try {
-            // 1️⃣ Consultar el detalle del pago a través del microservicio Node.js
             String url = mpServiceUrl + "/api/mp/payments/" + paymentId;
             Map<String, Object> mpPayment = restTemplate.getForObject(url, Map.class);
             if (mpPayment == null) return;
 
-            System.out.println("📦 Datos de pago recibidos: " + mpPayment);
+            log.info("📦 Datos de pago recibidos: {}", mpPayment);
 
-            // 2️⃣ Intentar obtener el preapproval_id real
-            String preapprovalId = (String) mpPayment.get("preapproval_id"); // ✅ este es el correcto
-
-            // 3️⃣ Fallbacks si no vino explícitamente
+            // ✅ 1) Si viene preapproval_id → es pago de suscripción
+            String preapprovalId = (String) mpPayment.get("preapproval_id");
             if (preapprovalId == null || preapprovalId.isEmpty()) {
-                // A veces Mercado Pago lo manda en metadata
                 Map<String, Object> metadata = (Map<String, Object>) mpPayment.get("metadata");
-                if (metadata != null && metadata.containsKey("preapproval_id")) {
+                if (metadata != null && metadata.get("preapproval_id") != null) {
                     preapprovalId = String.valueOf(metadata.get("preapproval_id"));
                 }
             }
 
-            // 4️⃣ Si sigue sin aparecer, NO usar external_reference (porque es el userId)
-            if (preapprovalId == null || preapprovalId.isEmpty()) {
-                System.out.println("⚠️ Pago (" + paymentId + ") sin preapproval_id, no se procesará como suscripción.");
+            if (preapprovalId != null && !preapprovalId.isEmpty()) {
+                log.info("💳 payment {} asociado a preapproval {} → suscripción", paymentId, preapprovalId);
+                processPreapproval(preapprovalId);
                 return;
             }
 
-            // 5️⃣ Procesar correctamente la suscripción
-            System.out.println("💳 Pago (" + paymentId + ") asociado a Preapproval (" + preapprovalId + "). Procesando...");
-            processPreapproval(preapprovalId);
+            // ✅ 2) Si NO viene preapproval_id → tratá como pago de recibo (pago puntual)
+            log.info("🧾 payment {} sin preapproval_id → lo tomo como pago de recibo", paymentId);
+            processReciboPayment(mpPayment, paymentId);
 
         } catch (Exception e) {
-            System.err.println("❌ Error al procesar el pago Webhook MP " + paymentId + ": " + e.getMessage());
+            log.error("❌ Error al procesar payment {}: {}", paymentId, e.getMessage());
         }
     }
+
+    @Transactional
+    private void processReciboPayment(Map<String, Object> mpPayment, String paymentId) {
+
+        String status = (String) mpPayment.get("status"); // approved / pending / rejected
+        String externalReference = (String) mpPayment.get("external_reference");
+
+        Object amountObj = mpPayment.get("transaction_amount");
+        BigDecimal amount = amountObj != null ? new BigDecimal(amountObj.toString()) : BigDecimal.ZERO;
+
+        if (externalReference == null || externalReference.isBlank()) {
+            log.warn("⚠️ Pago {} sin external_reference → no puedo asociarlo a un recibo", paymentId);
+            return;
+        }
+
+        // Si usás external_reference para usuario en suscripciones, para recibos hacé que empiece con "RECIBO-"
+        if (!externalReference.startsWith("RECIBO-")) {
+            log.info("ℹ️ Pago {} external_reference={} no parece de recibo → lo ignoro", paymentId, externalReference);
+            return;
+        }
+
+        Recibo recibo = reciboRepository.findByMpExternalReference(externalReference)
+                .orElse(null);
+
+        if (recibo == null) {
+            log.warn("⚠️ No existe recibo con mpExternalReference={}", externalReference);
+            return;
+        }
+
+        // Idempotencia
+        if (Boolean.TRUE.equals(recibo.getEstado())) {
+            log.info("✅ Recibo {} ya estaba pago. Ignoro duplicado.", recibo.getId());
+            return;
+        }
+
+        // Validación de monto mínimo
+        BigDecimal esperado = recibo.getMontoTotal() != null ? recibo.getMontoTotal() : BigDecimal.ZERO;
+        if (amount.compareTo(esperado) < 0) {
+            log.warn("⚠️ Pago {} monto {} menor que esperado {} para recibo {}", paymentId, amount, esperado, recibo.getId());
+            recibo.setMpPaymentId(paymentId);
+            recibo.setMpStatus(status);
+            reciboRepository.save(recibo);
+            return;
+        }
+
+        // Guardar info MP
+        recibo.setMpPaymentId(paymentId);
+        recibo.setMpStatus(status);
+
+        if ("approved".equalsIgnoreCase(status)) {
+            recibo.setEstado(Boolean.TRUE);
+            recibo.setMpPaidAt(LocalDateTime.now(ZoneOffset.UTC));
+            log.info("🎉 Recibo {} marcado como PAGADO por payment {}", recibo.getId(), paymentId);
+        } else {
+            log.info("🟡 Recibo {} pago status={} (no se marca como pagado)", recibo.getId(), status);
+        }
+
+        reciboRepository.save(recibo);
+    }
+
+
 
     /**
      * REQUISITO 2B: Consulta la API de MP para obtener los detalles del evento
      * y actualiza la base de datos local.
      */
+
+
+
     @Transactional
     private void processPreapproval(String preapprovalId) {
         String externalReference = null;

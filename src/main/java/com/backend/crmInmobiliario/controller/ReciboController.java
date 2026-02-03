@@ -6,6 +6,7 @@ import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ReciboService;
+import com.backend.crmInmobiliario.service.impl.mercadoPago.MercadoPagoReciboService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
 import com.backend.crmInmobiliario.utils.ApiResponseRecibo;
 import com.backend.crmInmobiliario.utils.AuthUtil;
@@ -30,6 +31,8 @@ import java.util.Map;
 @CrossOrigin(origins = "https://tuinmo.net")
 public class ReciboController {
     private final AuthUtil authUtil;
+    private final MercadoPagoReciboService mercadoPagoReciboService;
+
     private final ReciboService reciboService;
     private final Logger LOGGER = LoggerFactory.getLogger(ReciboService.class);
 //
@@ -128,5 +131,18 @@ public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @ModelAtt
                 new ApiResponse<>("Recibo eliminado correctamente", null)
         );
     }
-
+    @PostMapping("/{reciboId}/pagar/mp")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> iniciarPagoMercadoPago(@PathVariable Long reciboId) {
+        try {
+            Long idUserInquilino = authUtil.extractUserId(); // si no existe, te dejo alternativa abajo
+            var resp = mercadoPagoReciboService.crearLinkPagoRecibo(reciboId, idUserInquilino);
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "error", "No se pudo iniciar el pago",
+                    "detalle", e.getMessage()
+            ));
+        }
+    }
 }

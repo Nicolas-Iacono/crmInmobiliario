@@ -14,6 +14,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,7 +55,20 @@ public class Recibo {
 
     private Boolean estado = Boolean.FALSE;
 
+    @Column(name = "mp_preference_id")
+    private String mpPreferenceId;
 
+    @Column(name = "mp_payment_id")
+    private String mpPaymentId;
+
+    @Column(name = "mp_status")
+    private String mpStatus;
+
+    @Column(name = "mp_external_reference")
+    private String mpExternalReference;
+
+    @Column(name = "mp_paid_at")
+    private LocalDateTime mpPaidAt;
 
     @PrePersist
     public void prePersist() {

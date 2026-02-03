@@ -222,5 +222,8 @@ public interface ReciboRepository extends JpaRepository<Recibo,Long> {
         where r.id = :reciboId
     """)
     Optional<ReciboEstadoProjection> findEstadoProjectionById(@Param("reciboId") Long reciboId);
+
+
+    Optional<Recibo> findByMpExternalReference(String mpExternalReference);
 }
 
