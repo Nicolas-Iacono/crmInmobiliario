@@ -9,6 +9,10 @@ import com.backend.crmInmobiliario.DTO.entrada.jwt.ErrorResponse;
 import com.backend.crmInmobiliario.DTO.entrada.jwt.RefreshRequest;
 import com.backend.crmInmobiliario.DTO.entrada.jwt.RefreshResponse;
 import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.UsuarioCobroTransferenciaDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.modificacion.DatosCobroUpdateDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.salida.DatosCobroSoloUser;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.salida.UsuarioCobroTransferenciaSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
@@ -18,6 +22,7 @@ import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IUsuarioService;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import com.backend.crmInmobiliario.utils.AuthUtil;
 import com.backend.crmInmobiliario.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -32,6 +37,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.security.PermitAll;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,12 +52,14 @@ public class UsuarioController {
     private ImagenService imagenService;
     private UsuarioRepository usuarioRepository;
     private ModelMapper modelMapper;
-    public UsuarioController(ModelMapper modelMapper,JwtUtil jwtUtil,     IUsuarioService userService, ImagenService imagenService,UsuarioRepository usuarioRepository) {
+    private AuthUtil authUtil;
+    public UsuarioController( AuthUtil authUtil, ModelMapper modelMapper,JwtUtil jwtUtil,     IUsuarioService userService, ImagenService imagenService,UsuarioRepository usuarioRepository) {
         this.userService = userService;
         this.imagenService = imagenService;
         this.usuarioRepository = usuarioRepository;
         this.jwtUtil = jwtUtil;
         this.modelMapper = modelMapper;
+        this.authUtil = authUtil;
     }
 
     @PreAuthorize("permitAll()")
@@ -237,5 +245,46 @@ public class UsuarioController {
         }
     }
 
+    @PostMapping("/cobro/transferencia")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
+    public ResponseEntity<?> guardarDatosCobro(
+            @Valid @RequestBody UsuarioCobroTransferenciaDto dto
+    ) {
+        Long userId = authUtil.extractUserId();
+        userService.guardarDatosCobroTransferencia(userId, dto);
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
 
+    @PreAuthorize("permitAll()")
+    @GetMapping("/cobro/{usuarioId}/transferencia")
+    public UsuarioCobroTransferenciaSalidaDto obtenerDatosCobro(@PathVariable Long usuarioId) {
+        Usuario u = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        UsuarioCobroTransferenciaSalidaDto dto = new UsuarioCobroTransferenciaSalidaDto();
+        dto.setAlias(u.getMpAlias());
+        dto.setCbu(u.getMpCbu());
+        dto.setTitular(u.getMpTitular());
+        dto.setBanco(u.getMpBanco());
+        return dto;
+    }
+
+
+    // 🔹 Obtener datos bancarios del usuario logueado
+    @GetMapping("/me/datosmp")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DatosCobroSoloUser> listar() {
+        Long userId = authUtil.extractUserId();
+        return ResponseEntity.ok(userService.listarDatosBancariosUser(userId));
+    }
+
+    // 🔹 Editar datos bancarios del usuario logueado
+    @PutMapping("/me/datosmp")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DatosCobroSoloUser> editar(
+            @Valid @RequestBody DatosCobroUpdateDto dto
+    ) {
+        Long userId = authUtil.extractUserId();
+        return ResponseEntity.ok(userService.editarDatosBancariosUser(userId, dto));
+    }
 }

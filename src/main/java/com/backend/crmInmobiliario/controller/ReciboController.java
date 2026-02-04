@@ -2,6 +2,8 @@ package com.backend.crmInmobiliario.controller;
 
 import com.backend.crmInmobiliario.DTO.entrada.ReciboEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboModificacionDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.TransferenciaNotificarDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.NotificarTransferenciaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -145,4 +147,34 @@ public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @ModelAtt
             ));
         }
     }
+
+//    @PostMapping("/{reciboId}/pago-transferencia/notificar")
+//    @PreAuthorize("isAuthenticated()")
+//    public ResponseEntity<?> notificarTransferencia(
+//            @PathVariable Long reciboId,
+//            @RequestBody TransferenciaNotificarDto dto
+//    ) {
+//        Long userIdInquilino = authUtil.extractUserId();
+//        reciboService.notificarTransferencia(reciboId, userIdInquilino, dto);
+//        return ResponseEntity.ok(Map.of("ok", true));
+//    }
+
+    @PostMapping("/{reciboId}/pagar/transferencia/notificar")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> notificarTransferencia(
+            @PathVariable Long reciboId,
+            @Valid @RequestBody NotificarTransferenciaDto dto
+    ) {
+        try {
+            Long userId = authUtil.extractUserId();
+            reciboService.notificarTransferencia(reciboId, userId, dto);
+            return ResponseEntity.ok(Map.of("ok", true));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "error", "No se pudo notificar la transferencia",
+                    "detalle", e.getMessage()
+            ));
+        }
+    }
+
 }

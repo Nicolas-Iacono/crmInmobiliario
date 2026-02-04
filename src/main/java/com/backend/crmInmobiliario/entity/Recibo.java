@@ -70,11 +70,41 @@ public class Recibo {
     @Column(name = "mp_paid_at")
     private LocalDateTime mpPaidAt;
 
+    @Column(name = "liquidado", nullable = false)
+    private Boolean liquidado = Boolean.FALSE;
+
     @PrePersist
     public void prePersist() {
         if (this.fechaVencimiento == null) {
-            this.fechaVencimiento = LocalDate.now().plusDays(15);
+            this.fechaVencimiento = LocalDate.now().plusDays(10);
         }
         if (this.estado == null) this.estado = Boolean.FALSE;
+        if (this.liquidado == null) this.liquidado = Boolean.FALSE;
     }
+
+    @Column(name = "transfer_alias")
+    private String transferAlias;
+
+    @Column(name = "transfer_amount")
+    private BigDecimal transferAmount;
+
+    @Column(name = "transfer_notified_at")
+    private LocalDateTime transferNotifiedAt;
+
+    @Column(name = "transfer_reference")
+    private String transferReference; // ej: nro operación / últimos 4 / etc
+
+    @Column(name = "transfer_comprobante_url")
+    private String transferComprobanteUrl;
+
+    @Column(name = "transfer_note", length = 500)
+    private String transferNote;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "transfer_status")
+    private TransferStatus transferStatus; // PENDING / APPROVED / REJECTED
+
+    public enum TransferStatus { NONE, PENDING, APPROVED, REJECTED }
+
+
 }

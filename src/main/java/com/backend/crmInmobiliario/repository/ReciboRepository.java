@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.awt.print.Pageable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -225,5 +226,54 @@ public interface ReciboRepository extends JpaRepository<Recibo,Long> {
 
 
     Optional<Recibo> findByMpExternalReference(String mpExternalReference);
+
+
+    public interface ReciboPagoProjection {
+        Long getId();
+        Boolean getEstado();
+        Long getContratoId();
+        String getTransferStatus(); // "NONE", "PENDING", "APPROVED", "REJECTED"
+    }
+
+    @Query("""
+    select r.id as id,
+           r.estado as estado,
+           c.id as contratoId,
+           cast(r.transferStatus as string) as transferStatus
+    from Recibo r
+    join r.contrato c
+    where r.id = :reciboId
+""")
+    Optional<ReciboPagoProjection> findPagoProjection(@Param("reciboId") Long reciboId);
+
+
+
+    @Modifying
+    @Query("""
+    update Recibo r
+    set r.estado = :nuevoEstado,
+        r.mpPaidAt = :paidAt
+    where r.id = :reciboId
+""")
+    int updateEstadoYPaidAt(@Param("reciboId") Long reciboId,
+                            @Param("nuevoEstado") boolean nuevoEstado,
+                            @Param("paidAt") LocalDateTime paidAt);
+
+
+
+    @Modifying
+    @Query("""
+    update Recibo r
+    set r.transferStatus = com.backend.crmInmobiliario.entity.Recibo.TransferStatus.NONE,
+        r.transferAlias = null,
+        r.transferAmount = null,
+        r.transferNotifiedAt = null,
+        r.transferReference = null,
+        r.transferComprobanteUrl = null,
+        r.transferNote = null
+    where r.id = :reciboId
+""")
+    int resetTransferencia(@Param("reciboId") Long reciboId);
+
 }
 

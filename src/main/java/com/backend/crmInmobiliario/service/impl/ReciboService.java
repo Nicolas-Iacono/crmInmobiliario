@@ -4,6 +4,7 @@ import com.backend.crmInmobiliario.DTO.entrada.ImpuestoEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.ReciboEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboEstadoActualizadoEvent;
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboModificacionDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.NotificarTransferenciaDto;
 import com.backend.crmInmobiliario.DTO.salida.ImpuestosGeneralSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
@@ -14,6 +15,7 @@ import com.backend.crmInmobiliario.repository.ContratoRepository;
 import com.backend.crmInmobiliario.repository.ImpuestoRepository;
 import com.backend.crmInmobiliario.repository.InquilinoRepository;
 import com.backend.crmInmobiliario.repository.ReciboRepository;
+import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.repository.notificacionesPush.PushSubscriptionRepository;
 import com.backend.crmInmobiliario.repository.projections.ReciboSyncProjection;
 import com.backend.crmInmobiliario.service.IReciboService;
@@ -39,6 +41,8 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -64,11 +68,14 @@ public class ReciboService implements IReciboService {
     private ContratoService contratoService;
     private EmbeddingService embeddingService;
     private ImpuestoRepository impuestoRepository;
+    private UsuarioRepository usuarioRepository;
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
     private final ImpuestoCalculoService impuestoCalculoService;
 
-    public ReciboService(ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService) {
+
+
+    public ReciboService(UsuarioRepository usuarioRepository, ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService) {
         this.modelMapper = modelMapper;
         this.reciboRepository = reciboRepository;
         this.contratoRepository = contratoRepository;
@@ -80,6 +87,7 @@ public class ReciboService implements IReciboService {
         this.contratoService = contratoService;
         this.impuestoCalculoService = impuestoCalculoService;
         this.impuestoRepository = impuestoRepository;
+        this.usuarioRepository = usuarioRepository;
         configureMapping();
     }
 
@@ -458,39 +466,58 @@ public class ReciboService implements IReciboService {
 
         LOGGER.info("Iniciando la modificación del estado del recibo con ID: {}", reciboId);
 
-        // 1) Traer SOLO el contratoId (barato)
-        Long contratoId = reciboRepository.findContratoIdByReciboId(reciboId);
-        if (contratoId == null) {
-            throw new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId);
+        // 1) Traer proyección liviana (estado actual + transferStatus + contratoId)
+        ReciboRepository.ReciboPagoProjection p = reciboRepository.findPagoProjection(reciboId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId));
+
+        // 2) Reglas por transferencia
+        String ts = p.getTransferStatus(); // "NONE", "PENDING", "APPROVED", "REJECTED"
+        if (nuevoEstado) {
+            // Se intenta marcar como PAGADO
+            if ("PENDING".equals(ts)) {
+                throw new IllegalStateException("Hay una transferencia notificada, pero aún no fue aprobada.");
+            }
+            if ("REJECTED".equals(ts)) {
+                throw new IllegalStateException("La transferencia fue rechazada. Pedile al inquilino que vuelva a transferir.");
+            }
+            // Si ts=APPROVED ok. Si ts=NONE ok (pago manual/otro medio).
         }
 
-        // 2) Update directo (NO carga entidad, NO cascades, NO trae grafo)
-        int updated = reciboRepository.updateEstado(reciboId, nuevoEstado);
+        // 3) Update de estado (sin cargar entidad)
+        LocalDateTime paidAt = nuevoEstado ? LocalDateTime.now(ZoneOffset.UTC) : null;
+
+        int updated = reciboRepository.updateEstadoYPaidAt(reciboId, nuevoEstado, paidAt);
         if (updated == 0) {
             throw new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId);
         }
 
-        // 3) Update directo a impuestos (evita el SELECT gigante a la tabla impuesto + joins por herencia)
+        // 4) Impuestos igual que antes
         int impuestosUpdated = impuestoRepository.updateEstadoPagoByRecibo(reciboId, nuevoEstado);
         LOGGER.info("✅ Se actualizaron {} impuestos del recibo {}", impuestosUpdated, reciboId);
 
-        // 4) Disparar sincronización pesada AFTER_COMMIT (Supabase + embedding + contrato)
+        // 5) Si se desmarca como pago, reseteo transferencia (recomendado)
+        if (!nuevoEstado) {
+            reciboRepository.resetTransferencia(reciboId);
+        }
+
+        // 6) Evento AFTER_COMMIT (igual que ya tenías)
         applicationEventPublisher.publishEvent(
-                new ReciboEstadoActualizadoEvent(reciboId, contratoId, nuevoEstado)
+                new ReciboEstadoActualizadoEvent(reciboId, p.getContratoId(), nuevoEstado)
         );
 
-        // 5) Respuesta liviana (proyección, no ModelMapper tocando relaciones)
-        ReciboRepository.ReciboEstadoProjection p = reciboRepository.findEstadoProjectionById(reciboId)
+        // 7) Respuesta liviana
+        ReciboRepository.ReciboEstadoProjection out = reciboRepository.findEstadoProjectionById(reciboId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId));
 
         ReciboSalidaDto salida = new ReciboSalidaDto();
-        salida.setId(p.getId());
-        salida.setEstado(p.getEstado());
-        salida.setContratoId(p.getContratoId());
-        salida.setNombreContrato(p.getNombreContrato());
+        salida.setId(out.getId());
+        salida.setEstado(out.getEstado());
+        salida.setContratoId(out.getContratoId());
+        salida.setNombreContrato(out.getNombreContrato());
 
         return salida;
     }
+
 
     @PostConstruct
     void initMapper() {
@@ -741,6 +768,78 @@ public class ReciboService implements IReciboService {
 //    }
 
 
+@Transactional
+public void notificarTransferencia(Long reciboId, Long userInquilinoId, NotificarTransferenciaDto dto) {
+
+    Usuario usuario = usuarioRepository.findById(userInquilinoId)
+            .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+    if (usuario.getInquilino() == null) {
+        throw new RuntimeException("Solo un usuario inquilino puede notificar transferencias");
+    }
+
+    Recibo recibo = reciboRepository.findById(reciboId)
+            .orElseThrow(() -> new RuntimeException("Recibo no encontrado"));
+
+    // Validar pertenencia del recibo al inquilino logueado
+    Long inqIdRecibo = recibo.getContrato().getInquilino().getId();
+    Long inqIdUsuario = usuario.getInquilino().getId();
+    if (!inqIdRecibo.equals(inqIdUsuario)) {
+        throw new RuntimeException("Este recibo no pertenece a tu cuenta");
+    }
+
+    // Si ya está pago, no tiene sentido
+    if (Boolean.TRUE.equals(recibo.getEstado())) {
+        throw new RuntimeException("El recibo ya está pago");
+    }
+
+    // Ya notificado y pendiente/aprobado => idempotencia / evitar spam
+    if (recibo.getTransferStatus() == Recibo.TransferStatus.PENDING) {
+        throw new RuntimeException("Este recibo ya fue notificado y está pendiente de confirmación");
+    }
+    if (recibo.getTransferStatus() == Recibo.TransferStatus.APPROVED) {
+        throw new RuntimeException("Este recibo ya fue confirmado como pagado");
+    }
+
+    // Obtener la inmobiliaria dueña del contrato (usuario “sistema”)
+    Usuario inmobiliaria = recibo.getContrato().getUsuario(); // esto depende de tu modelo
+    if (inmobiliaria == null) {
+        throw new RuntimeException("No se pudo determinar la inmobiliaria del contrato");
+    }
+
+    // Validar que haya datos de cobro configurados
+    if (inmobiliaria.getMpAlias() == null || inmobiliaria.getMpAlias().isBlank()) {
+        throw new RuntimeException("La inmobiliaria no configuró alias de cobro para transferencias");
+    }
+
+    // Validación básica de monto (podés permitir parcial si querés)
+    BigDecimal esperado = recibo.getMontoTotal() != null ? recibo.getMontoTotal() : BigDecimal.ZERO;
+    BigDecimal informado = dto.getAmount() != null ? dto.getAmount() : BigDecimal.ZERO;
+
+    if (informado.compareTo(BigDecimal.ZERO) <= 0) {
+        throw new RuntimeException("El monto informado es inválido");
+    }
+
+    // Si no querés permitir parcial:
+    if (informado.compareTo(esperado) != 0) {
+        throw new RuntimeException("El monto informado no coincide con el total del recibo");
+    }
+
+    // Guardar trazabilidad
+    recibo.setTransferAlias(inmobiliaria.getMpAlias());
+    recibo.setTransferAmount(informado);
+    recibo.setTransferNotifiedAt(LocalDateTime.now(ZoneOffset.UTC));
+    recibo.setTransferReference(dto.getReference());
+    recibo.setTransferComprobanteUrl(dto.getComprobanteUrl());
+    recibo.setTransferNote(dto.getNote());
+    recibo.setTransferStatus(Recibo.TransferStatus.PENDING);
+
+    reciboRepository.save(recibo);
+
+    // 🚀 Opcional: notificar a la inmobiliaria (email / push)
+    // notificacionService.notificarInmobiliariaTransferenciaPendiente(inmobiliaria, recibo);
+
+}
 
 
 }

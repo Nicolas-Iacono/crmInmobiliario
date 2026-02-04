@@ -6,8 +6,13 @@ import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.LoginInquilinoEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.usuarioPropietario.LoginPropietarioEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.UsuarioCobroTransferenciaDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.modificacion.DatosCobroUpdateDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.salida.DatosCobroSoloUser;
+import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
+import com.backend.crmInmobiliario.entity.Recibo;
 import com.backend.crmInmobiliario.entity.Role;
 import com.backend.crmInmobiliario.entity.Usuario;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -484,5 +489,52 @@ public class UserService implements IUsuarioService, UserDetailsService {
         int deleted = usuarioRepository.deleteByNombreNegocio(nombreNegocio);
         LOGGER.info("deleteByNombreNegocio('{}') -> {} fila(s) borrada(s)", nombreNegocio, deleted);
         return deleted > 0;
+    }
+
+
+    @Transactional
+    public void guardarDatosCobroTransferencia(
+            Long usuarioId,
+            UsuarioCobroTransferenciaDto dto
+    ) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        // seguridad extra
+        if (usuario.getInquilino() != null) {
+            throw new RuntimeException("Un inquilino no puede configurar datos de cobro");
+        }
+
+        usuario.setMpAlias(dto.getAlias());
+        usuario.setMpCbu(dto.getCbu());
+        usuario.setMpTitular(dto.getTitular());
+        usuario.setMpCuit(dto.getCuit());
+        usuario.setMpBanco(dto.getBanco());
+
+        usuarioRepository.save(usuario);
+    }
+
+    @Transactional
+    public DatosCobroSoloUser listarDatosBancariosUser(Long userId) {
+        return usuarioRepository.findDatosCobroById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+    }
+    @Transactional
+    public DatosCobroSoloUser editarDatosBancariosUser(Long userId, DatosCobroUpdateDto dto) {
+        Usuario u = usuarioRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        // Update parcial (solo lo que venga)
+        if (dto.getAlias() != null) u.setMpAlias(dto.getAlias());
+        if (dto.getCbu() != null) u.setMpCbu(dto.getCbu());
+        if (dto.getTitular() != null) u.setMpTitular(dto.getTitular());
+        if (dto.getCuit() != null) u.setMpCuit(dto.getCuit());
+        if (dto.getBanco() != null) u.setMpBanco(dto.getBanco());
+
+        usuarioRepository.save(u);
+
+        // devolver lo actualizado (sin re-traer todo el user)
+        return usuarioRepository.findDatosCobroById(userId)
+                .orElseThrow(() -> new RuntimeException("No se pudieron obtener los datos actualizados"));
     }
 }

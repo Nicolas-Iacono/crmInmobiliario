@@ -76,6 +76,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/inquilino/register", "/api/inquilino/login").permitAll()
                         .requestMatchers("/api/propietario/register", "/api/propietario/login").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/usuario/cobro/**").permitAll()
 
                         // --- Roles especiales ---
                         .requestMatchers("/api/inquilino/create").hasAnyRole("ADMIN", "SUPER_ADMIN")

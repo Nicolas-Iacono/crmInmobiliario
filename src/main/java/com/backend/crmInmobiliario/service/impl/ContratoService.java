@@ -1874,6 +1874,7 @@ public class ContratoService implements IContratoService {
         dto.setApellidoInquilino(inquilino.getApellido());
         dto.setEstado(contrato.getEstado() != null ? contrato.getEstado().name() : null);
 
+
         dto.setUsuarioDtoSalida(new UsuarioDtoSalida());
         dto.getUsuarioDtoSalida().setLogo(usuarioInmo.getLogoInmobiliaria().getImageUrl());
         dto.getUsuarioDtoSalida().setRazonSocial(usuarioInmo.getRazonSocial());
@@ -1883,6 +1884,8 @@ public class ContratoService implements IContratoService {
         dto.getUsuarioDtoSalida().setPartido(usuarioInmo.getPartido());
         dto.getUsuarioDtoSalida().setLocalidad(usuarioInmo.getLocalidad());
         dto.getUsuarioDtoSalida().setProvincia(usuarioInmo.getProvincia());
+        dto.getUsuarioDtoSalida().setId(usuarioInmo.getId());
+
 
         dto.setPropietario(new PropietarioContratoDtoSalida());
         dto.getPropietario().setApellido(contrato.getPropietario().getApellido());

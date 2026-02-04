@@ -21,19 +21,19 @@ import java.util.List;
 @Service
 public class MercadoPagoReciboService {
 
-    @Value("${mercadopago.access-token}")
+    @Value("${mp.access.token}")
     private String accessToken;
 
-    @Value("${mercadopago.webhook-url}")
+    @Value("${mp.notification.url}")
     private String webhookUrl;
 
-    @Value("${mercadopago.success-url}")
+    @Value("${mp.success-url}")
     private String successUrl;
 
-    @Value("${mercadopago.failure-url}")
+    @Value("${mp.failure-url}")
     private String failureUrl;
 
-    @Value("${mercadopago.pending-url}")
+    @Value("${mp.pending-url}")
     private String pendingUrl;
 
     private final ReciboRepository reciboRepository;
@@ -46,19 +46,19 @@ public class MercadoPagoReciboService {
 
     @Transactional
     public MpInitPointResponse crearLinkPagoRecibo(Long reciboId, Long userInquilinoId) throws Exception {
-        Usuario usuario = usuarioRepository.findUserById(userInquilinoId)
+        Usuario usuarioInquilino = usuarioRepository.findUserById(userInquilinoId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        if (usuario.getInquilino() == null) {
+        if (usuarioInquilino.getInquilino() == null) {
             throw new RuntimeException("Solo un usuario inquilino puede pagar recibos");
         }
 
         Recibo recibo = reciboRepository.findById(reciboId)
                 .orElseThrow(() -> new RuntimeException("Recibo no encontrado"));
 
-        // Validar pertenencia
+        // Validar pertenencia del recibo al inquilino logueado
         Long inqIdRecibo = recibo.getContrato().getInquilino().getId();
-        Long inqIdUsuario = usuario.getInquilino().getId();
+        Long inqIdUsuario = usuarioInquilino.getInquilino().getId();
         if (!inqIdRecibo.equals(inqIdUsuario)) {
             throw new RuntimeException("Este recibo no pertenece a tu cuenta");
         }
@@ -67,11 +67,26 @@ public class MercadoPagoReciboService {
             throw new RuntimeException("El recibo ya está pago");
         }
 
-        MercadoPagoConfig.setAccessToken(accessToken);
+        // ✅ 1) Tomar la inmobiliaria dueña del contrato
+        Usuario inmobiliaria = recibo.getContrato().getUsuario();
+        if (inmobiliaria == null) {
+            throw new RuntimeException("El contrato no tiene inmobiliaria asociada");
+        }
 
-        BigDecimal monto = recibo.getMontoTotal() != null ? recibo.getMontoTotal() : BigDecimal.ZERO;
+        // ✅ 2) Validar que la inmobiliaria tenga MP conectado
+        if (!inmobiliaria.isMpConnected() || inmobiliaria.getMpAccessToken() == null || inmobiliaria.getMpAccessToken().isBlank()) {
+            throw new RuntimeException("La inmobiliaria aún no conectó Mercado Pago");
+        }
 
-        String externalRef = "RECIBO-" + recibo.getId() + "-USR-" + usuario.getId();
+        // ✅ 3) Usar el token de ESA inmobiliaria (no el de Tuinmo)
+        MercadoPagoConfig.setAccessToken(inmobiliaria.getMpAccessToken());
+
+        var monto = recibo.getMontoTotal() != null ? recibo.getMontoTotal() : BigDecimal.ZERO;
+
+        // Recomendado: que la referencia incluya recibo + inmobiliaria + inquilino
+        String externalRef = "RECIBO-" + recibo.getId()
+                + "-INMO-" + inmobiliaria.getId()
+                + "-INQUSR-" + usuarioInquilino.getId();
 
         PreferenceItemRequest item = PreferenceItemRequest.builder()
                 .title("Pago de recibo " + recibo.getNumeroRecibo() + " (" + recibo.getPeriodo() + ")")
@@ -91,18 +106,17 @@ public class MercadoPagoReciboService {
                 .externalReference(externalRef)
                 .notificationUrl(webhookUrl)
                 .backUrls(backUrls)
-                // auto_return: cuando se acredita, vuelve solo (opcional)
                 .autoReturn("approved")
                 .build();
 
         PreferenceClient client = new PreferenceClient();
         Preference pref = client.create(request);
 
-        // Guardar trazabilidad en el recibo
         recibo.setMpPreferenceId(pref.getId());
         recibo.setMpExternalReference(externalRef);
         reciboRepository.save(recibo);
 
         return new MpInitPointResponse(pref.getInitPoint(), pref.getId());
     }
+
 }

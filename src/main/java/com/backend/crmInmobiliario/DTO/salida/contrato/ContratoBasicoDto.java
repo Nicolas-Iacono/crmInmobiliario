@@ -26,4 +26,5 @@ public class ContratoBasicoDto {
     private UsuarioDtoSalida usuarioDtoSalida;
     private String tipoGarantia;
     private Set<EstadoContrato> estados;
+    private Long idUsuarioInmobiliaria;
 }

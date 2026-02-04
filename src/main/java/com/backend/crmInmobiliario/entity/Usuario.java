@@ -7,6 +7,7 @@ import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -67,6 +68,35 @@ public class Usuario  implements UserDetails {
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @ToString.Exclude
     private UsuarioGoogleAccount googleAccount;
+
+
+    @Column(name = "mp_connected", nullable = false)
+    private boolean mpConnected = false;
+
+    @Column(name="mp_access_token")
+    private String mpAccessToken;
+
+    @Column(name="mp_refresh_token")
+    private String mpRefreshToken;
+
+    @Column(name="mp_token_expires_at")
+    private LocalDateTime mpTokenExpiresAt;
+
+    // Datos de cobro por transferencia
+    @Column(name = "mp_alias")
+    private String mpAlias;
+
+    @Column(name = "mp_cbu")
+    private String mpCbu;
+
+    @Column(name = "mp_titular")
+    private String mpTitular;
+
+    @Column(name = "mp_cuit")
+    private String mpCuit;
+
+    @Column(name = "mp_banco")
+    private String mpBanco;
 
     @ManyToMany(fetch = FetchType.LAZY, targetEntity = Role.class, cascade = {CascadeType.MERGE, CascadeType.PERSIST})
     @JoinTable(

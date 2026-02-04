@@ -6,6 +6,9 @@ import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.LoginInquilinoEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.usuarioPropietario.LoginPropietarioEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.UsuarioCobroTransferenciaDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.modificacion.DatosCobroUpdateDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.salida.DatosCobroSoloUser;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -50,4 +53,14 @@ public interface IUsuarioService extends UserDetailsService  {
     UsuarioDtoSalida actualizarUsuario(Long id, ActualizarUsuarioDto dto) throws ResourceNotFoundException;
 
     boolean deleteAccountByNombreNegocio(String nombreNegocio);
+
+    void guardarDatosCobroTransferencia(
+            Long usuarioId,
+            UsuarioCobroTransferenciaDto dto
+    );
+
+    DatosCobroSoloUser listarDatosBancariosUser(Long userId);
+
+    DatosCobroSoloUser editarDatosBancariosUser(Long userId, DatosCobroUpdateDto dto);
+
 }

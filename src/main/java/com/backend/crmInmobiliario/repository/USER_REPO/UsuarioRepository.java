@@ -1,5 +1,6 @@
 package com.backend.crmInmobiliario.repository.USER_REPO;
 
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.salida.DatosCobroSoloUser;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.entity.Usuario;
 import jakarta.persistence.LockModeType;
@@ -92,4 +93,16 @@ where u.username = :identifier
 """)
     Optional<Usuario> findByIdentifierWithRoles(String identifier);
 
+    @Query("""
+        select new com.backend.crmInmobiliario.DTO.mpDtos.transferencias.salida.DatosCobroSoloUser(
+            u.mpAlias,
+            u.mpCbu,
+            u.mpTitular,
+            u.mpCuit,
+            u.mpBanco
+        )
+        from Usuario u
+        where u.id = :userId
+    """)
+    Optional<DatosCobroSoloUser> findDatosCobroById(@Param("userId") Long userId);
 }
