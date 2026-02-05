@@ -2207,7 +2207,7 @@ public class ContratoService implements IContratoService {
     }
 
     @Transactional
-    @Scheduled(cron = "0 * * * * ?")
+    @Scheduled(cron = "0 0 9 * * ?")
     public void notificarAlertasVencimiento() {
         List<ContratoVencimientoAlertaDto> alertas = obtenerAlertasVencimientoInterno(null, 30, false);
         LocalDate hoy = LocalDate.now();

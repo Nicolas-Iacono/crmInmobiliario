@@ -46,6 +46,7 @@ import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class ReciboService implements IReciboService {
@@ -816,14 +817,8 @@ public void notificarTransferencia(Long reciboId, Long userInquilinoId, Notifica
     BigDecimal esperado = recibo.getMontoTotal() != null ? recibo.getMontoTotal() : BigDecimal.ZERO;
     BigDecimal informado = dto.getAmount() != null ? dto.getAmount() : BigDecimal.ZERO;
 
-    if (informado.compareTo(BigDecimal.ZERO) <= 0) {
-        throw new RuntimeException("El monto informado es inválido");
-    }
 
-    // Si no querés permitir parcial:
-    if (informado.compareTo(esperado) != 0) {
-        throw new RuntimeException("El monto informado no coincide con el total del recibo");
-    }
+
 
     // Guardar trazabilidad
     recibo.setTransferAlias(inmobiliaria.getMpAlias());
@@ -836,9 +831,42 @@ public void notificarTransferencia(Long reciboId, Long userInquilinoId, Notifica
 
     reciboRepository.save(recibo);
 
-    // 🚀 Opcional: notificar a la inmobiliaria (email / push)
-    // notificacionService.notificarInmobiliariaTransferenciaPendiente(inmobiliaria, recibo);
+    try {
+        List<PushSubscription> subs = pushSubscriptionRepository.findByUserId(inmobiliaria.getId());
+        if (!subs.isEmpty()) {
+            String nombreInquilino = Stream.of(
+                            recibo.getContrato().getInquilino().getNombre(),
+                            recibo.getContrato().getInquilino().getApellido()
+                    )
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(s -> !s.isBlank())
+                    .collect(Collectors.joining(" "));
+            String nombreContrato = recibo.getContrato().getNombreContrato() != null
+                    ? recibo.getContrato().getNombreContrato()
+                    : "Contrato #" + recibo.getContrato().getId();
+            String titulo = "💸 Transferencia notificada";
+            String cuerpo = String.format(
+                    "El inquilino %s notificó el pago del recibo %s por %s.",
+                    nombreInquilino.isBlank() ? "del contrato" : nombreInquilino,
+                    nombreContrato,
+                    informado
+            );
+            Map<String, Object> data = new HashMap<>();
+            data.put("type", "TRANSFERENCIA_PENDIENTE");
+            data.put("contratoId", recibo.getContrato().getId());
+            data.put("notaId", null);
 
+            for (PushSubscription sub : subs) {
+                pushNotificationService.enviarNotificacion(sub, titulo, cuerpo, data);
+            }
+            LOGGER.info("✅ Notificación push enviada a inmobiliaria ID: {}", inmobiliaria.getId());
+        } else {
+            LOGGER.info("ℹ️ Sin suscripciones push para inmobiliaria ID: {}", inmobiliaria.getId());
+        }
+    } catch (Exception e) {
+        LOGGER.error("❌ Error al enviar notificación push de transferencia: {}", e.getMessage(), e);
+    }
 }
 
 
