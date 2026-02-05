@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
         name = "recibo_alerta",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"recibo_id", "usuario_id"})
+        uniqueConstraints = @UniqueConstraint(columnNames = {"recibo_id", "usuario_id", "tipo"})
 )
 public class ReciboAlerta {
     @Id

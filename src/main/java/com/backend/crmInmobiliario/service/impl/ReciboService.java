@@ -14,6 +14,7 @@ import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.ContratoRepository;
 import com.backend.crmInmobiliario.repository.ImpuestoRepository;
 import com.backend.crmInmobiliario.repository.InquilinoRepository;
+import com.backend.crmInmobiliario.repository.ReciboAlertaRepository;
 import com.backend.crmInmobiliario.repository.ReciboRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.repository.notificacionesPush.PushSubscriptionRepository;
@@ -42,6 +43,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -70,13 +72,14 @@ public class ReciboService implements IReciboService {
     private EmbeddingService embeddingService;
     private ImpuestoRepository impuestoRepository;
     private UsuarioRepository usuarioRepository;
+    private ReciboAlertaRepository reciboAlertaRepository;
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
     private final ImpuestoCalculoService impuestoCalculoService;
 
 
 
-    public ReciboService(UsuarioRepository usuarioRepository, ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService) {
+    public ReciboService(UsuarioRepository usuarioRepository, ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService, ReciboAlertaRepository reciboAlertaRepository) {
         this.modelMapper = modelMapper;
         this.reciboRepository = reciboRepository;
         this.contratoRepository = contratoRepository;
@@ -89,6 +92,7 @@ public class ReciboService implements IReciboService {
         this.impuestoCalculoService = impuestoCalculoService;
         this.impuestoRepository = impuestoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.reciboAlertaRepository = reciboAlertaRepository;
         configureMapping();
     }
 
@@ -830,6 +834,7 @@ public void notificarTransferencia(Long reciboId, Long userInquilinoId, Notifica
     recibo.setTransferStatus(Recibo.TransferStatus.PENDING);
 
     reciboRepository.save(recibo);
+    upsertAlertaTransferencia(recibo, inmobiliaria);
 
     try {
         List<PushSubscription> subs = pushSubscriptionRepository.findByUserId(inmobiliaria.getId());
@@ -867,6 +872,27 @@ public void notificarTransferencia(Long reciboId, Long userInquilinoId, Notifica
     } catch (Exception e) {
         LOGGER.error("❌ Error al enviar notificación push de transferencia: {}", e.getMessage(), e);
     }
+}
+
+private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
+    ReciboAlerta alerta = reciboAlertaRepository
+            .findByReciboIdAndUsuarioIdAndTipo(
+                    recibo.getId(),
+                    inmobiliaria.getId(),
+                    TipoAlertaRecibo.TRANSFERENCIA_PENDIENTE
+            )
+            .orElseGet(() -> {
+                ReciboAlerta nueva = new ReciboAlerta();
+                nueva.setRecibo(recibo);
+                nueva.setUsuario(inmobiliaria);
+                nueva.setTipo(TipoAlertaRecibo.TRANSFERENCIA_PENDIENTE);
+                return nueva;
+            });
+
+    alerta.setVisto(false);
+    alerta.setNoMostrar(false);
+    alerta.setUltimaNotificacion(LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires")));
+    reciboAlertaRepository.save(alerta);
 }
 
 
