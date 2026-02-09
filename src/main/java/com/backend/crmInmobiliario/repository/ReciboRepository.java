@@ -132,6 +132,15 @@ public interface ReciboRepository extends JpaRepository<Recibo,Long> {
     List<Recibo> findByUsuarioId(@Param("userId") Long userId);
 
     @Query("""
+    SELECT r
+    FROM Recibo r
+    JOIN FETCH r.contrato c
+    LEFT JOIN FETCH c.inquilino
+    WHERE c.usuario.id = :userId
+""")
+    List<Recibo> findByUsuarioIdConContrato(@Param("userId") Long userId);
+
+    @Query("""
     select r
     from Recibo r
     where r.contrato.usuario.id = :userId
@@ -321,4 +330,3 @@ where r.id = :reciboId
     Long findOwnerUserIdByReciboId(@Param("reciboId") Long reciboId);
 
 }
-
