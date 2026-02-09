@@ -195,7 +195,8 @@ public class ChatBotService {
 
         // 2️⃣ Si es consulta abierta, buscar contexto y usar IA
         List<ContextItem> contexto = buscarContextoEnSupabase(pregunta, userId, modo);
-        String prompt = construirPrompt(pregunta, contexto);
+        String datosUsuario = construirContextoDatosUsuario(userId, pregunta);
+        String prompt = construirPrompt(pregunta, contexto, datosUsuario);
         return responderConContextoGeneral(prompt);
     }
 
@@ -211,6 +212,160 @@ public class ChatBotService {
     }
     private static boolean r(String p, String regex){
         return Pattern.compile(regex, Pattern.CASE_INSENSITIVE).matcher(p).find();
+    }
+
+    private static boolean contieneTerminos(String texto, String... terminos) {
+        if (texto == null || texto.isBlank()) return false;
+        for (String termino : terminos) {
+            if (texto.contains(termino)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String construirContextoDatosUsuario(Long userId, String pregunta) {
+        String p = norm(pregunta);
+        boolean contratos = contieneTerminos(p, "contrato", "contratos", "alquiler", "locacion");
+        boolean propiedades = contieneTerminos(p, "propiedad", "propiedades", "inmueble", "inmuebles");
+        boolean inquilinos = contieneTerminos(p, "inquilino", "inquilinos", "arrendatario", "arrendatarios");
+        boolean propietarios = contieneTerminos(p, "propietario", "propietarios", "dueno", "dueño", "duenos");
+        boolean garantes = contieneTerminos(p, "garante", "garantes");
+        boolean recibos = contieneTerminos(p, "recibo", "recibos", "pago", "pagos", "pendiente", "deuda", "saldo");
+        boolean ingresos = contieneTerminos(p, "ingreso", "ingresos", "ganancia", "ganancias", "comision", "comisiones");
+
+        boolean sinFiltro = !(contratos || propiedades || inquilinos || propietarios || garantes || recibos || ingresos);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("RESUMEN GENERAL:\n");
+        sb.append("- Propiedades: ").append(propiedadRepository.countByUsuarioId(userId)).append("\n");
+        sb.append("- Contratos: ").append(contratoRepository.countByUsuarioId(userId)).append("\n");
+        sb.append("- Inquilinos: ").append(inquilinoRepository.countByUsuarioId(userId)).append("\n");
+        sb.append("- Propietarios: ").append(propietarioRepository.countByUsuarioId(userId)).append("\n");
+        sb.append("- Garantes: ").append(garanteRepository.countByUsuarioId(userId)).append("\n");
+        sb.append("- Recibos: ").append(reciboRepository.countByContratoUsuarioId(userId)).append("\n");
+        sb.append("\n");
+
+        int limite = 8;
+
+        if (sinFiltro || propiedades) {
+            var lista = propiedadRepository.findByUsuarioId(userId);
+            sb.append("PROPIEDADES:\n");
+            if (lista.isEmpty()) {
+                sb.append("- (sin propiedades registradas)\n\n");
+            } else {
+                lista.stream().limit(limite).forEach(pv ->
+                        sb.append("- ").append(pv.getDireccion())
+                                .append(" | ").append(pv.getLocalidad())
+                                .append("\n"));
+                sb.append("\n");
+            }
+        }
+
+        if (sinFiltro || contratos) {
+            var lista = contratoRepository.findByUsuarioIdConDetalle(userId);
+            sb.append("CONTRATOS:\n");
+            if (lista.isEmpty()) {
+                sb.append("- (sin contratos registrados)\n\n");
+            } else {
+                lista.stream().limit(limite).forEach(c ->
+                        sb.append("- ID ").append(c.getId())
+                                .append(" | ").append(c.getNombreContrato())
+                                .append(" | Inicio: ").append(c.getFecha_inicio())
+                                .append(" | Fin: ").append(c.getFecha_fin())
+                                .append(" | Inquilino: ")
+                                .append(c.getInquilino().getNombre()).append(" ").append(c.getInquilino().getApellido())
+                                .append("\n"));
+                sb.append("\n");
+            }
+        }
+
+        if (sinFiltro || inquilinos) {
+            var lista = inquilinoRepository.findByUsuarioId(userId);
+            sb.append("INQUILINOS:\n");
+            if (lista.isEmpty()) {
+                sb.append("- (sin inquilinos registrados)\n\n");
+            } else {
+                lista.stream().limit(limite).forEach(i ->
+                        sb.append("- ").append(i.getNombre()).append(" ").append(i.getApellido())
+                                .append(" | Tel: ").append(i.getTelefono())
+                                .append(" | Email: ").append(i.getEmail())
+                                .append("\n"));
+                sb.append("\n");
+            }
+        }
+
+        if (sinFiltro || propietarios) {
+            var lista = propietarioRepository.findByUsuarioId(userId);
+            sb.append("PROPIETARIOS:\n");
+            if (lista.isEmpty()) {
+                sb.append("- (sin propietarios registrados)\n\n");
+            } else {
+                lista.stream().limit(limite).forEach(pv ->
+                        sb.append("- ").append(pv.getNombre()).append(" ").append(pv.getApellido())
+                                .append(" | DNI: ").append(pv.getDni())
+                                .append(" | CUIT: ").append(pv.getCuit())
+                                .append("\n"));
+                sb.append("\n");
+            }
+        }
+
+        if (sinFiltro || garantes) {
+            var lista = garanteRepository.findByUsuarioId(userId);
+            sb.append("GARANTES:\n");
+            if (lista.isEmpty()) {
+                sb.append("- (sin garantes registrados)\n\n");
+            } else {
+                lista.stream().limit(limite).forEach(g ->
+                        sb.append("- ").append(g.getNombre()).append(" ").append(g.getApellido())
+                                .append(" | DNI: ").append(g.getDni())
+                                .append(" | Tel: ").append(g.getTelefono())
+                                .append("\n"));
+                sb.append("\n");
+            }
+        }
+
+        if (sinFiltro || recibos) {
+            var lista = reciboRepository.findByUsuarioIdConContrato(userId);
+            sb.append("RECIBOS:\n");
+            if (lista.isEmpty()) {
+                sb.append("- (sin recibos registrados)\n\n");
+            } else {
+                lista.stream().limit(limite).forEach(r ->
+                        sb.append("- N° ").append(r.getNumeroRecibo())
+                                .append(" | Contrato: ").append(r.getContrato().getNombreContrato())
+                                .append(" | Periodo: ").append(r.getPeriodo())
+                                .append(" | Monto: ").append(r.getMontoTotal())
+                                .append(" | Estado: ").append(r.getEstado() ? "Pagado" : "Pendiente")
+                                .append(" | Vence: ").append(r.getFechaVencimiento())
+                                .append("\n"));
+                sb.append("\n");
+            }
+        }
+
+        if (sinFiltro || ingresos) {
+            int anioActual = LocalDate.now().getYear();
+            var rows = ingresoMensualRepository.totalIngresosPorContratoAnual(userId, anioActual);
+            sb.append("INGRESOS POR CONTRATO (").append(anioActual).append("):\n");
+            if (rows.isEmpty()) {
+                sb.append("- (sin ingresos registrados en el año actual)\n\n");
+            } else {
+                rows.stream().limit(limite).forEach(r -> {
+                    Long contratoId = (Long) r[0];
+                    String nombreContrato = (String) r[1];
+                    BigDecimal totalMes = (BigDecimal) r[2];
+                    BigDecimal totalContrato = (BigDecimal) r[3];
+                    BigDecimal total = totalMes.add(totalContrato);
+                    sb.append("- Contrato ").append(contratoId)
+                            .append(" | ").append(nombreContrato)
+                            .append(" | Total anual: ").append(total)
+                            .append("\n");
+                });
+                sb.append("\n");
+            }
+        }
+
+        return sb.toString();
     }
 
     private IntentType detectarIntento(String pregunta) {
@@ -422,7 +577,7 @@ public class ChatBotService {
     }
 
 
-    private String construirPrompt(String pregunta, List<ContextItem> contexto) {
+    private String construirPrompt(String pregunta, List<ContextItem> contexto, String datosUsuario) {
         StringBuilder ctx = new StringBuilder();
 
         LocalDate hoy = LocalDate.now();
@@ -477,15 +632,19 @@ REGLAS DE RESPUESTA:
 - Si hay varios artículos relevantes, resumí los más importantes.
 - Si te preguntan “qué día es hoy”, respondé usando FECHA_ACTUAL.
 - Mantené siempre un tono profesional, claro y jurídico argentino.
+- Si falta un dato específico del usuario, pedí una aclaración concreta en una sola pregunta.
 
 CONTEXTO:
+%s
+
+DATOS DEL USUARIO:
 %s
 
 PREGUNTA:
 %s
 
 RESPUESTA:
-""".formatted(ctx.toString(), preguntaSegura);
+""".formatted(ctx.toString(), datosUsuario, preguntaSegura);
     }
 
 
@@ -504,7 +663,8 @@ RESPUESTA:
                                         "Siempre respondé basándote en el CCyC y en los principios de autonomía de la voluntad, buena fe contractual (Art. 961 CCyC) y reglas generales de los contratos. " +
                                         "La fecha actual es: " +
                                         LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM 'de' yyyy")) +
-                                        "."
+                                        ". " +
+                                        "Si falta información para responder con precisión, pedí una aclaración concreta."
                         ),
                         Map.of("role", "user", "content", prompt)
                 ),
@@ -566,7 +726,7 @@ RESPUESTA:
 
 // ✅ Contratos ---------------------------
 private String construirContextoContratosCompletos(Long userId) {
-    List<Contrato> contratos = contratoRepository.findByUsuarioId(userId);
+    List<Contrato> contratos = contratoRepository.findByUsuarioIdConDetalle(userId);
 
     if (contratos.isEmpty()) {
         return "El usuario no tiene contratos registrados.";
