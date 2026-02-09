@@ -16,6 +16,7 @@ import com.backend.crmInmobiliario.repository.notificacionesPush.PushSubscriptio
 import com.backend.crmInmobiliario.service.IPropiedadService;
 import com.backend.crmInmobiliario.service.impl.IA.EmbeddingService;
 import com.backend.crmInmobiliario.service.impl.notificacionesPush.PushNotificationService;
+import com.backend.crmInmobiliario.utils.AuthUtil;
 import com.backend.crmInmobiliario.utils.JwtUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -79,15 +80,17 @@ public class PropiedadService implements IPropiedadService {
     @Autowired
     private JwtUtil jwtUtil;
 
+    private AuthUtil authUtil;
 
 
-    public PropiedadService(EmbeddingService embeddingService,JwtUtil jwtUtil,ModelMapper modelMapper, InquilinoRepository inquilinoRepository, PropiedadRepository propiedadRepository, PropietarioRepository propietarioRepository) {
+    public PropiedadService(AuthUtil authUtil, EmbeddingService embeddingService,JwtUtil jwtUtil,ModelMapper modelMapper, InquilinoRepository inquilinoRepository, PropiedadRepository propiedadRepository, PropietarioRepository propietarioRepository) {
         this.modelMapper = modelMapper;
         this.inquilinoRepository = inquilinoRepository;
         this.propiedadRepository = propiedadRepository;
         this.propietarioRepository = propietarioRepository;
         this.jwtUtil = jwtUtil;
         this.embeddingService = embeddingService;
+        this.authUtil = authUtil;
         configureMapping();
     }
 
@@ -487,8 +490,11 @@ public class PropiedadService implements IPropiedadService {
 
     @Override
     @Transactional
-    public Integer enumerarPropiedades(String username) {
-      return propiedadRepository.countByUsuarioUsername(username);
+    public Integer enumerarPropiedades() {
+        Long userId = authUtil.extractUserId();
+        LOGGER.info("✅ User ID desde JWT: {}", userId);
+
+        return propiedadRepository.countByUsuarioId(userId);
 
     }
 

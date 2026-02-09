@@ -281,9 +281,12 @@ public class ContratoService implements IContratoService {
 
 
     @Override
-    @Transactional
-    public Integer enumerarContratos(String username) {
-        return contratoRepository.countByUsuarioUsername(username);
+    @Transactional(readOnly = true)
+    public Integer enumerarContratos() {
+        Long userId = authUtil.extractUserId();
+        LOGGER.info("✅ User ID desde JWT: {}", userId);
+
+        return contratoRepository.countByUsuarioId(userId);
     }
 
     @Transactional

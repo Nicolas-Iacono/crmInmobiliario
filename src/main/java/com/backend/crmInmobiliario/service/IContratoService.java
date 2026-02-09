@@ -35,7 +35,7 @@ public interface IContratoService {
 
     List<LatestContratosSalidaDto> getLatestContratos();
 
-    Integer enumerarContratos(String username)throws  ResourceNotFoundException;
+    Integer enumerarContratos() throws  ResourceNotFoundException;
 
     ContratoSalidaDto actualizarMontoAlquiler(ContratoModificacionDto contratoModificacionDto) throws  ResourceNotFoundException;
 

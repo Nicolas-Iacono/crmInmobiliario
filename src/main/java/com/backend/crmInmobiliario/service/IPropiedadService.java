@@ -25,7 +25,7 @@ public interface IPropiedadService {
 
     List<PropiedadSalidaDto> buscarPropiedadesPorUsuario(String username);
 
-    Integer enumerarPropiedades(String username);
+    Integer enumerarPropiedades();
 
     List<PropiedadSoloSalidaDto> buscarPorEmailPropietario(String email);
 

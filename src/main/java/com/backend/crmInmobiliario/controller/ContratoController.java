@@ -95,10 +95,9 @@ public class ContratoController {
     }
 
     @Transactional
-    @GetMapping("/enum/{username}")
-    public Integer enumerarContratos(@PathVariable String username) {
-        Integer contratos = contratoService.enumerarContratos(username);
-        return contratos;
+    @GetMapping("/enum")
+    public Integer enumerarContratos() {
+        return contratoService.enumerarContratos();
     }
     @Transactional
     @GetMapping("/all")

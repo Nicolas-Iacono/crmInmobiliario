@@ -80,6 +80,7 @@ public class Recibo {
         }
         if (this.estado == null) this.estado = Boolean.FALSE;
         if (this.liquidado == null) this.liquidado = Boolean.FALSE;
+        if (this.transferStatus == null) this.transferStatus = TransferStatus.NONE;
     }
 
     @Column(name = "transfer_alias")
@@ -100,11 +101,14 @@ public class Recibo {
     @Column(name = "transfer_note", length = 500)
     private String transferNote;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "transfer_status")
-    private TransferStatus transferStatus; // PENDING / APPROVED / REJECTED
+    private TransferStatus transferStatus = TransferStatus.NONE;
 
-    public enum TransferStatus { NONE, PENDING, APPROVED, REJECTED }
+    @Column(name="paid_at")
+    private LocalDateTime paidAt;
+
+
+
+
 
 
 }

@@ -342,8 +342,11 @@ public class InquilinoService implements IInquilinoService {
 
     @Override
     @Transactional
-    public Integer enumerarInquilinos(String username) {
-     return inquilinoRepository.countByUsuarioUsername(username);
+    public Integer enumerarInquilinos() {
+        Long userId = authUtil.extractUserId();
+        LOGGER.info("✅ User ID desde JWT: {}", userId);
+
+        return inquilinoRepository.countByUsuarioId(userId);
     }
 
 

@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.repository;
 
 import com.backend.crmInmobiliario.entity.Contrato;
 import com.backend.crmInmobiliario.entity.Recibo;
+import com.backend.crmInmobiliario.entity.TransferStatus;
 import com.backend.crmInmobiliario.repository.projections.ReciboSyncProjection;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
@@ -232,28 +233,38 @@ public interface ReciboRepository extends JpaRepository<Recibo,Long> {
         Long getId();
         Boolean getEstado();
         Long getContratoId();
-        String getTransferStatus(); // "NONE", "PENDING", "APPROVED", "REJECTED"
+        TransferStatus getTransferStatus(); // "NONE", "PENDING", "APPROVED", "REJECTED"
     }
 
     @Query("""
-    select r.id as id,
-           r.estado as estado,
-           c.id as contratoId,
-           cast(r.transferStatus as string) as transferStatus
-    from Recibo r
-    join r.contrato c
-    where r.id = :reciboId
+select r.id as id,
+       r.estado as estado,
+       c.id as contratoId,
+       r.transferStatus as transferStatus
+from Recibo r
+join r.contrato c
+where r.id = :reciboId
 """)
     Optional<ReciboPagoProjection> findPagoProjection(@Param("reciboId") Long reciboId);
+
+
+    @Modifying
+    @Query("""
+update Recibo r
+set r.transferStatus = :status
+where r.id = :reciboId
+""")
+    int updateTransferStatus(@Param("reciboId") Long reciboId,
+                             @Param("status") TransferStatus status);
 
 
 
     @Modifying
     @Query("""
-    update Recibo r
-    set r.estado = :nuevoEstado,
-        r.mpPaidAt = :paidAt
-    where r.id = :reciboId
+update Recibo r
+set r.estado = :nuevoEstado,
+    r.paidAt = :paidAt
+where r.id = :reciboId
 """)
     int updateEstadoYPaidAt(@Param("reciboId") Long reciboId,
                             @Param("nuevoEstado") boolean nuevoEstado,
@@ -263,17 +274,51 @@ public interface ReciboRepository extends JpaRepository<Recibo,Long> {
 
     @Modifying
     @Query("""
-    update Recibo r
-    set r.transferStatus = com.backend.crmInmobiliario.entity.Recibo.TransferStatus.NONE,
-        r.transferAlias = null,
-        r.transferAmount = null,
-        r.transferNotifiedAt = null,
-        r.transferReference = null,
-        r.transferComprobanteUrl = null,
-        r.transferNote = null
-    where r.id = :reciboId
+update Recibo r
+set r.transferStatus = :status,
+    r.transferAlias = null,
+    r.transferAmount = null,
+    r.transferNotifiedAt = null,
+    r.transferReference = null,
+    r.transferComprobanteUrl = null,
+    r.transferNote = null
+where r.id = :reciboId
 """)
-    int resetTransferencia(@Param("reciboId") Long reciboId);
+    int resetTransferencia(@Param("reciboId") Long reciboId,
+                           @Param("status") TransferStatus status);
+
+
+    @Modifying
+    @Query("""
+update Recibo r
+set r.transferStatus = :approved,
+    r.estado = true
+where r.id = :reciboId
+  and r.transferStatus = :pending
+""")
+    int approveTransferAndMarkPaid(@Param("reciboId") Long reciboId,
+                                   @Param("pending") TransferStatus pending,
+                                   @Param("approved") TransferStatus approved);
+
+
+    @Modifying
+    @Query("""
+update Recibo r
+set r.transferStatus = :rejected
+where r.id = :reciboId
+  and r.transferStatus = :pending
+""")
+    int rejectTransfer(@Param("reciboId") Long reciboId,
+                       @Param("pending") TransferStatus pending,
+                       @Param("rejected") TransferStatus rejected);
+
+    @Query("""
+select c.usuario.id
+from Recibo r
+join r.contrato c
+where r.id = :reciboId
+""")
+    Long findOwnerUserIdByReciboId(@Param("reciboId") Long reciboId);
 
 }
 

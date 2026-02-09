@@ -18,7 +18,7 @@ public interface IInquilinoService {
 
     List<InquilinoSalidaDto> buscarInquilinoPorUsuario(String username);
 
-    Integer enumerarInquilinos(String username);
+    Integer enumerarInquilinos();
 
     InquilinoSalidaDto editarInquilino(InquilinoDtoModificacion inquilinoDtoModificacion) throws ResourceNotFoundException;
 

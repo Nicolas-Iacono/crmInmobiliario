@@ -105,11 +105,10 @@ public class Inquilino {
 
 
     @Transactional
-    @GetMapping("/enum/{username}")
+    @GetMapping("/enum")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public Integer enumeraInquilinosr(@PathVariable String username) {
-        Integer inquilinos = inquilinoService.enumerarInquilinos(username);
-        return inquilinos;
+    public Integer enumeraInquilinosr() {
+        return inquilinoService.enumerarInquilinos();
     }
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")

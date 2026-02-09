@@ -205,8 +205,11 @@ public class PropietarioService implements IPropietarioService {
 
     @Override
     @Transactional
-    public Integer enumerarPropietarios(String username) {
-        return propietarioRepository.countByUsuarioUsername(username);
+    public Integer enumerarPropietarios() {
+        Long userId = authUtil.extractUserId();
+        LOGGER.info("✅ User ID desde JWT: {}", userId);
+
+        return propietarioRepository.countByUsuarioId(userId);
     }
 
 

@@ -72,10 +72,9 @@ public class PropietarioController {
 
 
     @Transactional
-    @GetMapping("/enum/{username}")
-    public Integer enumerar(@PathVariable String username) {
-        Integer total = propietarioService.enumerarPropietarios(username);
-        return total;
+    @GetMapping("/enum")
+    public Integer enumerar() {
+        return propietarioService.enumerarPropietarios();
     }
 
 

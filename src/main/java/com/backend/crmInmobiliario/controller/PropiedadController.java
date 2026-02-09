@@ -41,10 +41,9 @@ public class PropiedadController {
     private final ProspectoService prospectoService;
 
     @Transactional
-    @GetMapping("/enum/{username}")
-    public Integer enumerar(@PathVariable String username) {
-        Integer total = propiedadService.enumerarPropiedades(username);
-        return total;
+    @GetMapping("/enum")
+    public Integer enumerar() {
+        return propiedadService.enumerarPropiedades();
     }
 
 

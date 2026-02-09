@@ -5,9 +5,7 @@ import com.backend.crmInmobiliario.DTO.entrada.ReciboEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboEstadoActualizadoEvent;
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboModificacionDto;
 import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.NotificarTransferenciaDto;
-import com.backend.crmInmobiliario.DTO.salida.ImpuestosGeneralSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
-import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.entity.impuestos.*;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -25,11 +23,9 @@ import com.backend.crmInmobiliario.service.impl.notificacionesPush.PushNotificat
 import com.backend.crmInmobiliario.service.impl.utilsGeneral.ImpuestoCalculoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import okhttp3.*;
 import org.hibernate.Hibernate;
-import org.hibernate.collection.spi.PersistentBag;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.slf4j.Logger;
@@ -132,6 +128,7 @@ public class ReciboService implements IReciboService {
                 .addMapping(Recibo::getFechaVencimiento, ReciboSalidaDto::setFechaVencimiento)
                 .addMapping(Recibo::getPeriodo, ReciboSalidaDto::setPeriodo)
                 .addMapping(Recibo::getConcepto, ReciboSalidaDto::setConcepto)
+                .addMapping(Recibo::getTransferStatus, ReciboSalidaDto::setTransferStatus)
                 .addMapping(Recibo::getNumeroRecibo, ReciboSalidaDto::setNumeroRecibo);
 
         modelMapper.typeMap(ReciboModificacionDto.class, ReciboSalidaDto.class)
@@ -400,6 +397,7 @@ public class ReciboService implements IReciboService {
 
         if (reciboOptional.isPresent()) {
             Recibo recibo = reciboOptional.get();
+
             return modelMapper.map(recibo, ReciboSalidaDto.class);
         } else {
             throw new ResourceNotFoundException("Recibo no encontrado con ID: " + id);
@@ -475,18 +473,6 @@ public class ReciboService implements IReciboService {
         ReciboRepository.ReciboPagoProjection p = reciboRepository.findPagoProjection(reciboId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId));
 
-        // 2) Reglas por transferencia
-        String ts = p.getTransferStatus(); // "NONE", "PENDING", "APPROVED", "REJECTED"
-        if (nuevoEstado) {
-            // Se intenta marcar como PAGADO
-            if ("PENDING".equals(ts)) {
-                throw new IllegalStateException("Hay una transferencia notificada, pero aún no fue aprobada.");
-            }
-            if ("REJECTED".equals(ts)) {
-                throw new IllegalStateException("La transferencia fue rechazada. Pedile al inquilino que vuelva a transferir.");
-            }
-            // Si ts=APPROVED ok. Si ts=NONE ok (pago manual/otro medio).
-        }
 
         // 3) Update de estado (sin cargar entidad)
         LocalDateTime paidAt = nuevoEstado ? LocalDateTime.now(ZoneOffset.UTC) : null;
@@ -502,7 +488,7 @@ public class ReciboService implements IReciboService {
 
         // 5) Si se desmarca como pago, reseteo transferencia (recomendado)
         if (!nuevoEstado) {
-            reciboRepository.resetTransferencia(reciboId);
+            reciboRepository.resetTransferencia(reciboId, TransferStatus.NONE);
         }
 
         // 6) Evento AFTER_COMMIT (igual que ya tenías)
@@ -577,6 +563,7 @@ public class ReciboService implements IReciboService {
                 ? recibo.getContrato().getId()
                 : null;
 
+        reciboAlertaRepository.deleteByReciboId(id);
         // 1️⃣ Eliminar en MySQL (transaccional)
         reciboRepository.delete(recibo);
         LOGGER.info("✅ Recibo eliminado correctamente en MySQL con ID: {}", id);
@@ -799,10 +786,10 @@ public void notificarTransferencia(Long reciboId, Long userInquilinoId, Notifica
     }
 
     // Ya notificado y pendiente/aprobado => idempotencia / evitar spam
-    if (recibo.getTransferStatus() == Recibo.TransferStatus.PENDING) {
+    if (recibo.getTransferStatus() == TransferStatus.PENDING) {
         throw new RuntimeException("Este recibo ya fue notificado y está pendiente de confirmación");
     }
-    if (recibo.getTransferStatus() == Recibo.TransferStatus.APPROVED) {
+    if (recibo.getTransferStatus() == TransferStatus.APPROVED) {
         throw new RuntimeException("Este recibo ya fue confirmado como pagado");
     }
 
@@ -831,7 +818,7 @@ public void notificarTransferencia(Long reciboId, Long userInquilinoId, Notifica
     recibo.setTransferReference(dto.getReference());
     recibo.setTransferComprobanteUrl(dto.getComprobanteUrl());
     recibo.setTransferNote(dto.getNote());
-    recibo.setTransferStatus(Recibo.TransferStatus.PENDING);
+    recibo.setTransferStatus(TransferStatus.PENDING);
 
     reciboRepository.save(recibo);
     upsertAlertaTransferencia(recibo, inmobiliaria);
@@ -895,5 +882,74 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
     reciboAlertaRepository.save(alerta);
 }
 
+    @Transactional
+    public ReciboSalidaDto aprobarTransferencia(Long reciboId, Long adminUserId) {
+        ReciboRepository.ReciboPagoProjection p = reciboRepository.findPagoProjection(reciboId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId));
+
+        if (Boolean.TRUE.equals(p.getEstado())) {
+            throw new IllegalStateException("El recibo ya está pagado.");
+        }
+        if (p.getTransferStatus() != TransferStatus.PENDING) {
+            throw new IllegalStateException("Solo se puede aprobar una transferencia en estado PENDING.");
+        }
+
+        // 1) aprobar + marcar pago (un solo UPDATE)
+        int updated = reciboRepository.approveTransferAndMarkPaid(reciboId, TransferStatus.PENDING, TransferStatus.APPROVED);
+        if (updated == 0) {
+            throw new IllegalStateException("No se pudo aprobar: el estado cambió (race condition).");
+        }
+
+        // 2) impuestos pagados
+        impuestoRepository.updateEstadoPagoByRecibo(reciboId, true);
+
+        // 3) evento after commit (ya lo usás)
+        applicationEventPublisher.publishEvent(new ReciboEstadoActualizadoEvent(reciboId, p.getContratoId(), true));
+
+        // 4) respuesta
+        ReciboRepository.ReciboEstadoProjection out = reciboRepository.findEstadoProjectionById(reciboId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId));
+
+        ReciboSalidaDto dto = new ReciboSalidaDto();
+        dto.setId(out.getId());
+        dto.setEstado(out.getEstado());
+        dto.setContratoId(out.getContratoId());
+        dto.setNombreContrato(out.getNombreContrato());
+        dto.setTransferStatus(TransferStatus.APPROVED);
+        return dto;
+    }
+    @Transactional
+    public ReciboSalidaDto rechazarTransferencia(Long reciboId, Long adminUserId) {
+
+        ReciboRepository.ReciboPagoProjection p = reciboRepository.findPagoProjection(reciboId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId));
+
+        // ✅ Validación: el recibo tiene que pertenecer al admin/inmobiliaria
+        // (se puede hacer sin cargar toda la entidad con una query auxiliar)
+        Long ownerUserId = reciboRepository.findOwnerUserIdByReciboId(reciboId);
+        if (ownerUserId == null || !ownerUserId.equals(adminUserId)) {
+            throw new IllegalStateException("No tenés permisos para rechazar transferencias de este recibo.");
+        }
+
+        if (p.getTransferStatus() != TransferStatus.PENDING) {
+            throw new IllegalStateException("Solo se puede rechazar una transferencia en estado PENDING.");
+        }
+
+        int updated = reciboRepository.rejectTransfer(reciboId, TransferStatus.PENDING, TransferStatus.REJECTED);
+        if (updated == 0) {
+            throw new IllegalStateException("No se pudo rechazar: el estado cambió.");
+        }
+
+        ReciboRepository.ReciboEstadoProjection out = reciboRepository.findEstadoProjectionById(reciboId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recibo no encontrado con ID: " + reciboId));
+
+        ReciboSalidaDto dto = new ReciboSalidaDto();
+        dto.setId(out.getId());
+        dto.setEstado(out.getEstado());
+        dto.setContratoId(out.getContratoId());
+        dto.setNombreContrato(out.getNombreContrato());
+        dto.setTransferStatus(TransferStatus.REJECTED);
+        return dto;
+    }
 
 }

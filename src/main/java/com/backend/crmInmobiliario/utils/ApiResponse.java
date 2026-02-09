@@ -7,7 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
 public class ApiResponse<T> {
     private String message;
@@ -17,5 +16,9 @@ public class ApiResponse<T> {
     }
 
     public ApiResponse(boolean b, String reciboCreadoCorrectamente, ReciboSalidaDto reciboSalidaDto) {
+    }
+    public ApiResponse( String message, T data) {
+        this.message = message;
+        this.data = data;
     }
 }

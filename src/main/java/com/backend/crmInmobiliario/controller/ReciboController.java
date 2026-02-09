@@ -4,6 +4,7 @@ import com.backend.crmInmobiliario.DTO.entrada.ReciboEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboModificacionDto;
 import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.TransferenciaNotificarDto;
 import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.NotificarTransferenciaDto;
+import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.RechazarTransferenciaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -19,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -64,7 +66,9 @@ public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @ModelAtt
     @GetMapping("/{id}") // Usa /{id} para indicar un parámetro en la URL
     public ResponseEntity<ApiResponse<ReciboSalidaDto>> buscarReciboPorId(@PathVariable Long id) throws ResourceNotFoundException {
         ReciboSalidaDto reciboSalidaDto = reciboService.buscarReciboPorId(id);
-        ApiResponse<ReciboSalidaDto> response = new ApiResponse<>(true, "Recibo encontrado exitosamente", reciboSalidaDto);
+
+        ApiResponse<ReciboSalidaDto> response =
+                new ApiResponse<>( "Recibo encontrado exitosamente", reciboSalidaDto);
         return ResponseEntity.ok(response);
     }
 
@@ -175,6 +179,23 @@ public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @ModelAtt
                     "detalle", e.getMessage()
             ));
         }
+    }
+    @PatchMapping("/{reciboId}/transferencia/aprobar")
+    public ResponseEntity<ApiResponse<ReciboSalidaDto>> aprobarTransferencia(
+            @PathVariable Long reciboId
+
+    ) {
+        Long adminUserId = authUtil.extractUserId();
+        ReciboSalidaDto out = reciboService.aprobarTransferencia(reciboId, adminUserId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Transferencia aprobada y recibo marcado como pagado", out));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')") // o el rol que use tu inmobiliaria
+    @PatchMapping("/{reciboId}/transferencia/rechazar")
+    public ResponseEntity<ApiResponse<ReciboSalidaDto>> rechazarTransferencia(@PathVariable Long reciboId) {
+        Long adminUserId = authUtil.extractUserId();
+        ReciboSalidaDto out = reciboService.rechazarTransferencia(reciboId, adminUserId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Transferencia rechazada", out));
     }
 
 }

@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.repository;
 import com.backend.crmInmobiliario.entity.ReciboAlerta;
 import com.backend.crmInmobiliario.entity.TipoAlertaRecibo;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -24,4 +25,10 @@ public interface ReciboAlertaRepository extends JpaRepository<ReciboAlerta, Long
               and (ra.ultimaNotificacion is null or ra.ultimaNotificacion < :hoy)
             """)
     List<ReciboAlerta> findPendientesParaNotificar(@Param("tipo") TipoAlertaRecibo tipo, @Param("hoy") LocalDate hoy);
+
+
+
+    @Modifying
+    @Query("delete from ReciboAlerta ra where ra.recibo.id = :reciboId")
+    int deleteByReciboId(@Param("reciboId") Long reciboId);
 }
