@@ -70,6 +70,15 @@ public interface ContratoRepository extends JpaRepository<Contrato, Long> {
 
     List<Contrato> findByUsuarioId(Long userId);
 
+    @Query("""
+    SELECT c
+    FROM Contrato c
+    JOIN FETCH c.inquilino i
+    JOIN FETCH c.propiedad pr
+    WHERE c.usuario.id = :userId
+""")
+    List<Contrato> findByUsuarioIdConDetalle(@Param("userId") Long userId);
+
     int countByUsuarioId(Long userId);
 
 
@@ -85,6 +94,19 @@ public interface ContratoRepository extends JpaRepository<Contrato, Long> {
 
 
     List<Contrato> findByNombreContratoContainingIgnoreCaseAndUsuarioId(String nombre, Long userId);
+
+    @Query("""
+    SELECT c
+    FROM Contrato c
+    JOIN FETCH c.inquilino i
+    JOIN FETCH c.propiedad pr
+    WHERE c.usuario.id = :userId
+      AND LOWER(c.nombreContrato) LIKE LOWER(CONCAT('%', :nombre, '%'))
+""")
+    List<Contrato> findByNombreContratoContainingIgnoreCaseAndUsuarioIdConDetalle(
+            @Param("nombre") String nombre,
+            @Param("userId") Long userId
+    );
 
     Optional<Contrato> findByIdAndUsuarioId(Long id, Long usuarioId);
 
@@ -259,5 +281,3 @@ where c.usuario.id = :usuarioId
         """)
     List<ContratoAlertaRow> findAlertasVencimientoActivos();
 }
-
-
