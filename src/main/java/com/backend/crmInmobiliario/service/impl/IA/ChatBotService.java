@@ -151,14 +151,6 @@ public class ChatBotService {
             case FECHA_ACTUALIZACION_CONTRATO:
                 return responderFechaActualizacionContrato(userId, pregunta);
 
-            case CONTRATOS_VENCEN_MES:
-                MesAnio vencenMesAnio = extraerMesYAnioDesdePregunta(pregunta);
-                if (vencenMesAnio == null) {
-                    LocalDate hoy = LocalDate.now();
-                    vencenMesAnio = new MesAnio(hoy.getMonthValue(), hoy.getYear());
-                }
-                return responderContratosQueVencenEnMes(userId, vencenMesAnio.mes(), vencenMesAnio.anio());
-
             case CONTAR_INQUILINOS:
                 return responderContarInquilinos(userId);
 
@@ -282,7 +274,7 @@ public class ChatBotService {
         }
 
         if (sinFiltro || contratos) {
-            var lista = contratoRepository.findByUsuarioIdConDetalle(userId);
+            var lista = contratoRepository.findByUsuarioId(userId);
             sb.append("CONTRATOS:\n");
             if (lista.isEmpty()) {
                 sb.append("- (sin contratos registrados)\n\n");
@@ -345,7 +337,7 @@ public class ChatBotService {
         }
 
         if (sinFiltro || recibos) {
-            var lista = reciboRepository.findByUsuarioIdConContrato(userId);
+            var lista = reciboRepository.search(userId, null, null, null);
             sb.append("RECIBOS:\n");
             if (lista.isEmpty()) {
                 sb.append("- (sin recibos registrados)\n\n");
@@ -409,12 +401,6 @@ public class ChatBotService {
                 && r(p, "\\b(contratos?)\\b")
                 && r(p, "\\b(este mes|mes actual|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|20[0-9]{2})\\b")) {
             return IntentType.CONTRATOS_ACTUALIZAN_MES;
-        }
-
-        if (r(p, "\\b(vencen|vence|vencimiento|finaliza|finalizan|termina|terminan)\\b")
-                && r(p, "\\b(contratos?)\\b")
-                && r(p, "\\b(este mes|mes actual|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|20[0-9]{2})\\b")) {
-            return IntentType.CONTRATOS_VENCEN_MES;
         }
 
         if (r(p, "\\bcuando\\b.*\\b(actualiza|actualizacion|ajusta)\\b.*\\bcontrato\\b")
@@ -527,6 +513,7 @@ public class ChatBotService {
         coinciden.forEach(c -> {
             LocalDate fecha = primeraActualizacionEnMes(c, mes, anio);
             sb.append("• ").append(c.getNombreContrato())
+                    .append(" (ID ").append(c.getId()).append(")")
                     .append(" — fecha de actualización: ").append(fecha != null ? fecha.format(formatter) : "sin fecha")
                     .append("\n");
         });
@@ -554,19 +541,16 @@ public class ChatBotService {
             }
         }
 
-        List<Contrato> contratos = contratoRepository.findByNombreContratoContainingIgnoreCaseAndUsuarioIdConDetalle(nombre, userId);
+        List<Contrato> contratos = contratoRepository.findByNombreContratoContainingIgnoreCaseAndUsuarioId(nombre, userId);
         if (contratos.isEmpty()) {
             return "No encontré contratos con ese nombre.";
         }
         if (contratos.size() > 1) {
             String opciones = contratos.stream()
                     .limit(5)
-                    .map(c -> "• " + c.getNombreContrato()
-                            + " | Inicio: " + c.getFecha_inicio()
-                            + " | Fin: " + c.getFecha_fin())
+                    .map(c -> "• " + c.getNombreContrato() + " (ID " + c.getId() + ")")
                     .collect(Collectors.joining("\n"));
-            return "Encontré varios contratos con ese nombre:\n" + opciones
-                    + "\n¿Podés aclarar la dirección o la fecha de inicio?";
+            return "Encontré varios contratos con ese nombre:\n" + opciones + "\n¿Podés indicar el ID?";
         }
 
         return responderFechaActualizacionContrato(contratos.get(0));
@@ -631,31 +615,6 @@ public class ChatBotService {
                 .replaceAll("(cuando|se|actualiza|actualizacion|ajusta|el|la|los|las|contrato|contratos|de)", "")
                 .trim();
         return texto.isBlank() ? null : texto;
-    }
-
-    private String responderContratosQueVencenEnMes(Long userId, int mes, int anio) {
-        List<Contrato> contratos = contratoRepository.findByUsuarioIdConDetalle(userId);
-        List<Contrato> coinciden = contratos.stream()
-                .filter(c -> c.getFecha_fin() != null
-                        && c.getFecha_fin().getYear() == anio
-                        && c.getFecha_fin().getMonthValue() == mes)
-                .collect(Collectors.toList());
-
-        if (coinciden.isEmpty()) {
-            return "En " + nombreMes(mes) + " de " + anio + " no hay contratos que venzan.";
-        }
-
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        StringBuilder sb = new StringBuilder("En " + nombreMes(mes) + " de " + anio
-                + " vencen " + coinciden.size() + " contrato(s):\n\n");
-
-        coinciden.forEach(c -> sb.append("• ").append(c.getNombreContrato())
-                .append(" — fin: ").append(c.getFecha_fin().format(formatter))
-                .append(" | inquilino: ").append(c.getInquilino().getNombre())
-                .append(" ").append(c.getInquilino().getApellido())
-                .append("\n"));
-
-        return sb.toString();
     }
 
 

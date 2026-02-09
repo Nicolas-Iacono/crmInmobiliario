@@ -281,3 +281,4 @@ where c.usuario.id = :usuarioId
         """)
     List<ContratoAlertaRow> findAlertasVencimientoActivos();
 }
+
