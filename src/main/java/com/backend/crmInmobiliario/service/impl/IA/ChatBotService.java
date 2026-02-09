@@ -140,6 +140,17 @@ public class ChatBotService {
             case LISTAR_CONTRATOS:
                 return responderListarContratos(userId);
 
+            case CONTRATOS_ACTUALIZAN_MES:
+                MesAnio mesAnio = extraerMesYAnioDesdePregunta(pregunta);
+                if (mesAnio == null) {
+                    LocalDate hoy = LocalDate.now();
+                    mesAnio = new MesAnio(hoy.getMonthValue(), hoy.getYear());
+                }
+                return responderContratosQueActualizanEnMes(userId, mesAnio.mes(), mesAnio.anio());
+
+            case FECHA_ACTUALIZACION_CONTRATO:
+                return responderFechaActualizacionContrato(userId, pregunta);
+
             case CONTAR_INQUILINOS:
                 return responderContarInquilinos(userId);
 
@@ -386,6 +397,17 @@ public class ChatBotService {
 
         // ===== 📑 CONTRATOS =====
 
+        if (r(p, "\\b(actualiza|actualizan|actualizacion|actualizaciones|ajuste|ajustan)\\b")
+                && r(p, "\\b(contratos?)\\b")
+                && r(p, "\\b(este mes|mes actual|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|20[0-9]{2})\\b")) {
+            return IntentType.CONTRATOS_ACTUALIZAN_MES;
+        }
+
+        if (r(p, "\\bcuando\\b.*\\b(actualiza|actualizacion|ajusta)\\b.*\\bcontrato\\b")
+                || r(p, "\\bactualizacion\\b.*\\bcontrato\\b")) {
+            return IntentType.FECHA_ACTUALIZACION_CONTRATO;
+        }
+
         if (r(p, "\\b(contratos?)\\b")
                 && r(p, "\\b(cuales|cuáles|que|qué|todos|mis|pueden|debo|deberia|vence|vencen|renovar|actualizar|rescindir)\\b")) {
             return IntentType.ANALISIS_CONTRATOS_COMPLETO;
@@ -468,6 +490,131 @@ public class ChatBotService {
             return IntentType.GANANCIA_MES_ESPECIFICO;
         }
         return IntentType.CONSULTA_GENERAL;
+    }
+
+    private String responderContratosQueActualizanEnMes(Long userId, int mes, int anio) {
+        List<Contrato> contratos = contratoRepository.findByUsuarioIdConDetalle(userId);
+        List<Contrato> coinciden = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        for (Contrato contrato : contratos) {
+            if (actualizaEnMes(contrato, mes, anio)) {
+                coinciden.add(contrato);
+            }
+        }
+
+        if (coinciden.isEmpty()) {
+            return "En " + nombreMes(mes) + " de " + anio + " no hay contratos con actualización.";
+        }
+
+        StringBuilder sb = new StringBuilder("En " + nombreMes(mes) + " de " + anio
+                + " se actualizan " + coinciden.size() + " contrato(s):\n\n");
+
+        coinciden.forEach(c -> {
+            LocalDate fecha = primeraActualizacionEnMes(c, mes, anio);
+            sb.append("• ").append(c.getNombreContrato())
+                    .append(" (ID ").append(c.getId()).append(")")
+                    .append(" — fecha de actualización: ").append(fecha != null ? fecha.format(formatter) : "sin fecha")
+                    .append("\n");
+        });
+
+        return sb.toString();
+    }
+
+    private String responderFechaActualizacionContrato(Long userId, String pregunta) {
+        String nombre = extraerNombreContratoDesdePregunta(pregunta);
+        if (nombre == null || nombre.isBlank()) {
+            return "Necesito el nombre o ID del contrato para indicar su actualización.";
+        }
+
+        String idTexto = nombre.replaceAll("[^0-9]", "");
+        if (!idTexto.isBlank()) {
+            try {
+                Long id = Long.parseLong(idTexto);
+                Contrato contrato = contratoRepository.findByIdAndUsuarioId(id, userId).orElse(null);
+                if (contrato == null) {
+                    return "No encontré un contrato con ese ID.";
+                }
+                return responderFechaActualizacionContrato(contrato);
+            } catch (NumberFormatException ignored) {
+                // continúa con búsqueda por nombre
+            }
+        }
+
+        List<Contrato> contratos = contratoRepository.findByNombreContratoContainingIgnoreCaseAndUsuarioId(nombre, userId);
+        if (contratos.isEmpty()) {
+            return "No encontré contratos con ese nombre.";
+        }
+        if (contratos.size() > 1) {
+            String opciones = contratos.stream()
+                    .limit(5)
+                    .map(c -> "• " + c.getNombreContrato() + " (ID " + c.getId() + ")")
+                    .collect(Collectors.joining("\n"));
+            return "Encontré varios contratos con ese nombre:\n" + opciones + "\n¿Podés indicar el ID?";
+        }
+
+        return responderFechaActualizacionContrato(contratos.get(0));
+    }
+
+    private String responderFechaActualizacionContrato(Contrato contrato) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        LocalDate proxima = proximaActualizacion(contrato, LocalDate.now());
+        if (proxima == null) {
+            return "El contrato " + contrato.getNombreContrato() + " no tiene una actualización programada.";
+        }
+
+        return "El contrato " + contrato.getNombreContrato()
+                + " se actualiza el " + proxima.format(formatter) + ".";
+    }
+
+    private boolean actualizaEnMes(Contrato contrato, int mes, int anio) {
+        return primeraActualizacionEnMes(contrato, mes, anio) != null;
+    }
+
+    private LocalDate primeraActualizacionEnMes(Contrato contrato, int mes, int anio) {
+        List<LocalDate> fechas = calcularFechasActualizacion(contrato);
+        return fechas.stream()
+                .filter(f -> f.getYear() == anio && f.getMonthValue() == mes)
+                .min(LocalDate::compareTo)
+                .orElse(null);
+    }
+
+    private LocalDate proximaActualizacion(Contrato contrato, LocalDate desde) {
+        List<LocalDate> fechas = calcularFechasActualizacion(contrato);
+        return fechas.stream()
+                .filter(f -> !f.isBefore(desde))
+                .min(LocalDate::compareTo)
+                .orElse(null);
+    }
+
+    private List<LocalDate> calcularFechasActualizacion(Contrato contrato) {
+        List<LocalDate> fechas = new ArrayList<>();
+        if (contrato == null || contrato.getFecha_inicio() == null || contrato.getFecha_fin() == null) {
+            return fechas;
+        }
+
+        int meses = contrato.getActualizacion();
+        if (meses <= 0) {
+            return fechas;
+        }
+
+        LocalDate fecha = contrato.getFecha_inicio().plusMonths(meses);
+        LocalDate fin = contrato.getFecha_fin();
+        while (!fecha.isAfter(fin)) {
+            fechas.add(fecha);
+            fecha = fecha.plusMonths(meses);
+        }
+        return fechas;
+    }
+
+    private String extraerNombreContratoDesdePregunta(String pregunta) {
+        if (pregunta == null) return null;
+        String texto = pregunta.toLowerCase()
+                .replace("¿", "")
+                .replace("?", "")
+                .replaceAll("(cuando|se|actualiza|actualizacion|ajusta|el|la|los|las|contrato|contratos|de)", "")
+                .trim();
+        return texto.isBlank() ? null : texto;
     }
 
 
