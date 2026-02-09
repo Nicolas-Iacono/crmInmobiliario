@@ -263,7 +263,7 @@ public class ChatBotService {
         }
 
         if (sinFiltro || contratos) {
-            var lista = contratoRepository.findByUsuarioIdConDetalle(userId);
+            var lista = contratoRepository.findByUsuarioId(userId);
             sb.append("CONTRATOS:\n");
             if (lista.isEmpty()) {
                 sb.append("- (sin contratos registrados)\n\n");
@@ -326,7 +326,7 @@ public class ChatBotService {
         }
 
         if (sinFiltro || recibos) {
-            var lista = reciboRepository.findByUsuarioIdConContrato(userId);
+            var lista = reciboRepository.search(userId, null, null, null);
             sb.append("RECIBOS:\n");
             if (lista.isEmpty()) {
                 sb.append("- (sin recibos registrados)\n\n");
