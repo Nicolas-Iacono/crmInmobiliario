@@ -726,7 +726,7 @@ RESPUESTA:
 
 // ✅ Contratos ---------------------------
 private String construirContextoContratosCompletos(Long userId) {
-    List<Contrato> contratos = contratoRepository.findByUsuarioId(userId);
+    List<Contrato> contratos = contratoRepository.findByUsuarioIdConDetalle(userId);
 
     if (contratos.isEmpty()) {
         return "El usuario no tiene contratos registrados.";
