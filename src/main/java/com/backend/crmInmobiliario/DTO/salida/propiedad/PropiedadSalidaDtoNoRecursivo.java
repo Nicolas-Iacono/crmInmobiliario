@@ -3,6 +3,8 @@ package com.backend.crmInmobiliario.DTO.salida.propiedad;
 import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropietarioContratoDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
+import com.backend.crmInmobiliario.entity.MonedaPropiedad;
+import com.backend.crmInmobiliario.entity.TipoOperacionPropiedad;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -26,6 +28,8 @@ public class PropiedadSalidaDtoNoRecursivo {
     private Boolean jardin;
     private Boolean patio;
     private Boolean balcon;
+    private MonedaPropiedad moneda;
+    private TipoOperacionPropiedad tipoOperacion;
     private boolean visibleAOtros;
     private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
 

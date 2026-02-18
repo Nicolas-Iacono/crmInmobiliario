@@ -1,6 +1,8 @@
 package com.backend.crmInmobiliario.DTO.entrada.propiedades;
 
 
+import com.backend.crmInmobiliario.entity.MonedaPropiedad;
+import com.backend.crmInmobiliario.entity.TipoOperacionPropiedad;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,6 +23,8 @@ public class PropiedadEntradaDto {
     @NotNull(message = "La provincia no puede ser nula")
     private String provincia;
     private Double precio;
+    private MonedaPropiedad moneda;
+    private TipoOperacionPropiedad tipoOperacion;
     private Boolean disponibilidad;
 
     private Integer cantidadAmbientes;

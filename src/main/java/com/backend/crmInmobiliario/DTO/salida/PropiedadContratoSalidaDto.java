@@ -1,5 +1,7 @@
 package com.backend.crmInmobiliario.DTO.salida;
 
+import com.backend.crmInmobiliario.entity.MonedaPropiedad;
+import com.backend.crmInmobiliario.entity.TipoOperacionPropiedad;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -23,6 +25,8 @@ public class PropiedadContratoSalidaDto {
     private Boolean patio;
     private Boolean balcon;
     private Double precio;
+    private MonedaPropiedad moneda;
+    private TipoOperacionPropiedad tipoOperacion;
     private boolean visibleAOtros;
     private boolean propia;
 
