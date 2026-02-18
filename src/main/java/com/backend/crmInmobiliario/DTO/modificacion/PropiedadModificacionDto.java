@@ -1,5 +1,7 @@
 package com.backend.crmInmobiliario.DTO.modificacion;
 
+import com.backend.crmInmobiliario.entity.MonedaPropiedad;
+import com.backend.crmInmobiliario.entity.TipoOperacionPropiedad;
 import lombok.Data;
 
 @Data
@@ -13,6 +15,8 @@ public class PropiedadModificacionDto {
     private String inventario;
     private Boolean disponibilidad;
     private Double precio;
+    private MonedaPropiedad moneda;
+    private TipoOperacionPropiedad tipoOperacion;
     private Integer cantidadAmbientes;
     private Boolean pileta;
     private Boolean cochera;

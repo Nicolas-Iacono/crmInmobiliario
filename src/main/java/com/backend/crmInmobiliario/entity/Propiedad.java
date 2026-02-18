@@ -37,6 +37,15 @@ public class Propiedad {
     private Boolean patio;
     private Boolean balcon;
     private Double precio;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "moneda", nullable = false)
+    private MonedaPropiedad moneda = MonedaPropiedad.ARS;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_operacion", nullable = false)
+    private TipoOperacionPropiedad tipoOperacion = TipoOperacionPropiedad.ALQUILER;
+
     // Campo largo para el inventario
     @Lob
     @Column(name = "inventario", length = 3000)

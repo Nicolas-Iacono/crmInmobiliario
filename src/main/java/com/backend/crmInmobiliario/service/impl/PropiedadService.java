@@ -170,6 +170,16 @@ public class PropiedadService implements IPropiedadService {
         propiedad.setInventario(propiedadEntradaDto.getInventario());
         propiedad.setDisponibilidad(propiedadEntradaDto.getDisponibilidad());
         propiedad.setPrecio(propiedadEntradaDto.getPrecio());
+        propiedad.setMoneda(
+                propiedadEntradaDto.getMoneda() != null
+                        ? propiedadEntradaDto.getMoneda()
+                        : MonedaPropiedad.ARS
+        );
+        propiedad.setTipoOperacion(
+                propiedadEntradaDto.getTipoOperacion() != null
+                        ? propiedadEntradaDto.getTipoOperacion()
+                        : TipoOperacionPropiedad.ALQUILER
+        );
         propiedad.setCantidadAmbientes(propiedadEntradaDto.getCantidadAmbientes());
         propiedad.setPileta(propiedadEntradaDto.getPileta());
         propiedad.setCochera(propiedadEntradaDto.getCochera());
@@ -363,6 +373,8 @@ public class PropiedadService implements IPropiedadService {
         if (dto.getInventario() != null) propiedad.setInventario(dto.getInventario());
         if (dto.getDisponibilidad() != null) propiedad.setDisponibilidad(dto.getDisponibilidad());
         if (dto.getPrecio() != null) propiedad.setPrecio(dto.getPrecio());
+        propiedad.setMoneda(dto.getMoneda() != null ? dto.getMoneda() : MonedaPropiedad.ARS);
+        propiedad.setTipoOperacion(dto.getTipoOperacion() != null ? dto.getTipoOperacion() : TipoOperacionPropiedad.ALQUILER);
         if (dto.getCantidadAmbientes() != null) propiedad.setCantidadAmbientes(dto.getCantidadAmbientes());
         if (dto.getPileta() != null) propiedad.setPileta(dto.getPileta());
         if (dto.getCochera() != null) propiedad.setCochera(dto.getCochera());
