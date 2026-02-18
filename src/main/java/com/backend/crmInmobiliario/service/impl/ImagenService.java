@@ -85,6 +85,31 @@ public class ImagenService implements IImageUrlsService {
         }
     }
 
+    @Transactional
+    public String subirImagenGenerica(MultipartFile archivo, String carpeta) throws IOException {
+        if (archivo == null || archivo.isEmpty()) {
+            throw new IllegalArgumentException("Archivo inválido");
+        }
+
+        byte[] webp = convertirImagenExternamente(archivo);
+        String prefijo = (carpeta == null || carpeta.isBlank()) ? "" : carpeta.replaceAll("^/+|/+$", "") + "/";
+        String nombreArchivo = prefijo + UUID.randomUUID() + ".webp";
+        return subirAStorageSupabase(webp, nombreArchivo);
+    }
+
+    @Transactional
+    public List<String> subirImagenesGenericas(MultipartFile[] archivos, String carpeta) throws IOException {
+        List<String> urls = new ArrayList<>();
+        if (archivos == null) {
+            return urls;
+        }
+
+        for (MultipartFile archivo : archivos) {
+            urls.add(subirImagenGenerica(archivo, carpeta));
+        }
+        return urls;
+    }
+
 
 
     @Transactional
