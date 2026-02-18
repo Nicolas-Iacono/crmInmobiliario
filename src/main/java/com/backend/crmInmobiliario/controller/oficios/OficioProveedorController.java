@@ -8,14 +8,11 @@ import com.backend.crmInmobiliario.entity.oficios.CategoriaOficio;
 import com.backend.crmInmobiliario.service.oficios.IOficioProveedorService;
 import com.backend.crmInmobiliario.utils.AuthUtil;
 import jakarta.validation.Valid;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -57,15 +54,11 @@ public class OficioProveedorController {
         return ResponseEntity.ok(oficioProveedorService.agregarServicio(userId, dto));
     }
 
-    @PutMapping("/proveedores/mi-perfil/suscripcion")
+    @PutMapping("/proveedores/mi-perfil/plan")
     @PreAuthorize("hasRole('OFICIO_ADMIN')")
-    public ResponseEntity<OficioProveedorSalidaDto> actualizarSuscripcion(
-            @RequestParam boolean activa,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate venceEl,
-            @RequestParam(required = false) BigDecimal montoMensualArs
-    ) {
+    public ResponseEntity<OficioProveedorSalidaDto> asignarPlan(@RequestParam Long planId) {
         Long userId = authUtil.extractUserId();
-        return ResponseEntity.ok(oficioProveedorService.actualizarSuscripcion(userId, activa, venceEl, montoMensualArs));
+        return ResponseEntity.ok(oficioProveedorService.asignarPlan(userId, planId));
     }
 
     @PostMapping("/proveedores/{proveedorId}/calificaciones")

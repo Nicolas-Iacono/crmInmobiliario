@@ -11,6 +11,7 @@ import com.backend.crmInmobiliario.entity.oficios.CategoriaOficio;
 import com.backend.crmInmobiliario.entity.oficios.OficioCalificacion;
 import com.backend.crmInmobiliario.entity.oficios.OficioProveedor;
 import com.backend.crmInmobiliario.entity.oficios.OficioServicio;
+import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.exception.UsernameAlreadyExistsException;
 import com.backend.crmInmobiliario.repository.USER_REPO.RoleRepository;
@@ -18,13 +19,13 @@ import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.repository.oficios.OficioCalificacionRepository;
 import com.backend.crmInmobiliario.repository.oficios.OficioProveedorRepository;
 import com.backend.crmInmobiliario.repository.oficios.OficioServicioRepository;
+import com.backend.crmInmobiliario.repository.pagosYSuscripciones.PlanRepository;
 import com.backend.crmInmobiliario.service.oficios.IOficioProveedorService;
 import com.backend.crmInmobiliario.utils.RolesCostantes;
 import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,11 +34,14 @@ import java.util.List;
 @Service
 public class OficioProveedorService implements IOficioProveedorService {
 
+    private static final int MESES_GRACIA = 2;
+
     private final OficioProveedorRepository proveedorRepository;
     private final OficioServicioRepository servicioRepository;
     private final OficioCalificacionRepository calificacionRepository;
     private final UsuarioRepository usuarioRepository;
     private final RoleRepository roleRepository;
+    private final PlanRepository planRepository;
     private final PasswordEncoder passwordEncoder;
 
     public OficioProveedorService(OficioProveedorRepository proveedorRepository,
@@ -45,12 +49,14 @@ public class OficioProveedorService implements IOficioProveedorService {
                                   OficioCalificacionRepository calificacionRepository,
                                   UsuarioRepository usuarioRepository,
                                   RoleRepository roleRepository,
+                                  PlanRepository planRepository,
                                   PasswordEncoder passwordEncoder) {
         this.proveedorRepository = proveedorRepository;
         this.servicioRepository = servicioRepository;
         this.calificacionRepository = calificacionRepository;
         this.usuarioRepository = usuarioRepository;
         this.roleRepository = roleRepository;
+        this.planRepository = planRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -80,6 +86,8 @@ public class OficioProveedorService implements IOficioProveedorService {
         usuario.setRoles(Collections.singleton(oficioRole));
         Usuario userPersistido = usuarioRepository.save(usuario);
 
+        LocalDate fechaRegistro = LocalDate.now();
+
         OficioProveedor proveedor = new OficioProveedor();
         proveedor.setUsuario(userPersistido);
         proveedor.setNombreCompleto(dto.getNombreCompleto());
@@ -89,18 +97,18 @@ public class OficioProveedorService implements IOficioProveedorService {
         proveedor.setDescripcion(dto.getDescripcion());
         proveedor.setLocalidad(dto.getLocalidad());
         proveedor.setProvincia(dto.getProvincia());
+        proveedor.setFechaRegistro(fechaRegistro);
+        proveedor.setPeriodoGraciaHasta(fechaRegistro.plusMonths(MESES_GRACIA));
         proveedor.setCategorias(dto.getCategorias() != null ? dto.getCategorias() : new ArrayList<>());
         proveedor.setImagenesEmpresa(dto.getImagenesEmpresa() != null ? dto.getImagenesEmpresa() : new ArrayList<>());
-        proveedor.setMontoSuscripcionMensualArs(dto.getMontoSuscripcionMensualArs());
-        proveedor.setSuscripcionActiva(Boolean.FALSE);
 
         return toDto(proveedorRepository.save(proveedor));
     }
 
     @Override
     public List<OficioProveedorSalidaDto> listarProveedoresVisibles() {
-        return proveedorRepository.findBySuscripcionActivaTrue()
-                .stream()
+        return proveedorRepository.findAll().stream()
+                .filter(this::esVisibleEnListado)
                 .map(this::toDto)
                 .toList();
     }
@@ -154,15 +162,30 @@ public class OficioProveedorService implements IOficioProveedorService {
 
     @Override
     @Transactional
-    public OficioProveedorSalidaDto actualizarSuscripcion(Long userId, boolean activa, LocalDate venceEl, BigDecimal montoMensualArs) {
+    public OficioProveedorSalidaDto asignarPlan(Long userId, Long planId) {
         OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor de oficios"));
 
-        proveedor.setSuscripcionActiva(activa);
-        proveedor.setSuscripcionVenceEl(venceEl);
-        proveedor.setMontoSuscripcionMensualArs(montoMensualArs);
+        Plan plan = planRepository.findById(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Plan no encontrado"));
 
+        if (!plan.isActive()) {
+            throw new IllegalArgumentException("El plan seleccionado no está activo");
+        }
+
+        proveedor.setPlan(plan);
         return toDto(proveedorRepository.save(proveedor));
+    }
+
+    private boolean esVisibleEnListado(OficioProveedor proveedor) {
+        LocalDate hoy = LocalDate.now();
+        boolean enPeriodoGracia = !hoy.isAfter(proveedor.getPeriodoGraciaHasta());
+        if (enPeriodoGracia) {
+            return true;
+        }
+
+        Plan plan = proveedor.getPlan();
+        return plan != null && plan.isActive();
     }
 
     private OficioProveedorSalidaDto toDto(OficioProveedor proveedor) {
@@ -178,6 +201,10 @@ public class OficioProveedorService implements IOficioProveedorService {
                         .build())
                 .toList();
 
+        LocalDate hoy = LocalDate.now();
+        boolean enPeriodoGracia = !hoy.isAfter(proveedor.getPeriodoGraciaHasta());
+        boolean planActivo = proveedor.getPlan() != null && proveedor.getPlan().isActive();
+
         return OficioProveedorSalidaDto.builder()
                 .id(proveedor.getId())
                 .nombreCompleto(proveedor.getNombreCompleto())
@@ -191,9 +218,14 @@ public class OficioProveedorService implements IOficioProveedorService {
                 .imagenesEmpresa(proveedor.getImagenesEmpresa())
                 .promedioCalificacion(proveedor.getPromedioCalificacion())
                 .totalCalificaciones(proveedor.getTotalCalificaciones())
-                .suscripcionActiva(proveedor.getSuscripcionActiva())
-                .suscripcionVenceEl(proveedor.getSuscripcionVenceEl())
-                .montoSuscripcionMensualArs(proveedor.getMontoSuscripcionMensualArs())
+                .fechaRegistro(proveedor.getFechaRegistro())
+                .periodoGraciaHasta(proveedor.getPeriodoGraciaHasta())
+                .enPeriodoGracia(enPeriodoGracia)
+                .planId(proveedor.getPlan() != null ? proveedor.getPlan().getId() : null)
+                .planCode(proveedor.getPlan() != null ? proveedor.getPlan().getCode() : null)
+                .planNombre(proveedor.getPlan() != null ? proveedor.getPlan().getName() : null)
+                .planActivo(planActivo)
+                .visibleEnListado(enPeriodoGracia || planActivo)
                 .servicios(servicios)
                 .build();
     }

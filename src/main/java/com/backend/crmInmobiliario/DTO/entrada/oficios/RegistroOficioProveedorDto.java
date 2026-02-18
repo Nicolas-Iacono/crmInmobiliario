@@ -3,7 +3,6 @@ package com.backend.crmInmobiliario.DTO.entrada.oficios;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -22,5 +21,4 @@ public class RegistroOficioProveedorDto {
     private String provincia;
     private List<String> categorias;
     private List<String> imagenesEmpresa;
-    private BigDecimal montoSuscripcionMensualArs;
 }

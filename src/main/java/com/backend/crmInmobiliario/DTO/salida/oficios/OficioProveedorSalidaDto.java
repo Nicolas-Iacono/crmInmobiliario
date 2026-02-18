@@ -3,7 +3,6 @@ package com.backend.crmInmobiliario.DTO.salida.oficios;
 import lombok.Builder;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -22,8 +21,13 @@ public class OficioProveedorSalidaDto {
     private List<String> imagenesEmpresa;
     private Double promedioCalificacion;
     private Integer totalCalificaciones;
-    private Boolean suscripcionActiva;
-    private LocalDate suscripcionVenceEl;
-    private BigDecimal montoSuscripcionMensualArs;
+    private LocalDate fechaRegistro;
+    private LocalDate periodoGraciaHasta;
+    private boolean enPeriodoGracia;
+    private Long planId;
+    private String planCode;
+    private String planNombre;
+    private Boolean planActivo;
+    private Boolean visibleEnListado;
     private List<OficioServicioSalidaDto> servicios;
 }
