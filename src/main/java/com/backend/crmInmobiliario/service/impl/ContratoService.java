@@ -103,6 +103,8 @@ public class ContratoService implements IContratoService {
     private IngresoMensualService ingresoMensualService;
 
     private GaranteRepository garanteRepository;
+    private ReciboAlertaRepository reciboAlertaRepository;
+
     @Autowired
     private UsuarioRepository usuarioRepository;
     private SubscriptionRepository subscriptionRepository;
@@ -125,7 +127,7 @@ public class ContratoService implements IContratoService {
 
     //    private PdfContratoRepository pdfContratoRepository;
     private JwtUtil jwtUtil;
-    public ContratoService(ApplicationEventPublisher publisher, ApplicationEventPublisher eventPublisher, IngresoMensualRepository ingresoMensualRepository,
+    public ContratoService(ReciboAlertaRepository reciboAlertaRepository, ApplicationEventPublisher publisher, ApplicationEventPublisher eventPublisher, IngresoMensualRepository ingresoMensualRepository,
                            EmbeddingService embeddingService,
                            AuthUtil authUtil,
                            JwtUtil jwtUtil,
@@ -153,6 +155,7 @@ public class ContratoService implements IContratoService {
                            PushNotificationService pushNotificationService
 
     ) {
+        this.reciboAlertaRepository = reciboAlertaRepository;
         this.publisher = publisher;
         this.eventPublisher = eventPublisher;
         this.authUtil = authUtil;
@@ -1631,6 +1634,7 @@ public class ContratoService implements IContratoService {
             // ✅ Eliminar dependencias antes del contrato
             logger.debug("Eliminando notas, impuestos y recibos del contrato {}", id);
 
+            reciboAlertaRepository.deleteByContratoId(id);
             notaRepository.deleteByContratoId(id);
             impuestoRepository.deleteByContratoId(id);
             reciboRepository.deleteByContratoId(id);
@@ -1639,7 +1643,14 @@ public class ContratoService implements IContratoService {
             contratoRepository.delete(contrato);
 
             logger.info("Contrato eliminado correctamente con ID: {}", id);
-
+            CompletableFuture.runAsync(() -> {
+                try {
+                    eliminarIngresosSupabasePorContrato(id);
+                    eliminarDeSupabase(id);
+                } catch (Exception ex) {
+                    logger.error("⚠️ No se pudo eliminar de Supabase contrato {}: {}", id, ex.getMessage());
+                }
+            });
         } catch (DataIntegrityViolationException dive) {
             logger.error("Violación de integridad al eliminar contrato con ID: {}", id, dive);
             throw new RuntimeException("Violación de integridad: " + dive.getMessage());
@@ -1647,15 +1658,6 @@ public class ContratoService implements IContratoService {
             logger.error("Error general al eliminar contrato con ID: {}", id, e);
             throw new RuntimeException("Error general al eliminar el contrato: " + e.getMessage());
         }
-        CompletableFuture.runAsync(() -> {
-            try {
-                eliminarIngresosSupabasePorContrato(id);
-                eliminarDeSupabase(id);
-            } catch (Exception ex) {
-                logger.error("⚠️ No se pudo eliminar de Supabase contrato {}: {}", id, ex.getMessage());
-            }
-        });
-
     }
 
 

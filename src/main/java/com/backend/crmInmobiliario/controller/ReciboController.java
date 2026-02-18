@@ -7,12 +7,15 @@ import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.NotificarTr
 import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.RechazarTransferenciaDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.contrato.LatestContratosSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.recibo.LatestRecibosSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ReciboService;
 import com.backend.crmInmobiliario.service.impl.mercadoPago.MercadoPagoReciboService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
 import com.backend.crmInmobiliario.utils.ApiResponseRecibo;
 import com.backend.crmInmobiliario.utils.AuthUtil;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -198,4 +201,17 @@ public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @ModelAtt
         return ResponseEntity.ok(new ApiResponse<>(true, "Transferencia rechazada", out));
     }
 
+    @Transactional
+    @GetMapping("/latest")
+    @PreAuthorize("permitAll()")
+    public List<LatestRecibosSalidaDto> getLatestRecibos() {
+        return reciboService.getLatestRecibos();
+    }
+
+
+
+    @GetMapping("/ultimos-by-contrato")
+    public ResponseEntity<List<LatestRecibosSalidaDto>> getLatestRecibosPorContrato() {
+        return ResponseEntity.ok(reciboService.getLatestRecibosPorContrato());
+    }
 }

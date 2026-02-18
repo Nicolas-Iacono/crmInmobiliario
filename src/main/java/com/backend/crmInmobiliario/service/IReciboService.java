@@ -6,6 +6,7 @@ import com.backend.crmInmobiliario.DTO.entrada.ReciboEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.recibo.LatestRecibosSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -23,4 +24,7 @@ public interface IReciboService {
 
     List<ReciboSalidaDto> listarRecibosPorUsuarioId(Long userId);
     void eliminarRecibo(Long id) throws ResourceNotFoundException;
+
+
+    List<LatestRecibosSalidaDto> getLatestRecibos();
 }

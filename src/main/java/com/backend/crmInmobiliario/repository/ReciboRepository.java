@@ -6,12 +6,12 @@ import com.backend.crmInmobiliario.entity.TransferStatus;
 import com.backend.crmInmobiliario.repository.projections.ReciboSyncProjection;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.awt.print.Pageable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -329,4 +329,26 @@ where r.id = :reciboId
 """)
     Long findOwnerUserIdByReciboId(@Param("reciboId") Long reciboId);
 
+
+
+    @Query("SELECT r FROM Recibo r WHERE r.usuario.id = :userId ORDER BY r.id DESC")
+    Page<Recibo> findLatestRecibosByUsuarioId(@Param("userId") Long userId, Pageable pageable);
+
+
+
+    @Query("""
+    SELECT r
+    FROM Recibo r
+    JOIN FETCH r.contrato c
+    WHERE c.usuario.id = :userId
+      AND r.fechaEmision = (
+          SELECT MAX(r2.fechaEmision)
+          FROM Recibo r2
+          WHERE r2.contrato.id = r.contrato.id
+      )
+    ORDER BY r.fechaEmision DESC, r.id DESC
+""")
+    List<Recibo> findLatestReciboPerContratoOwner(@Param("userId") Long userId);
+
 }
+

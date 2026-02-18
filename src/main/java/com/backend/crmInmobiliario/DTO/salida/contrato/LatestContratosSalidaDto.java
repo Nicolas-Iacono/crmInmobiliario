@@ -22,4 +22,5 @@ public class LatestContratosSalidaDto {
     private PropiedadContratoSalidaDto propiedad;
     private UsuarioDtoSalida usuarioDtoSalida;
     private Set<EstadoContrato> estados;
+
 }

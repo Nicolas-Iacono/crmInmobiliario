@@ -410,12 +410,16 @@ public List<ImgUrlSalidaDto> subirImagenesYAsociarAPropiedad(Long propiedadId, M
             throw new IllegalArgumentException("El archivo PDF está vacío o no fue proporcionado.");
         }
 
-        // 🧩 Validar tipo MIME
+        // 🧩 1. Validar tipos permitidos (PDF, JPG, JPEG)
         String contentType = archivo.getContentType();
-        if (contentType == null ||
-                (!contentType.equalsIgnoreCase("application/pdf") &&
-                        !archivo.getOriginalFilename().toLowerCase().endsWith(".pdf"))) {
-            throw new IllegalArgumentException("Solo se permiten archivos PDF válidos.");
+        String fileName = archivo.getOriginalFilename() != null ? archivo.getOriginalFilename().toLowerCase() : "";
+
+        boolean isPdf = contentType != null && contentType.equalsIgnoreCase("application/pdf") || fileName.endsWith(".pdf");
+        boolean isJpg = contentType != null && (contentType.equalsIgnoreCase("image/jpeg") || contentType.equalsIgnoreCase("image/jpg"))
+                || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg");
+
+        if (!isPdf && !isJpg) {
+            throw new IllegalArgumentException("Solo se permiten archivos PDF o imágenes JPG.");
         }
 
         // 🧩 Validar tamaño máximo (por ejemplo, 10 MB)
@@ -433,7 +437,7 @@ public List<ImgUrlSalidaDto> subirImagenesYAsociarAPropiedad(Long propiedadId, M
         String STORAGE_ENDPOINT = SUPABASE_URL + "/storage/v1/object/" + BUCKET + "/" + nombreArchivo;
 
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentType(MediaType.parseMediaType(contentType != null ? contentType : (isPdf ? "application/pdf" : "image/jpeg")));
         headers.setBearerAuth(API_KEY);
 
         HttpEntity<byte[]> request = new HttpEntity<>(archivo.getBytes(), headers);

@@ -6,6 +6,9 @@ import com.backend.crmInmobiliario.DTO.modificacion.ReciboEstadoActualizadoEvent
 import com.backend.crmInmobiliario.DTO.modificacion.ReciboModificacionDto;
 import com.backend.crmInmobiliario.DTO.mpDtos.transferencias.entrada.NotificarTransferenciaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
+import com.backend.crmInmobiliario.DTO.salida.contrato.LatestContratosSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.recibo.LatestRecibosSalidaDto;
 import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.entity.impuestos.*;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -21,6 +24,7 @@ import com.backend.crmInmobiliario.service.IReciboService;
 import com.backend.crmInmobiliario.service.impl.IA.EmbeddingService;
 import com.backend.crmInmobiliario.service.impl.notificacionesPush.PushNotificationService;
 import com.backend.crmInmobiliario.service.impl.utilsGeneral.ImpuestoCalculoService;
+import com.backend.crmInmobiliario.utils.AuthUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
@@ -33,6 +37,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -72,10 +80,10 @@ public class ReciboService implements IReciboService {
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
     private final ImpuestoCalculoService impuestoCalculoService;
+    private AuthUtil authUtil;
 
 
-
-    public ReciboService(UsuarioRepository usuarioRepository, ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService, ReciboAlertaRepository reciboAlertaRepository) {
+    public ReciboService(AuthUtil authUtil, UsuarioRepository usuarioRepository, ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService, ReciboAlertaRepository reciboAlertaRepository) {
         this.modelMapper = modelMapper;
         this.reciboRepository = reciboRepository;
         this.contratoRepository = contratoRepository;
@@ -89,6 +97,7 @@ public class ReciboService implements IReciboService {
         this.impuestoRepository = impuestoRepository;
         this.usuarioRepository = usuarioRepository;
         this.reciboAlertaRepository = reciboAlertaRepository;
+        this.authUtil = authUtil;
         configureMapping();
     }
 
@@ -177,6 +186,10 @@ public class ReciboService implements IReciboService {
     @Transactional // Importante para la consistencia de la transacción
     public ReciboSalidaDto crearRecibo(ReciboEntradaDto reciboEntradaDto) throws ResourceNotFoundException, IOException {
         LOGGER.info("Iniciando el proceso de creación de recibo");
+        Long userId = authUtil.extractUserId();
+
+        Usuario usuario = usuarioRepository.findUserById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         // 1. Buscar el contrato
         Contrato contrato = contratoRepository.findById(reciboEntradaDto.getIdContrato())
@@ -189,6 +202,7 @@ public class ReciboService implements IReciboService {
 
         // 2. Crear el recibo
         Recibo recibo = new Recibo();
+        recibo.setUsuario(usuario);
         recibo.setContrato(contrato);
         recibo.setMontoTotal(reciboEntradaDto.getMontoTotal());
         recibo.setConcepto(reciboEntradaDto.getConcepto());
@@ -950,6 +964,78 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
         dto.setNombreContrato(out.getNombreContrato());
         dto.setTransferStatus(TransferStatus.REJECTED);
         return dto;
+    }
+
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    @Override
+    public List<LatestRecibosSalidaDto> getLatestRecibos() {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null) {
+            throw new AccessDeniedException("No se pudo obtener la autenticación del usuario.");
+        }
+
+        // 🔹 Recuperar el userId guardado como detalle en JwtTokenValidator
+        Object details = authentication.getDetails();
+        Long userId = null;
+
+        if (details instanceof Map<?, ?> mapDetails && mapDetails.get("userId") != null) {
+            userId = Long.valueOf(mapDetails.get("userId").toString());
+        }
+
+        if (userId == null) {
+            throw new AccessDeniedException("No se encontró el ID del usuario en el contexto de seguridad.");
+        }
+
+        // 🔹 Buscar los últimos 4 contratos de ese usuario
+        List<Recibo> recibos = reciboRepository
+                .findLatestRecibosByUsuarioId(userId, PageRequest.of(0, 4))
+                .getContent();
+
+        LOGGER.info("Se obtuvieron los últimos 4 contratos del usuario con ID: {}", userId);
+
+        return recibos.stream()
+                .map(recibo -> {
+                    LatestRecibosSalidaDto dto = new LatestRecibosSalidaDto();
+                    dto.setId(recibo.getId());
+                    dto.setNombreContrato(recibo.getContrato().getNombreContrato());
+                    dto.setContratoId(recibo.getContrato().getId());
+                    dto.setNumeroRecibo(recibo.getNumeroRecibo());
+                    dto.setMontoTotal(recibo.getMontoTotal());
+                    dto.setFechaEmision(recibo.getFechaEmision());
+                    dto.setFechaVencimiento(recibo.getFechaVencimiento());
+                    dto.setEstado(recibo.getEstado());
+                    dto.setTransferStatus(recibo.getTransferStatus());
+
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+
+
+    @Transactional
+    public List<LatestRecibosSalidaDto> getLatestRecibosPorContrato() {
+
+        Long userId = authUtil.extractUserId(); // mejor que leer SecurityContext a mano
+
+        List<Recibo> recibos = reciboRepository.findLatestReciboPerContratoOwner(userId);
+
+        return recibos.stream().map(recibo -> {
+            LatestRecibosSalidaDto dto = new LatestRecibosSalidaDto();
+            dto.setId(recibo.getId());
+            dto.setNombreContrato(recibo.getContrato().getNombreContrato());
+            dto.setContratoId(recibo.getContrato().getId());
+            dto.setPeriodo(recibo.getPeriodo());
+            dto.setNumeroRecibo(recibo.getNumeroRecibo());
+            dto.setMontoTotal(recibo.getMontoTotal());
+            dto.setFechaEmision(recibo.getFechaEmision());
+            dto.setFechaVencimiento(recibo.getFechaVencimiento());
+            dto.setEstado(recibo.getEstado());
+            dto.setTransferStatus(recibo.getTransferStatus());
+            return dto;
+        }).toList();
     }
 
 }

@@ -35,6 +35,7 @@ public class Propiedad {
     private Boolean cochera;
     private Boolean jardin;
     private Boolean patio;
+    private Boolean balcon;
     private Double precio;
     // Campo largo para el inventario
     @Lob

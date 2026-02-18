@@ -31,4 +31,12 @@ public interface ReciboAlertaRepository extends JpaRepository<ReciboAlerta, Long
     @Modifying
     @Query("delete from ReciboAlerta ra where ra.recibo.id = :reciboId")
     int deleteByReciboId(@Param("reciboId") Long reciboId);
+
+
+    @Modifying
+    @Query("""
+        delete from ReciboAlerta ra
+        where ra.recibo.contrato.id = :contratoId
+    """)
+    int deleteByContratoId(@Param("contratoId") Long contratoId);
 }

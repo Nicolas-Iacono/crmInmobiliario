@@ -45,6 +45,12 @@ public class Recibo {
 
     private BigDecimal montoTotal;
 
+    @ManyToOne
+    @ToString.Exclude
+    @JsonIgnore
+    @JoinColumn(name = "usuario_id")  // Ajusta el nombre de la columna según tu esquema de base de datos
+    private Usuario usuario;
+
     @Column(name = "fecha_vencimiento", nullable = false)
     private LocalDate fechaVencimiento;
 

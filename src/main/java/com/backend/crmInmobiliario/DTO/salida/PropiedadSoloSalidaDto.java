@@ -21,6 +21,7 @@ public class PropiedadSoloSalidaDto {
     private Boolean cochera;
     private Boolean jardin;
     private Boolean patio;
+    private Boolean balcon;
     private Double precio;
     private boolean visibleAOtros;
     private PropietarioContratoDtoSalida propietarioContratoDtoSalida;

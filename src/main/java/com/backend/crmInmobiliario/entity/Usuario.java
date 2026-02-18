@@ -65,6 +65,10 @@ public class Usuario  implements UserDetails {
     private String googleId;
     private String googleEmail;
 
+    @OneToMany(mappedBy = "usuario")
+    @ToString.Exclude
+    private List<Recibo> recibos;
+
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @ToString.Exclude
     private UsuarioGoogleAccount googleAccount;
