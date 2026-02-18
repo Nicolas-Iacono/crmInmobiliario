@@ -115,6 +115,8 @@ public class JwtTokenValidator extends OncePerRequestFilter {
                 || path.equals("/api/inquilino/register")
                 || path.equals("/api/propietario/register")
                 || path.equals("/api/usuario/registrar-admin")
+                || path.equals("/api/oficios/categorias")
+                || path.equals("/api/oficios/proveedores/registro")
 
                 || path.equals("/api/webhooks/mercadopago")
                 || path.equals("/api/webhooks/n8n/stripe/past-due")

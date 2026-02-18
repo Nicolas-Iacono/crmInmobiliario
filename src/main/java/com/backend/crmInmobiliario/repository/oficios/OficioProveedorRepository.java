@@ -1,0 +1,12 @@
+package com.backend.crmInmobiliario.repository.oficios;
+
+import com.backend.crmInmobiliario.entity.oficios.OficioProveedor;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface OficioProveedorRepository extends JpaRepository<OficioProveedor, Long> {
+    Optional<OficioProveedor> findByUsuarioId(Long usuarioId);
+    List<OficioProveedor> findBySuscripcionActivaTrue();
+}
