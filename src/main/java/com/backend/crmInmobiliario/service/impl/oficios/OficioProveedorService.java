@@ -1,6 +1,7 @@
 package com.backend.crmInmobiliario.service.impl.oficios;
 
 import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioCalificacionEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioImagenPerfilEmpresaEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioServicioEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.oficios.RegistroOficioProveedorDto;
 import com.backend.crmInmobiliario.DTO.salida.oficios.OficioProveedorSalidaDto;
@@ -148,24 +149,18 @@ public class OficioProveedorService implements IOficioProveedorService {
 
     @Override
     @Transactional
-    public OficioServicioSalidaDto editarServicio(Long userId, Long servicioId, OficioServicioEntradaDto dto, MultipartFile[] imagenes) {
+    public OficioServicioSalidaDto editarServicio(Long userId, Long servicioId, OficioServicioEntradaDto dto) {
         OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor de oficios"));
 
         OficioServicio servicio = servicioRepository.findByIdAndProveedorId(servicioId, proveedor.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado para este proveedor"));
 
-        if (imagenes != null && imagenes.length > 0 && servicio.getImagenesTrabajos() != null) {
-            eliminarImagenesSupabase(servicio.getImagenesTrabajos());
-        }
-
         servicio.setTitulo(dto.getTitulo());
         servicio.setDescripcion(dto.getDescripcion());
         servicio.setPrecioDesdeArs(dto.getPrecioDesdeArs());
         servicio.setPrecio(dto.getPrecio());
-        if (imagenes != null && imagenes.length > 0) {
-            servicio.setImagenesTrabajos(subirImagenes(imagenes));
-        }
+        servicio.setImagenesTrabajos(dto.getImagenesTrabajos() != null ? dto.getImagenesTrabajos() : new ArrayList<>());
 
         return toServicioDto(servicioRepository.save(servicio));
     }
@@ -179,37 +174,23 @@ public class OficioProveedorService implements IOficioProveedorService {
         OficioServicio servicio = servicioRepository.findByIdAndProveedorId(servicioId, proveedor.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado para este proveedor"));
 
-        if (servicio.getImagenesTrabajos() != null && !servicio.getImagenesTrabajos().isEmpty()) {
-            eliminarImagenesSupabase(servicio.getImagenesTrabajos());
-        }
-
         servicioRepository.delete(servicio);
     }
 
     @Override
     @Transactional
-    public OficioProveedorSalidaDto actualizarImagenPerfilEmpresa(Long userId, MultipartFile archivo) {
+    public OficioProveedorSalidaDto actualizarImagenPerfilEmpresa(Long userId, OficioImagenPerfilEmpresaEntradaDto dto) {
         OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor de oficios"));
-
-        if (archivo == null || archivo.isEmpty()) {
-            throw new IllegalArgumentException("El archivo está vacío o no fue proporcionado");
-        }
 
         List<String> imagenesEmpresa = proveedor.getImagenesEmpresa() != null
                 ? new ArrayList<>(proveedor.getImagenesEmpresa())
                 : new ArrayList<>();
 
-        if (!imagenesEmpresa.isEmpty()) {
-            eliminarImagenSupabase(imagenesEmpresa.get(0));
-        }
-
-        String nuevaImagenUrl = subirImagen(archivo);
-
         if (imagenesEmpresa.isEmpty()) {
-            imagenesEmpresa.add(nuevaImagenUrl);
+            imagenesEmpresa.add(dto.getImagenUrl());
         } else {
-            imagenesEmpresa.set(0, nuevaImagenUrl);
+            imagenesEmpresa.set(0, dto.getImagenUrl());
         }
 
         proveedor.setImagenesEmpresa(imagenesEmpresa);
@@ -321,43 +302,5 @@ public class OficioProveedorService implements IOficioProveedorService {
                 .precio(servicio.getPrecio())
                 .imagenesTrabajos(servicio.getImagenesTrabajos())
                 .build();
-    }
-
-    private List<String> subirImagenes(MultipartFile[] imagenes) {
-        List<String> urls = new ArrayList<>();
-        if (imagenes == null) {
-            return urls;
-        }
-
-        for (MultipartFile imagen : imagenes) {
-            if (imagen != null && !imagen.isEmpty()) {
-                urls.add(subirImagen(imagen));
-            }
-        }
-
-        return urls;
-    }
-
-    private String subirImagen(MultipartFile archivo) {
-        try {
-            byte[] webp = imagenService.convertirImagenExternamente(archivo);
-            return imagenService.subirAStorageSupabase(webp, UUID.randomUUID() + ".webp");
-        } catch (IOException e) {
-            throw new RuntimeException("Error al subir imagen a Supabase", e);
-        }
-    }
-
-    private void eliminarImagenesSupabase(List<String> urls) {
-        for (String url : urls) {
-            eliminarImagenSupabase(url);
-        }
-    }
-
-    private void eliminarImagenSupabase(String url) {
-        try {
-            imagenService.eliminarDeStorageSupabase(url);
-        } catch (IOException e) {
-            throw new RuntimeException("Error al eliminar imagen en Supabase", e);
-        }
     }
 }
