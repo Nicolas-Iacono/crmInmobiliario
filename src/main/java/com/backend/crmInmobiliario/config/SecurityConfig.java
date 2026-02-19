@@ -72,6 +72,7 @@ public class SecurityConfig {
 
                         // --- Logins / registros ---
                         .requestMatchers("/api/usuario/login").permitAll()
+                        .requestMatchers("/api/aliado/login").permitAll()
                         .requestMatchers("/api/usuario/registrar-admin").permitAll()
                         .requestMatchers("/api/oficios/categorias", "/api/oficios/proveedores/registro").permitAll()
                         .requestMatchers("/api/inquilino/register", "/api/inquilino/login").permitAll()

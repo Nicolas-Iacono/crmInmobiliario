@@ -124,7 +124,7 @@ public class OficioProveedorService implements IOficioProveedorService {
         servicio.setTitulo(dto.getTitulo());
         servicio.setDescripcion(dto.getDescripcion());
         servicio.setPrecioDesdeArs(dto.getPrecioDesdeArs());
-        servicio.setPrecioHastaArs(dto.getPrecioHastaArs());
+        servicio.setPrecio(dto.getPrecio());
         servicio.setImagenesTrabajos(dto.getImagenesTrabajos() != null ? dto.getImagenesTrabajos() : new ArrayList<>());
         servicioRepository.save(servicio);
 
@@ -196,7 +196,7 @@ public class OficioProveedorService implements IOficioProveedorService {
                         .titulo(s.getTitulo())
                         .descripcion(s.getDescripcion())
                         .precioDesdeArs(s.getPrecioDesdeArs())
-                        .precioHastaArs(s.getPrecioHastaArs())
+                        .precio(s.getPrecio())
                         .imagenesTrabajos(s.getImagenesTrabajos())
                         .build())
                 .toList();

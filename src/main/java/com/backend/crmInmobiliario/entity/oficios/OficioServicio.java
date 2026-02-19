@@ -31,7 +31,7 @@ public class OficioServicio {
     private BigDecimal precioDesdeArs;
 
     @Column(precision = 12, scale = 2)
-    private BigDecimal precioHastaArs;
+    private BigDecimal precio;
 
     @ElementCollection
     @CollectionTable(name = "oficio_servicio_imagenes", joinColumns = @JoinColumn(name = "oficio_servicio_id"))

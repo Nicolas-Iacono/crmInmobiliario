@@ -10,6 +10,6 @@ public class OficioServicioEntradaDto {
     private String titulo;
     private String descripcion;
     private BigDecimal precioDesdeArs;
-    private BigDecimal precioHastaArs;
+    private BigDecimal precio;
     private List<String> imagenesTrabajos;
 }
