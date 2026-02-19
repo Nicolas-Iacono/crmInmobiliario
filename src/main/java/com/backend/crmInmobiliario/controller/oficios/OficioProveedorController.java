@@ -1,9 +1,11 @@
 package com.backend.crmInmobiliario.controller.oficios;
 
 import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioCalificacionEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioImagenPerfilEmpresaEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioServicioEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.oficios.RegistroOficioProveedorDto;
 import com.backend.crmInmobiliario.DTO.salida.oficios.OficioProveedorSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.oficios.OficioServicioSalidaDto;
 import com.backend.crmInmobiliario.entity.oficios.CategoriaOficio;
 import com.backend.crmInmobiliario.service.oficios.IOficioProveedorService;
 import com.backend.crmInmobiliario.utils.AuthUtil;
@@ -52,6 +54,40 @@ public class OficioProveedorController {
     public ResponseEntity<OficioProveedorSalidaDto> crearServicio(@RequestBody OficioServicioEntradaDto dto) {
         Long userId = authUtil.extractUserId();
         return ResponseEntity.ok(oficioProveedorService.agregarServicio(userId, dto));
+    }
+
+    @GetMapping("/proveedores/mi-perfil/servicios")
+    @PreAuthorize("hasRole('OFICIO_ADMIN')")
+    public ResponseEntity<List<OficioServicioSalidaDto>> listarMisServicios() {
+        Long userId = authUtil.extractUserId();
+        return ResponseEntity.ok(oficioProveedorService.listarMisServicios(userId));
+    }
+
+    @PutMapping("/proveedores/mi-perfil/servicios/{servicioId}")
+    @PreAuthorize("hasRole('OFICIO_ADMIN')")
+    public ResponseEntity<OficioServicioSalidaDto> editarServicio(
+            @PathVariable Long servicioId,
+            @RequestBody OficioServicioEntradaDto dto
+    ) {
+        Long userId = authUtil.extractUserId();
+        return ResponseEntity.ok(oficioProveedorService.editarServicio(userId, servicioId, dto));
+    }
+
+    @DeleteMapping("/proveedores/mi-perfil/servicios/{servicioId}")
+    @PreAuthorize("hasRole('OFICIO_ADMIN')")
+    public ResponseEntity<Void> eliminarServicio(@PathVariable Long servicioId) {
+        Long userId = authUtil.extractUserId();
+        oficioProveedorService.eliminarServicio(userId, servicioId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/proveedores/mi-perfil/imagen-perfil")
+    @PreAuthorize("hasRole('OFICIO_ADMIN')")
+    public ResponseEntity<OficioProveedorSalidaDto> actualizarImagenPerfilEmpresa(
+            @Valid @RequestBody OficioImagenPerfilEmpresaEntradaDto dto
+    ) {
+        Long userId = authUtil.extractUserId();
+        return ResponseEntity.ok(oficioProveedorService.actualizarImagenPerfilEmpresa(userId, dto));
     }
 
     @PutMapping("/proveedores/mi-perfil/plan")
