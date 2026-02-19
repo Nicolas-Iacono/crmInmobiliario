@@ -21,16 +21,20 @@ import com.backend.crmInmobiliario.repository.oficios.OficioCalificacionReposito
 import com.backend.crmInmobiliario.repository.oficios.OficioProveedorRepository;
 import com.backend.crmInmobiliario.repository.oficios.OficioServicioRepository;
 import com.backend.crmInmobiliario.repository.pagosYSuscripciones.PlanRepository;
+import com.backend.crmInmobiliario.service.impl.ImagenService;
 import com.backend.crmInmobiliario.service.oficios.IOficioProveedorService;
 import com.backend.crmInmobiliario.utils.RolesCostantes;
 import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class OficioProveedorService implements IOficioProveedorService {
@@ -44,6 +48,7 @@ public class OficioProveedorService implements IOficioProveedorService {
     private final RoleRepository roleRepository;
     private final PlanRepository planRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ImagenService imagenService;
 
     public OficioProveedorService(OficioProveedorRepository proveedorRepository,
                                   OficioServicioRepository servicioRepository,
@@ -51,7 +56,8 @@ public class OficioProveedorService implements IOficioProveedorService {
                                   UsuarioRepository usuarioRepository,
                                   RoleRepository roleRepository,
                                   PlanRepository planRepository,
-                                  PasswordEncoder passwordEncoder) {
+                                  PasswordEncoder passwordEncoder,
+                                  ImagenService imagenService) {
         this.proveedorRepository = proveedorRepository;
         this.servicioRepository = servicioRepository;
         this.calificacionRepository = calificacionRepository;
@@ -59,6 +65,7 @@ public class OficioProveedorService implements IOficioProveedorService {
         this.roleRepository = roleRepository;
         this.planRepository = planRepository;
         this.passwordEncoder = passwordEncoder;
+        this.imagenService = imagenService;
     }
 
     @Override
@@ -116,7 +123,7 @@ public class OficioProveedorService implements IOficioProveedorService {
 
     @Override
     @Transactional
-    public OficioProveedorSalidaDto agregarServicio(Long userId, OficioServicioEntradaDto dto) {
+    public OficioProveedorSalidaDto agregarServicio(Long userId, OficioServicioEntradaDto dto, MultipartFile[] imagenes) {
         OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor de oficios"));
 
@@ -126,7 +133,7 @@ public class OficioProveedorService implements IOficioProveedorService {
         servicio.setDescripcion(dto.getDescripcion());
         servicio.setPrecioDesdeArs(dto.getPrecioDesdeArs());
         servicio.setPrecio(dto.getPrecio());
-        servicio.setImagenesTrabajos(dto.getImagenesTrabajos() != null ? dto.getImagenesTrabajos() : new ArrayList<>());
+        servicio.setImagenesTrabajos(subirImagenes(imagenes));
         servicioRepository.save(servicio);
 
         return toDto(proveedor);

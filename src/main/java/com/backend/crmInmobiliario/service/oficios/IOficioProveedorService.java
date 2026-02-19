@@ -7,6 +7,7 @@ import com.backend.crmInmobiliario.DTO.entrada.oficios.RegistroOficioProveedorDt
 import com.backend.crmInmobiliario.DTO.salida.oficios.OficioProveedorSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.oficios.OficioServicioSalidaDto;
 import com.backend.crmInmobiliario.entity.oficios.CategoriaOficio;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
