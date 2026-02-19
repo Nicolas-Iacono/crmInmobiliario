@@ -5,9 +5,6 @@ import com.backend.crmInmobiliario.entity.Usuario;
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -18,7 +15,8 @@ import java.util.List;
 @Data
 public class OficioProveedor {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @OneToOne(optional = false, fetch = FetchType.LAZY)
@@ -62,9 +60,4 @@ public class OficioProveedor {
 
     @Column(nullable = false)
     private Integer totalCalificaciones = 0;
-
-    public ImageUrls getImagenPerfil() {
-        return imagenPerfil;
-    }
 }
-

@@ -1,6 +1,5 @@
 package com.backend.crmInmobiliario.entity;
 
-
 import com.backend.crmInmobiliario.entity.oficios.OficioProveedor;
 import com.backend.crmInmobiliario.entity.oficios.OficioServicio;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -27,15 +26,13 @@ public class ImageUrls {
 
     private String nombreOriginal;
 
-    private String tipoImagen; // Ej: "DNI", "Selfie", "Contrato"
+    private String tipoImagen;
 
-    // 🔁 Relación con Propiedad
     @ManyToOne
     @JoinColumn(name = "propiedad_id")
     @JsonIgnore
     private Propiedad propiedad;
 
-    //relacion con nota
     @ManyToOne
     @JoinColumn(name = "nota_id")
     @JsonIgnore
@@ -46,14 +43,13 @@ public class ImageUrls {
     @JsonIgnore
     private Usuario usuario;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "servicio_id")
     @JsonIgnore
     private OficioServicio servicio;
 
-    @OneToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proveedor_id")
     @JsonIgnore
     private OficioProveedor proveedor;
-
 }

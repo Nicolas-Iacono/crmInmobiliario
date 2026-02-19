@@ -4,17 +4,19 @@ import com.backend.crmInmobiliario.entity.ImageUrls;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+
 @Entity
 @Table(name = "oficio_servicio")
-@Getter @Setter
+@Getter
+@Setter
 public class OficioServicio {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
@@ -33,7 +35,6 @@ public class OficioServicio {
     @Column(precision = 12, scale = 2)
     private BigDecimal precio;
 
-    // Imágenes del trabajo/servicio (urls simples)
     @OneToMany(mappedBy = "servicio", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<ImageUrls> imagenes = new ArrayList<>();
 

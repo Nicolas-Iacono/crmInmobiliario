@@ -1,33 +1,42 @@
 package com.backend.crmInmobiliario.service.oficios;
 
+import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioCalificacionEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioProveedorCreateDto;
+import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioServicioCreateDto;
 import com.backend.crmInmobiliario.DTO.modificacion.OficioProveedorUpdateDto;
+import com.backend.crmInmobiliario.DTO.modificacion.OficioServicioUpdateDto;
 import com.backend.crmInmobiliario.DTO.salida.oficios.OficioProveedorSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.oficios.OficioServicioSalidaDto;
 import com.backend.crmInmobiliario.entity.oficios.CategoriaOficio;
-import jakarta.transaction.Transactional;
-import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
 
-
-@Service
 public interface IOficioProveedorService {
-    OficioProveedorSalidaDto registrarProveedor(OficioProveedorCreateDto dto);
-    OficioProveedorSalidaDto obtenerMiPerfil(Long userId);
-    OficioProveedorSalidaDto actualizarMiPerfil(Long userId, OficioProveedorUpdateDto dto);
-    void eliminarMiPerfil(Long userId); // si querés hard delete o soft delete
+    List<CategoriaOficio> listarCategorias();
 
-    @Transactional
-    List<OficioServicioSalidaDto> listarMisServicios(Long userId);
+    OficioProveedorSalidaDto registrarProveedor(OficioProveedorCreateDto dto);
+
+    OficioProveedorSalidaDto obtenerMiPerfil(Long userId);
+
+    OficioProveedorSalidaDto actualizarMiPerfil(Long userId, OficioProveedorUpdateDto dto);
+
+    void eliminarMiPerfil(Long userId);
+
+    List<OficioProveedorSalidaDto> listarProveedoresVisibles();
+
+    OficioProveedorSalidaDto asignarPlan(Long userId, Long planId);
 
     OficioProveedorSalidaDto actualizarImagenPerfil(Long userId, MultipartFile archivo) throws IOException;
 
-    List<CategoriaOficio> listarCategorias();
+    OficioServicioSalidaDto agregarServicio(Long userId, OficioServicioCreateDto dto, MultipartFile[] imagenes) throws IOException;
 
-    @Transactional
+    List<OficioServicioSalidaDto> listarMisServicios(Long userId);
 
-    List<OficioProveedorSalidaDto> listarProveedoresVisibles();
+    OficioServicioSalidaDto editarServicio(Long userId, Long servicioId, OficioServicioUpdateDto dto, MultipartFile[] nuevasImagenes) throws IOException;
+
+    void eliminarServicio(Long userId, Long servicioId);
+
+    OficioProveedorSalidaDto calificarProveedor(Long proveedorId, Long inmobiliariaId, OficioCalificacionEntradaDto dto);
 }
