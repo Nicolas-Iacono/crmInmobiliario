@@ -7,4 +7,6 @@ import java.util.Optional;
 
 public interface OficioProveedorRepository extends JpaRepository<OficioProveedor, Long> {
     Optional<OficioProveedor> findByUsuarioId(Long usuarioId);
+    boolean existsByUsuarioId(Long usuarioId);
 }
+

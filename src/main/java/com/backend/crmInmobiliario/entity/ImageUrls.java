@@ -1,6 +1,8 @@
 package com.backend.crmInmobiliario.entity;
 
 
+import com.backend.crmInmobiliario.entity.oficios.OficioProveedor;
+import com.backend.crmInmobiliario.entity.oficios.OficioServicio;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -44,5 +46,14 @@ public class ImageUrls {
     @JsonIgnore
     private Usuario usuario;
 
+    @ManyToOne
+    @JoinColumn(name = "servicio_id")
+    @JsonIgnore
+    private OficioServicio servicio;
+
+    @OneToOne
+    @JoinColumn(name = "proveedor_id")
+    @JsonIgnore
+    private OficioProveedor proveedor;
 
 }

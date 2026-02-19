@@ -2,8 +2,10 @@ package com.backend.crmInmobiliario.service.impl;
 
 import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.entity.*;
+import com.backend.crmInmobiliario.entity.oficios.OficioProveedor;
 import com.backend.crmInmobiliario.repository.*;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
+import com.backend.crmInmobiliario.repository.oficios.OficioProveedorRepository;
 import com.backend.crmInmobiliario.utils.MultipartInputStreamFileResource;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.IImageUrlsService;
@@ -40,7 +42,7 @@ public class ImagenService implements IImageUrlsService {
     private final ImageUrlsRepository imageUrlsRepository;
     private final NotaRepository notaRepository;
     private final UsuarioRepository usuarioRepository;
-
+    private final OficioProveedorRepository oficioProveedorRepository;
 
 
 
@@ -115,7 +117,7 @@ public class ImagenService implements IImageUrlsService {
             throw new IOException("No se pudo eliminar la imagen de Supabase. Código: " + response.getStatusCode());
         }
     }
-    public ImagenService(ModelMapper mapper, GaranteRepository garanteRepository, InquilinoRepository inquilinoRepository, PropietarioRepository propietarioRepository, PropiedadRepository propiedadRepository, ImageUrlsRepository imageUrlsRepository, NotaRepository notaRepository, UsuarioRepository usuarioRepository) {
+    public ImagenService(ModelMapper mapper, GaranteRepository garanteRepository, InquilinoRepository inquilinoRepository, PropietarioRepository propietarioRepository, PropiedadRepository propiedadRepository, ImageUrlsRepository imageUrlsRepository, NotaRepository notaRepository, UsuarioRepository usuarioRepository, OficioProveedorRepository oficioProveedorRepository) {
         this.mapper = mapper;
         this.garanteRepository = garanteRepository;
         this.inquilinoRepository = inquilinoRepository;
@@ -124,6 +126,7 @@ public class ImagenService implements IImageUrlsService {
         this.imageUrlsRepository = imageUrlsRepository;
         this.notaRepository = notaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.oficioProveedorRepository = oficioProveedorRepository;
 
         configureMapping();
     }
@@ -286,6 +289,8 @@ public class ImagenService implements IImageUrlsService {
         return dto;
     }
 
+
+
     // Guardás imagen directamente, así obtenés el ID al instante
 //    ImageUrls imagenGuardada = imageUrlsRepository.save(imagen);
 //
@@ -348,6 +353,8 @@ public List<ImgUrlSalidaDto> subirImagenesYAsociarAPropiedad(Long propiedadId, M
 
     return nuevasImagenesDTO;
 }
+
+
 
     @Override
     @Transactional

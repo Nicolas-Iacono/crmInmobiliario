@@ -2,12 +2,13 @@ package com.backend.crmInmobiliario.DTO.salida.oficios;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
 
 @Data
-@Builder
+@NoArgsConstructor
 public class OficioProveedorSalidaDto {
     private Long id;
     private String nombreCompleto;
@@ -18,16 +19,9 @@ public class OficioProveedorSalidaDto {
     private String localidad;
     private String provincia;
     private List<String> categorias;
-    private List<String> imagenesEmpresa;
+    private String imagenPerfilUrl;
     private Double promedioCalificacion;
     private Integer totalCalificaciones;
-    private LocalDate fechaRegistro;
-    private LocalDate periodoGraciaHasta;
-    private boolean enPeriodoGracia;
     private Long planId;
-    private String planCode;
-    private String planNombre;
-    private Boolean planActivo;
-    private Boolean visibleEnListado;
-    private List<OficioServicioSalidaDto> servicios;
+    private boolean planActivo;
 }

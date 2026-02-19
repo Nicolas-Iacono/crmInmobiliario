@@ -1,20 +1,19 @@
 package com.backend.crmInmobiliario.service.impl.oficios;
 
-import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioCalificacionEntradaDto;
-import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioImagenPerfilEmpresaEntradaDto;
-import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioServicioEntradaDto;
-import com.backend.crmInmobiliario.DTO.entrada.oficios.RegistroOficioProveedorDto;
+import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioProveedorCreateDto;
+import com.backend.crmInmobiliario.DTO.modificacion.OficioProveedorUpdateDto;
 import com.backend.crmInmobiliario.DTO.salida.oficios.OficioProveedorSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.oficios.OficioServicioSalidaDto;
+import com.backend.crmInmobiliario.entity.ImageUrls;
 import com.backend.crmInmobiliario.entity.Role;
 import com.backend.crmInmobiliario.entity.Usuario;
 import com.backend.crmInmobiliario.entity.oficios.CategoriaOficio;
-import com.backend.crmInmobiliario.entity.oficios.OficioCalificacion;
 import com.backend.crmInmobiliario.entity.oficios.OficioProveedor;
 import com.backend.crmInmobiliario.entity.oficios.OficioServicio;
 import com.backend.crmInmobiliario.entity.planesYSuscripciones.Plan;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.exception.UsernameAlreadyExistsException;
+import com.backend.crmInmobiliario.repository.ImageUrlsRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.RoleRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.repository.oficios.OficioCalificacionRepository;
@@ -31,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -49,6 +49,7 @@ public class OficioProveedorService implements IOficioProveedorService {
     private final PlanRepository planRepository;
     private final PasswordEncoder passwordEncoder;
     private final ImagenService imagenService;
+    private final ImageUrlsRepository imageUrlsRepository;
 
     public OficioProveedorService(OficioProveedorRepository proveedorRepository,
                                   OficioServicioRepository servicioRepository,
@@ -57,7 +58,7 @@ public class OficioProveedorService implements IOficioProveedorService {
                                   RoleRepository roleRepository,
                                   PlanRepository planRepository,
                                   PasswordEncoder passwordEncoder,
-                                  ImagenService imagenService) {
+                                  ImagenService imagenService, ImageUrlsRepository imageUrlsRepository) {
         this.proveedorRepository = proveedorRepository;
         this.servicioRepository = servicioRepository;
         this.calificacionRepository = calificacionRepository;
@@ -66,6 +67,7 @@ public class OficioProveedorService implements IOficioProveedorService {
         this.planRepository = planRepository;
         this.passwordEncoder = passwordEncoder;
         this.imagenService = imagenService;
+        this.imageUrlsRepository = imageUrlsRepository;
     }
 
     @Override
@@ -73,28 +75,36 @@ public class OficioProveedorService implements IOficioProveedorService {
         return CategoriaOficio.catalogoBase();
     }
 
-    @Override
     @Transactional
-    public OficioProveedorSalidaDto registrarProveedor(RegistroOficioProveedorDto dto) {
+    @Override
+    public OficioProveedorSalidaDto registrarProveedor(OficioProveedorCreateDto dto) {
+
         if (usuarioRepository.existsByUsername(dto.getUsername())) {
             throw new UsernameAlreadyExistsException("El username ya se encuentra registrado");
         }
 
+        // 1) Crear Usuario
         Usuario usuario = new Usuario();
         usuario.setUsername(dto.getUsername());
         usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
-        usuario.setNombreNegocio(dto.getEmpresa());
+
+        // opcional: copiar algunos datos al usuario (si tu app los usa)
         usuario.setEmail(dto.getEmailContacto());
         usuario.setTelefono(dto.getTelefonoContacto());
         usuario.setLocalidad(dto.getLocalidad());
         usuario.setProvincia(dto.getProvincia());
+        usuario.setNombreNegocio(dto.getEmpresa());
 
+        // 2) Asignar rol OFICIO_ADMIN
         Role oficioRole = roleRepository.findByRol(RolesCostantes.OFICIO_ADMIN)
                 .orElseGet(() -> roleRepository.save(new Role(RolesCostantes.OFICIO_ADMIN)));
+
         usuario.setRoles(Collections.singleton(oficioRole));
+
         Usuario userPersistido = usuarioRepository.save(usuario);
 
-        LocalDate fechaRegistro = LocalDate.now();
+        // 3) Crear OficioProveedor ligado al usuario
+        LocalDate hoy = LocalDate.now();
 
         OficioProveedor proveedor = new OficioProveedor();
         proveedor.setUsuario(userPersistido);
@@ -105,15 +115,129 @@ public class OficioProveedorService implements IOficioProveedorService {
         proveedor.setDescripcion(dto.getDescripcion());
         proveedor.setLocalidad(dto.getLocalidad());
         proveedor.setProvincia(dto.getProvincia());
-        proveedor.setFechaRegistro(fechaRegistro);
-        proveedor.setPeriodoGraciaHasta(fechaRegistro.plusMonths(MESES_GRACIA));
-        proveedor.setCategorias(dto.getCategorias() != null ? dto.getCategorias() : new ArrayList<>());
-        proveedor.setImagenesEmpresa(dto.getImagenesEmpresa() != null ? dto.getImagenesEmpresa() : new ArrayList<>());
+        proveedor.setFechaRegistro(hoy);
+        proveedor.setPeriodoGraciaHasta(hoy.plusMonths(MESES_GRACIA));
+        proveedor.setCategorias(dto.getCategorias() != null ? new ArrayList<>(dto.getCategorias()) : new ArrayList<>());
 
-        return toDto(proveedorRepository.save(proveedor));
+        // imagen perfil se sube por endpoint multipart separado
+        proveedor.setImagenPerfil(null);
+
+        OficioProveedor guardado = proveedorRepository.save(proveedor);
+        return toDto(guardado);
+    }
+    // =========================================================
+    // MI PERFIL
+    // =========================================================
+
+    @Override
+    @Transactional
+    public OficioProveedorSalidaDto obtenerMiPerfil(Long userId) {
+        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor"));
+        return toDto(proveedor);
     }
 
     @Override
+    @Transactional
+    public OficioProveedorSalidaDto actualizarMiPerfil(Long userId, OficioProveedorUpdateDto dto) {
+        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor"));
+
+        if (dto.getNombreCompleto() != null) proveedor.setNombreCompleto(dto.getNombreCompleto());
+        if (dto.getEmpresa() != null) proveedor.setEmpresa(dto.getEmpresa());
+        if (dto.getEmailContacto() != null) proveedor.setEmailContacto(dto.getEmailContacto());
+        if (dto.getTelefonoContacto() != null) proveedor.setTelefonoContacto(dto.getTelefonoContacto());
+        if (dto.getDescripcion() != null) proveedor.setDescripcion(dto.getDescripcion());
+        if (dto.getLocalidad() != null) proveedor.setLocalidad(dto.getLocalidad());
+        if (dto.getProvincia() != null) proveedor.setProvincia(dto.getProvincia());
+        if (dto.getCategorias() != null) proveedor.setCategorias(new ArrayList<>(dto.getCategorias()));
+
+        proveedorRepository.save(proveedor);
+        return toDto(proveedor);
+    }
+
+    @Override
+    @Transactional
+    public void eliminarMiPerfil(Long userId) {
+        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor"));
+
+        // Si querés soft delete, acá es el lugar
+        proveedorRepository.delete(proveedor);
+    }
+
+    @Transactional
+    @Override
+    public List<OficioServicioSalidaDto> listarMisServicios(Long userId) {
+        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor"));
+
+        return servicioRepository.findByProveedorId(proveedor.getId())
+                .stream()
+                .map(this::toServicioDto)
+                .toList();
+    }
+
+    private OficioServicioSalidaDto toServicioDto(OficioServicio s) {
+        OficioServicioSalidaDto dto = new OficioServicioSalidaDto();
+        dto.setId(s.getId());
+        dto.setTitulo(s.getTitulo());
+        dto.setDescripcion(s.getDescripcion());
+        dto.setPrecioDesdeArs(s.getPrecioDesdeArs());
+        dto.setPrecio(s.getPrecio());
+        dto.setImagenes(s.getImagenes());
+
+        return dto;
+    }
+    // =========================================================
+    // IMAGEN DE PERFIL
+    // =========================================================
+
+
+
+    @Override
+    @Transactional
+    public OficioProveedorSalidaDto actualizarImagenPerfil(Long userId, MultipartFile archivo) throws IOException {
+        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor"));
+
+        if (archivo == null || archivo.isEmpty()) {
+            throw new IllegalArgumentException("No se recibió ninguna imagen");
+        }
+
+        // 1) borrar anterior (storage + BD)
+        ImageUrls actual = proveedor.getImagenPerfil();
+        if (actual != null) {
+            imagenService.eliminarDeStorageSupabase(actual.getImageUrl());
+            proveedor.setImagenPerfil(null);
+            imageUrlsRepository.delete(actual);
+        }
+
+        // 2) subir nueva
+        byte[] webp = imagenService.convertirImagenExternamente(archivo);
+        String nombreArchivo = "oficios/proveedor/" + proveedor.getId() + "-" + UUID.randomUUID() + ".webp";
+        String url = imagenService.subirAStorageSupabase(webp, nombreArchivo);
+
+        // 3) crear entidad ImageUrls
+        ImageUrls nueva = new ImageUrls();
+        nueva.setImageUrl(url);
+        nueva.setNombreOriginal(archivo.getOriginalFilename());
+        nueva.setTipoImagen("LOGO_EMPRESA");
+        nueva.setFechaSubida(LocalDateTime.now());
+        nueva.setProveedor(proveedor);
+
+        ImageUrls guardada = imageUrlsRepository.save(nueva);
+        proveedor.setImagenPerfil(guardada);
+
+        proveedorRepository.save(proveedor);
+        return toDto(proveedor);
+    }
+    // =========================================================
+    // LISTADOS PÚBLICOS
+    // =========================================================
+
+    @Override
+    @Transactional
     public List<OficioProveedorSalidaDto> listarProveedoresVisibles() {
         return proveedorRepository.findAll().stream()
                 .filter(this::esVisibleEnListado)
@@ -121,186 +245,44 @@ public class OficioProveedorService implements IOficioProveedorService {
                 .toList();
     }
 
-    @Override
-    @Transactional
-    public OficioProveedorSalidaDto agregarServicio(Long userId, OficioServicioEntradaDto dto, MultipartFile[] imagenes) {
-        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor de oficios"));
-
-        OficioServicio servicio = new OficioServicio();
-        servicio.setProveedor(proveedor);
-        servicio.setTitulo(dto.getTitulo());
-        servicio.setDescripcion(dto.getDescripcion());
-        servicio.setPrecioDesdeArs(dto.getPrecioDesdeArs());
-        servicio.setPrecio(dto.getPrecio());
-        servicio.setImagenesTrabajos(subirImagenes(imagenes));
-        servicioRepository.save(servicio);
-
-        return toDto(proveedor);
-    }
-
-    @Override
-    public List<OficioServicioSalidaDto> listarMisServicios(Long userId) {
-        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor de oficios"));
-
-        return mapServicios(proveedor.getId());
-    }
-
-    @Override
-    @Transactional
-    public OficioServicioSalidaDto editarServicio(Long userId, Long servicioId, OficioServicioEntradaDto dto) {
-        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor de oficios"));
-
-        OficioServicio servicio = servicioRepository.findByIdAndProveedorId(servicioId, proveedor.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado para este proveedor"));
-
-        servicio.setTitulo(dto.getTitulo());
-        servicio.setDescripcion(dto.getDescripcion());
-        servicio.setPrecioDesdeArs(dto.getPrecioDesdeArs());
-        servicio.setPrecio(dto.getPrecio());
-        servicio.setImagenesTrabajos(dto.getImagenesTrabajos() != null ? dto.getImagenesTrabajos() : new ArrayList<>());
-
-        return toServicioDto(servicioRepository.save(servicio));
-    }
-
-    @Override
-    @Transactional
-    public void eliminarServicio(Long userId, Long servicioId) {
-        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor de oficios"));
-
-        OficioServicio servicio = servicioRepository.findByIdAndProveedorId(servicioId, proveedor.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado para este proveedor"));
-
-        servicioRepository.delete(servicio);
-    }
-
-    @Override
-    @Transactional
-    public OficioProveedorSalidaDto actualizarImagenPerfilEmpresa(Long userId, OficioImagenPerfilEmpresaEntradaDto dto) {
-        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor de oficios"));
-
-        List<String> imagenesEmpresa = proveedor.getImagenesEmpresa() != null
-                ? new ArrayList<>(proveedor.getImagenesEmpresa())
-                : new ArrayList<>();
-
-        if (imagenesEmpresa.isEmpty()) {
-            imagenesEmpresa.add(dto.getImagenUrl());
-        } else {
-            imagenesEmpresa.set(0, dto.getImagenUrl());
-        }
-
-        proveedor.setImagenesEmpresa(imagenesEmpresa);
-        return toDto(proveedorRepository.save(proveedor));
-    }
-
-    @Override
-    @Transactional
-    public OficioProveedorSalidaDto calificarProveedor(Long proveedorId, Long inmobiliariaId, OficioCalificacionEntradaDto dto) {
-        OficioProveedor proveedor = proveedorRepository.findById(proveedorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Proveedor no encontrado"));
-
-        Usuario inmobiliaria = usuarioRepository.findById(inmobiliariaId)
-                .orElseThrow(() -> new ResourceNotFoundException("Inmobiliaria no encontrada"));
-
-        OficioCalificacion calificacion = calificacionRepository
-                .findByProveedorIdAndInmobiliariaId(proveedorId, inmobiliariaId)
-                .orElseGet(OficioCalificacion::new);
-
-        calificacion.setProveedor(proveedor);
-        calificacion.setInmobiliaria(inmobiliaria);
-        calificacion.setPuntaje(dto.getPuntaje());
-        calificacion.setComentario(dto.getComentario());
-        calificacionRepository.save(calificacion);
-
-        List<OficioCalificacion> calificaciones = calificacionRepository.findByProveedorId(proveedorId);
-        double promedio = calificaciones.stream().mapToInt(OficioCalificacion::getPuntaje).average().orElse(0.0);
-
-        proveedor.setTotalCalificaciones(calificaciones.size());
-        proveedor.setPromedioCalificacion(promedio);
-        proveedorRepository.save(proveedor);
-
-        return toDto(proveedor);
-    }
-
-    @Override
-    @Transactional
-    public OficioProveedorSalidaDto asignarPlan(Long userId, Long planId) {
-        OficioProveedor proveedor = proveedorRepository.findByUsuarioId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("No se encontró perfil de proveedor de oficios"));
-
-        Plan plan = planRepository.findById(planId)
-                .orElseThrow(() -> new ResourceNotFoundException("Plan no encontrado"));
-
-        if (!plan.isActive()) {
-            throw new IllegalArgumentException("El plan seleccionado no está activo");
-        }
-
-        proveedor.setPlan(plan);
-        return toDto(proveedorRepository.save(proveedor));
-    }
+    // =========================================================
+    // HELPERS
+    // =========================================================
 
     private boolean esVisibleEnListado(OficioProveedor proveedor) {
         LocalDate hoy = LocalDate.now();
+
         boolean enPeriodoGracia = !hoy.isAfter(proveedor.getPeriodoGraciaHasta());
-        if (enPeriodoGracia) {
-            return true;
-        }
+        if (enPeriodoGracia) return true;
 
         Plan plan = proveedor.getPlan();
         return plan != null && plan.isActive();
     }
 
-    private OficioProveedorSalidaDto toDto(OficioProveedor proveedor) {
-        List<OficioServicioSalidaDto> servicios = mapServicios(proveedor.getId());
+    private OficioProveedorSalidaDto toDto(OficioProveedor p) {
+        boolean enGracia = !LocalDate.now().isAfter(p.getPeriodoGraciaHasta());
+        boolean planActivo = p.getPlan() != null && p.getPlan().isActive();
 
-        LocalDate hoy = LocalDate.now();
-        boolean enPeriodoGracia = !hoy.isAfter(proveedor.getPeriodoGraciaHasta());
-        boolean planActivo = proveedor.getPlan() != null && proveedor.getPlan().isActive();
+        OficioProveedorSalidaDto dto = new OficioProveedorSalidaDto();
+        dto.setId(p.getId());
+        dto.setNombreCompleto(p.getNombreCompleto());
+        dto.setEmpresa(p.getEmpresa());
+        dto.setEmailContacto(p.getEmailContacto());
+        dto.setTelefonoContacto(p.getTelefonoContacto());
+        dto.setDescripcion(p.getDescripcion());
+        dto.setLocalidad(p.getLocalidad());
+        dto.setProvincia(p.getProvincia());
+        dto.setCategorias(p.getCategorias() != null ? new ArrayList<>(p.getCategorias()) : List.of());
+        dto.setImagenPerfilUrl(
+                p.getImagenPerfil() != null
+                        ? p.getImagenPerfil().getImageUrl()
+                        : null
+        );
+        dto.setPromedioCalificacion(p.getPromedioCalificacion());
+        dto.setTotalCalificaciones(p.getTotalCalificaciones());
+        dto.setPlanId(p.getPlan() != null ? p.getPlan().getId() : null);
+        dto.setPlanActivo(planActivo);
 
-        return OficioProveedorSalidaDto.builder()
-                .id(proveedor.getId())
-                .nombreCompleto(proveedor.getNombreCompleto())
-                .empresa(proveedor.getEmpresa())
-                .emailContacto(proveedor.getEmailContacto())
-                .telefonoContacto(proveedor.getTelefonoContacto())
-                .descripcion(proveedor.getDescripcion())
-                .localidad(proveedor.getLocalidad())
-                .provincia(proveedor.getProvincia())
-                .categorias(proveedor.getCategorias())
-                .imagenesEmpresa(proveedor.getImagenesEmpresa())
-                .promedioCalificacion(proveedor.getPromedioCalificacion())
-                .totalCalificaciones(proveedor.getTotalCalificaciones())
-                .fechaRegistro(proveedor.getFechaRegistro())
-                .periodoGraciaHasta(proveedor.getPeriodoGraciaHasta())
-                .enPeriodoGracia(enPeriodoGracia)
-                .planId(proveedor.getPlan() != null ? proveedor.getPlan().getId() : null)
-                .planCode(proveedor.getPlan() != null ? proveedor.getPlan().getCode() : null)
-                .planNombre(proveedor.getPlan() != null ? proveedor.getPlan().getName() : null)
-                .planActivo(planActivo)
-                .visibleEnListado(enPeriodoGracia || planActivo)
-                .servicios(servicios)
-                .build();
-    }
-
-    private List<OficioServicioSalidaDto> mapServicios(Long proveedorId) {
-        return servicioRepository.findByProveedorId(proveedorId)
-                .stream()
-                .map(this::toServicioDto)
-                .toList();
-    }
-
-    private OficioServicioSalidaDto toServicioDto(OficioServicio servicio) {
-        return OficioServicioSalidaDto.builder()
-                .id(servicio.getId())
-                .titulo(servicio.getTitulo())
-                .descripcion(servicio.getDescripcion())
-                .precioDesdeArs(servicio.getPrecioDesdeArs())
-                .precio(servicio.getPrecio())
-                .imagenesTrabajos(servicio.getImagenesTrabajos())
-                .build();
+        return dto;
     }
 }

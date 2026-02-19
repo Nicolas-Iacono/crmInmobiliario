@@ -2,8 +2,8 @@ package com.backend.crmInmobiliario.controller.oficios;
 
 import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioCalificacionEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioImagenPerfilEmpresaEntradaDto;
-import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioServicioEntradaDto;
-import com.backend.crmInmobiliario.DTO.entrada.oficios.RegistroOficioProveedorDto;
+import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioProveedorCreateDto;
+import com.backend.crmInmobiliario.DTO.entrada.oficios.OficioServicioCreateDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.backend.crmInmobiliario.DTO.salida.oficios.OficioProveedorSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.oficios.OficioServicioSalidaDto;
@@ -18,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -44,7 +45,7 @@ public class OficioProveedorController {
 
     @PostMapping("/proveedores/registro")
     @PreAuthorize("permitAll()")
-    public ResponseEntity<OficioProveedorSalidaDto> registrarProveedor(@Valid @RequestBody RegistroOficioProveedorDto dto) {
+    public ResponseEntity<OficioProveedorSalidaDto> registrarProveedor(@Valid @RequestBody OficioProveedorCreateDto dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(oficioProveedorService.registrarProveedor(dto));
     }
 
@@ -59,18 +60,15 @@ public class OficioProveedorController {
     public ResponseEntity<OficioProveedorSalidaDto> crearServicio(
             @RequestPart("data") String dataJson,
             @RequestPart(value = "imagenes", required = false) MultipartFile[] imagenes
-    ) throws Exception {
-        OficioServicioEntradaDto dto = objectMapper.readValue(dataJson, OficioServicioEntradaDto.class);
+    ) throws IOException {
+
+        OficioServicioCreateDto dto = objectMapper.readValue(dataJson, OficioServicioEntradaDto.class);
         Long userId = authUtil.extractUserId();
+
         return ResponseEntity.ok(oficioProveedorService.agregarServicio(userId, dto, imagenes));
     }
 
-    @GetMapping("/proveedores/mi-perfil/servicios")
-    @PreAuthorize("hasRole('OFICIO_ADMIN')")
-    public ResponseEntity<List<OficioServicioSalidaDto>> listarMisServicios() {
-        Long userId = authUtil.extractUserId();
-        return ResponseEntity.ok(oficioProveedorService.listarMisServicios(userId));
-    }
+
 
     @PutMapping(value = "/proveedores/mi-perfil/servicios/{servicioId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('OFICIO_ADMIN')")
@@ -84,21 +82,15 @@ public class OficioProveedorController {
         return ResponseEntity.ok(oficioProveedorService.editarServicio(userId, servicioId, dto, imagenes));
     }
 
-    @DeleteMapping("/proveedores/mi-perfil/servicios/{servicioId}")
-    @PreAuthorize("hasRole('OFICIO_ADMIN')")
-    public ResponseEntity<Void> eliminarServicio(@PathVariable Long servicioId) {
-        Long userId = authUtil.extractUserId();
-        oficioProveedorService.eliminarServicio(userId, servicioId);
-        return ResponseEntity.noContent().build();
-    }
+
 
     @PutMapping(value = "/proveedores/mi-perfil/imagen-perfil", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('OFICIO_ADMIN')")
     public ResponseEntity<OficioProveedorSalidaDto> actualizarImagenPerfilEmpresa(
             @RequestPart("imagen") MultipartFile archivo
-    ) {
+    ) throws IOException {
         Long userId = authUtil.extractUserId();
-        return ResponseEntity.ok(oficioProveedorService.actualizarImagenPerfilEmpresa(userId, archivo));
+        return ResponseEntity.ok(oficioProveedorService.actualizarImagenPerfil(userId, archivo));
     }
 
     @GetMapping("/proveedores/mi-perfil/servicios")
@@ -108,15 +100,6 @@ public class OficioProveedorController {
         return ResponseEntity.ok(oficioProveedorService.listarMisServicios(userId));
     }
 
-    @PutMapping("/proveedores/mi-perfil/servicios/{servicioId}")
-    @PreAuthorize("hasRole('OFICIO_ADMIN')")
-    public ResponseEntity<OficioServicioSalidaDto> editarServicio(
-            @PathVariable Long servicioId,
-            @RequestBody OficioServicioEntradaDto dto
-    ) {
-        Long userId = authUtil.extractUserId();
-        return ResponseEntity.ok(oficioProveedorService.editarServicio(userId, servicioId, dto));
-    }
 
     @DeleteMapping("/proveedores/mi-perfil/servicios/{servicioId}")
     @PreAuthorize("hasRole('OFICIO_ADMIN')")
@@ -126,14 +109,7 @@ public class OficioProveedorController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/proveedores/mi-perfil/imagen-perfil")
-    @PreAuthorize("hasRole('OFICIO_ADMIN')")
-    public ResponseEntity<OficioProveedorSalidaDto> actualizarImagenPerfilEmpresa(
-            @Valid @RequestBody OficioImagenPerfilEmpresaEntradaDto dto
-    ) {
-        Long userId = authUtil.extractUserId();
-        return ResponseEntity.ok(oficioProveedorService.actualizarImagenPerfilEmpresa(userId, dto));
-    }
+
 
     @PutMapping("/proveedores/mi-perfil/plan")
     @PreAuthorize("hasRole('OFICIO_ADMIN')")

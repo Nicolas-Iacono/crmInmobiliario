@@ -1,14 +1,15 @@
-package com.backend.crmInmobiliario.DTO.salida.oficios;
+package com.backend.crmInmobiliario.DTO.modificacion;
 
-import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 @Data
-@Builder
-public class OficioServicioSalidaDto {
+@NoArgsConstructor
+public class OficioServicioUpdateDto {
+
     private Long id;
     private Long proveedorId;
     private String titulo;
