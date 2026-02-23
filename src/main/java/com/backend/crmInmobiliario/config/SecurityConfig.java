@@ -57,6 +57,9 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e.authenticationEntryPoint(API_401)) // <- 401 en vez de redirect
 
                 .authorizeHttpRequests(auth -> auth
+                        // ✅ PRE-FLIGHT CORS
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         // --- Webhooks públicos ---
                         .requestMatchers("/api/webhooks/mercadopago",
                                 "/api/webhooks/n8n/stripe/past-due",
@@ -75,6 +78,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/usuario/registrar-admin").permitAll()
                         .requestMatchers("/api/inquilino/register", "/api/inquilino/login").permitAll()
                         .requestMatchers("/api/propietario/register", "/api/propietario/login").permitAll()
+                        .requestMatchers("/api/oficios/proveedores/registro").permitAll()
+                        .requestMatchers("/api/proveedores/auth/login").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/usuario/cobro/**").permitAll()
 
@@ -84,6 +89,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/inquilino/contrato/**").hasRole("INQUILINO_USER")
                         .requestMatchers("/api/propiedad/por-propietario/con-imagenes").hasRole("PROPIETARIO_USER")
                         .requestMatchers("/api/propietario/contratos/por-propietario").hasRole("PROPIETARIO_USER")
+                        .requestMatchers("/api/oficios/servicios/proveedores/me/imagen").hasRole("OFICIO_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/documentos/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
                         // --- Presupuestos ---
@@ -179,7 +185,11 @@ public class SecurityConfig {
                 "http://localhost:8080"
         ));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "x-user-id", "x-username"));
+        config.setAllowedHeaders(Arrays.asList( "Authorization",
+                "Content-Type",
+                "Accept",
+                "Origin",
+                "X-Requested-With"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

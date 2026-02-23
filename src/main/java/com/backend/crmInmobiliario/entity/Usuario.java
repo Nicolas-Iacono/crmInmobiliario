@@ -37,6 +37,7 @@ public class Usuario  implements UserDetails {
     private String provincia;
     private String cuit;
     private String telefono;
+    private String colegio;
 
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL)
     @ToString.Exclude
@@ -68,6 +69,9 @@ public class Usuario  implements UserDetails {
     @OneToMany(mappedBy = "usuario")
     @ToString.Exclude
     private List<Recibo> recibos;
+
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OficioResena> resenasRealizadas = new ArrayList<>();
 
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @ToString.Exclude

@@ -123,6 +123,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         usuarioEntidad.setProvincia(usuario.getProvincia());
         usuarioEntidad.setCuit(usuario.getCuit());
         usuarioEntidad.setTelefono(usuario.getTelefono());
+        usuarioEntidad.setColegio(usuario.getColegio());
 
         Role adminRole = roleRepository.findByRol(RolesCostantes.SUPER_ADMIN)
                 .orElseGet(() -> roleRepository.save(new Role(RolesCostantes.SUPER_ADMIN)));
@@ -162,6 +163,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         usuarioEntidad.setProvincia(admin.getProvincia());
         usuarioEntidad.setCuit(admin.getCuit());
         usuarioEntidad.setTelefono(admin.getTelefono());
+        usuarioEntidad.setColegio(admin.getColegio());
 
         Role adminRole = roleRepository.findByRol(RolesCostantes.ADMIN)
                 .orElseGet(() -> roleRepository.save(new Role(RolesCostantes.ADMIN)));
@@ -210,6 +212,8 @@ public class UserService implements IUsuarioService, UserDetailsService {
         usuarioEntidad.setProvincia(superAdmin.getProvincia());
         usuarioEntidad.setCuit(superAdmin.getCuit());
         usuarioEntidad.setTelefono(superAdmin.getTelefono());
+        usuarioEntidad.setColegio(superAdmin.getColegio());
+
 
         Role adminRole = roleRepository.findByRol(RolesCostantes.SUPER_ADMIN)
                 .orElseGet(() -> roleRepository.save(new Role(RolesCostantes.SUPER_ADMIN)));
@@ -246,6 +250,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         dto.setLocalidad(usuario.getLocalidad());
         dto.setMatricula(usuario.getMatricula());
         dto.setTelefono(usuario.getTelefono());
+        dto.setColegio(usuario.getColegio());
         return dto;
     }
 
@@ -268,6 +273,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         dto.setLocalidad(usuario.getLocalidad());
         dto.setMatricula(usuario.getMatricula());
         dto.setTelefono(usuario.getTelefono());
+        dto.setColegio(usuario.getColegio());
         return dto;
     }
 
@@ -477,6 +483,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         if (dto.getProvincia() != null) usuario.setProvincia(dto.getProvincia());
         if (dto.getCuit() != null) usuario.setCuit(dto.getCuit());
         if (dto.getTelefono() != null) usuario.setTelefono(dto.getTelefono());
+        if (dto.getColegio() != null) usuario.setColegio(dto.getColegio());
 
         Usuario usuarioActualizado = usuarioRepository.save(usuario);
         return modelMapper.map(usuarioActualizado, UsuarioDtoSalida.class);

@@ -43,4 +43,8 @@ public class UserAdminEntradaDto {
     private String cuit;
     @NotBlank(message = "Debe especificarse el telefono")
     private String telefono;
+    @NotBlank(message = "Debe especificarse el colegio al cual pertenece")
+    private String colegio;
+
+
 }

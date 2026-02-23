@@ -23,4 +23,5 @@ public class  UsuarioDtoSalida {
     private String provincia;
     private String cuit;
     private String telefono;
+    private String colegio;
 }

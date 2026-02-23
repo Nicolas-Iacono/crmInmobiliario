@@ -15,4 +15,5 @@ public class ActualizarUsuarioDto {
     private String provincia;
     private String cuit;
     private String telefono;
+    private String colegio;
 }
