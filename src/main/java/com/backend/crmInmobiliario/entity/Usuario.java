@@ -15,7 +15,12 @@ import java.util.stream.Collectors;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "usuario")
+@Table(
+        name = "usuario",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_usuario_email", columnNames = "email")
+        }
+)
 @ToString(onlyExplicitlyIncluded = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Usuario  implements UserDetails {
