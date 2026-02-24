@@ -2,6 +2,7 @@ package com.backend.crmInmobiliario.config;
 
 import com.backend.crmInmobiliario.entity.Usuario;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
+import com.backend.crmInmobiliario.service.impl.UserService;
 import com.backend.crmInmobiliario.utils.JwtUtil;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,20 +11,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
-import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final UsuarioRepository usuarioRepository;
+    private final UserService userService;
     private final JwtUtil jwtUtil;
 
     @Value("${app.oauth2.google.success-url:https://tuinmo.net/auth/google/callback}")
@@ -46,7 +47,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
             return;
         }
 
-        Usuario usuario = usuarioRepository.findByIdentifierWithRoles(email.trim())
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(email.trim())
                 .orElse(null);
 
         if (usuario == null) {
@@ -58,17 +59,11 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         usuario.setGoogleId(googleSub);
         usuarioRepository.save(usuario);
 
-        List<GrantedAuthority> authorities = usuario.getRoles().stream()
-                .flatMap(role -> java.util.stream.Stream.concat(
-                        java.util.stream.Stream.of((GrantedAuthority) () -> "ROLE_" + role.getRol()),
-                        role.getPermisosList().stream().map(perm -> (GrantedAuthority) perm::getName)
-                ))
-                .toList();
-
+        UserDetails userDetails = userService.loadUserByUsername(usuario.getUsername());
         Authentication auth = new UsernamePasswordAuthenticationToken(
-                usuario.getUsername(),
+                userDetails,
                 null,
-                authorities
+                userDetails.getAuthorities()
         );
 
         String accessToken = jwtUtil.createAccessToken(auth, usuario.getId());

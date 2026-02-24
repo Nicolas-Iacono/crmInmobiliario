@@ -13,6 +13,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.password.NoOpPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
@@ -31,10 +33,12 @@ public class SecurityConfig {
     @Autowired
     private JwtTokenValidator jwtTokenValidator;
 
-    private static final AuthenticationEntryPoint API_401 = new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED);
+    private final GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler;
 
-    public SecurityConfig(@Lazy JwtTokenValidator jwtTokenValidator) {
+    private static final AuthenticationEntryPoint API_401 = new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED);
+    public SecurityConfig(@Lazy JwtTokenValidator jwtTokenValidator, GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler) {
         this.jwtTokenValidator = jwtTokenValidator;
+        this.googleOAuth2SuccessHandler = googleOAuth2SuccessHandler;
     }
     // =========================
     // 1) CADENA API (/api/**)
