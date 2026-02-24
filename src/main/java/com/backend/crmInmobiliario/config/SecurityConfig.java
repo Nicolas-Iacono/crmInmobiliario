@@ -18,7 +18,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -39,9 +38,12 @@ public class SecurityConfig {
     @Autowired
     private JwtTokenValidator jwtTokenValidator;
 
+    private final GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler;
+
     private static final AuthenticationEntryPoint API_401 = new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED);
-    public SecurityConfig(@Lazy JwtTokenValidator jwtTokenValidator) {
+    public SecurityConfig(@Lazy JwtTokenValidator jwtTokenValidator, GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler) {
         this.jwtTokenValidator = jwtTokenValidator;
+        this.googleOAuth2SuccessHandler = googleOAuth2SuccessHandler;
     }
     // =========================
     // 1) CADENA API (/api/**)
@@ -145,7 +147,7 @@ public class SecurityConfig {
 
                 // Flujo de OAuth2 (esto solo rige en esta cadena, NO en /api/**)
                 .oauth2Login(oauth -> oauth
-                        .defaultSuccessUrl("https://tuinmo.net?google_link=ok", true)
+                        .successHandler(googleOAuth2SuccessHandler)
                         .failureUrl("https://tuinmo.net?google_link=error")
                 )
                 .oauth2Client(Customizer.withDefaults());
