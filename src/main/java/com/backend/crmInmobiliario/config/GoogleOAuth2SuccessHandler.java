@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -47,7 +49,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
             return;
         }
 
-        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(email.trim())
+        Usuario usuario = usuarioRepository.findByIdentifierWithRoles(email.trim())
                 .orElse(null);
 
         if (usuario == null) {
@@ -59,11 +61,16 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         usuario.setGoogleId(googleSub);
         usuarioRepository.save(usuario);
 
-        UserDetails userDetails = userService.loadUserByUsername(usuario.getUsername());
+        List<GrantedAuthority> authorities = usuario.getRoles().stream()
+                .flatMap(role -> java.util.stream.Stream.concat(
+                        java.util.stream.Stream.of((GrantedAuthority) () -> "ROLE_" + role.getRol()),
+                        role.getPermisosList().stream().map(perm -> (GrantedAuthority) perm::getName)
+                ))
+                .toList();
         Authentication auth = new UsernamePasswordAuthenticationToken(
-                userDetails,
+                usuario.getUsername(),
                 null,
-                userDetails.getAuthorities()
+                authorities
         );
 
         String accessToken = jwtUtil.createAccessToken(auth, usuario.getId());

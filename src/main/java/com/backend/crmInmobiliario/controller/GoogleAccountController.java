@@ -6,6 +6,7 @@ import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.impl.GoogleLinkService;
 import com.backend.crmInmobiliario.utils.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -34,6 +35,8 @@ public class GoogleAccountController {
     private final UsuarioRepository usuarioRepository;
     private final ClientRegistrationRepository clientRegistrationRepository;
 
+    @Value("${google.link.redirect.uri:${google.redirect.uri:}}")
+    private String googleLinkRedirectUri;
     // 1) El front pide authUrl, state y redirectUri basados en el ClientRegistration
     @GetMapping("/link/state")
     public ResponseEntity<Map<String, String>> createState(
@@ -72,18 +75,14 @@ public class GoogleAccountController {
                 .toUriString(); // e.g. http://localhost:8080
 
         String redirectUri;
-        String regRedirect = google.getRedirectUri();
-        if (regRedirect != null && !regRedirect.isBlank()) {
+        if (googleLinkRedirectUri != null && !googleLinkRedirectUri.isBlank()) {
             redirectUri = UriComponentsBuilder
-                    .fromUriString(regRedirect)
-                    .buildAndExpand(Map.of(
-                            "baseUrl", baseUrl,
-                            "registrationId", google.getRegistrationId()))
+                    .fromUriString(googleLinkRedirectUri)
+                    .buildAndExpand(Map.of("baseUrl", baseUrl))
                     .toUriString();
         } else {
             redirectUri = UriComponentsBuilder.fromHttpUrl(baseUrl)
-                    .path("/login/oauth2/code/")
-                    .path(google.getRegistrationId())
+                    .path("/rest/oauth2-credential/callback")
                     .build()
                     .toUriString();
         }

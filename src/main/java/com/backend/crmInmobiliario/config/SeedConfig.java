@@ -19,6 +19,7 @@ public class SeedConfig {
             upsert(repo, "PLAN-PRO", "Pro", new BigDecimal("30000"), 10, true);
             upsert(repo, "PLAN-PROF", "Pro+", new BigDecimal("35000"), 20, true);
             upsert(repo, "PLAN-SUP", "Superior", new BigDecimal("45000"), 30, true);
+            upsert(repo, "PLAN-SUP-PLUS", "Superior+", new BigDecimal("65000"), 60, true);
         };
     }
 

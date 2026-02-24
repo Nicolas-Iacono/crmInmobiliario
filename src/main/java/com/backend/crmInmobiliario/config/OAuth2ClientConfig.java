@@ -19,8 +19,8 @@ public class OAuth2ClientConfig {
     private String googleClientSecret;
 
     // Opcional: si no se define, usamos el default de Spring {baseUrl}/login/oauth2/code/{registrationId}
-    @Value("${google.redirect.uri:}")
-    private String googleRedirectUri;
+    @Value("${google.login.redirect.uri:{baseUrl}/login/oauth2/code/{registrationId}}")
+    private String googleLoginRedirectUri;
 
     @Bean
     public ClientRegistrationRepository clientRegistrationRepository() {
@@ -29,16 +29,14 @@ public class OAuth2ClientConfig {
     }
 
     private ClientRegistration googleClientRegistration() {
-        String redirect = (googleRedirectUri != null && !googleRedirectUri.isBlank())
-                ? googleRedirectUri
-                : "{baseUrl}/login/oauth2/code/{registrationId}";
+
 
         return ClientRegistration.withRegistrationId("google")
                 .clientId(googleClientId)
                 .clientSecret(googleClientSecret)
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .redirectUri(redirect)
+                .redirectUri(googleLoginRedirectUri)
                 .scope("openid", "profile", "email")
                 .authorizationUri("https://accounts.google.com/o/oauth2/v2/auth")
                 .tokenUri("https://oauth2.googleapis.com/token")

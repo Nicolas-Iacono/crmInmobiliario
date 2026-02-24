@@ -36,9 +36,11 @@ public class SecurityConfig {
     private final GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler;
 
     private static final AuthenticationEntryPoint API_401 = new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED);
+
     public SecurityConfig(@Lazy JwtTokenValidator jwtTokenValidator, GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler) {
         this.jwtTokenValidator = jwtTokenValidator;
         this.googleOAuth2SuccessHandler = googleOAuth2SuccessHandler;
+
     }
     // =========================
     // 1) CADENA API (/api/**)

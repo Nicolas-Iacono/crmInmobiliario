@@ -21,8 +21,7 @@ import java.net.URI;
 public class GoogleLinkCallbackController {
     @Value("${google.client.id}")     String clientId;
     @Value("${google.client.secret}") String clientSecret;
-    @Value("${google.redirect.uri}")  String redirectUri;
-
+    @Value("${google.link.redirect.uri:${google.redirect.uri:}}")  String redirectUri;
     @Value("${app.frontend.callback:https://tuinmo.net/ajustes?google_link=ok}")
     String frontendOk;
     @Value("${app.frontend.callback.error:https://tuinmo.net/ajustes?google_link=error}")
