@@ -104,6 +104,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         if (usuarioRepository.existsByUsername(usuario.getUsername())) {
             throw new UsernameAlreadyExistsException("El username ya se encuentra registrado");
         }
+        validarEmailUnicoEnAlta(usuario.getEmail());
 
         LOGGER.info("UsuarioEntradaDto: " + JsonPrinter.toString(usuario));
 
@@ -115,7 +116,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         usuarioEntidad.setUsername(usuario.getUsername());
         usuarioEntidad.setPassword(passwordEncoder.encode(usuario.getPassword()));
         usuarioEntidad.setNombreNegocio(usuario.getNombreNegocio());
-        usuarioEntidad.setEmail(usuario.getEmail());
+        usuarioEntidad.setEmail(normalizarEmail(usuario.getEmail()));
         usuarioEntidad.setMatricula(usuario.getMatricula());
         usuarioEntidad.setRazonSocial(usuario.getRazonSocial());
         usuarioEntidad.setLocalidad(usuario.getLocalidad());
@@ -145,6 +146,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         if (usuarioRepository.existsByUsername(admin.getUsername())) {
             throw new UsernameAlreadyExistsException("El username ya se encuentra registrado");
         }
+        validarEmailUnicoEnAlta(admin.getEmail());
 
         LOGGER.info("UsuarioEntradaDto: " + JsonPrinter.toString(admin));
 
@@ -155,7 +157,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         usuarioEntidad.setUsername(admin.getUsername());
         usuarioEntidad.setPassword(passwordEncoder.encode(admin.getPassword()));
         usuarioEntidad.setNombreNegocio(admin.getNombreNegocio());
-        usuarioEntidad.setEmail(admin.getEmail());
+        usuarioEntidad.setEmail(normalizarEmail(admin.getEmail()));
         usuarioEntidad.setMatricula(admin.getMatricula());
         usuarioEntidad.setRazonSocial(admin.getRazonSocial());
         usuarioEntidad.setLocalidad(admin.getLocalidad());
@@ -193,6 +195,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         if (usuarioRepository.existsByUsername(superAdmin.getUsername())) {
             throw new UsernameAlreadyExistsException("El username ya se encuentra registrado");
         }
+        validarEmailUnicoEnAlta(superAdmin.getEmail());
 
         LOGGER.info("UsuarioEntradaDto: " + JsonPrinter.toString(superAdmin));
 
@@ -204,7 +207,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         usuarioEntidad.setUsername(superAdmin.getUsername());
         usuarioEntidad.setPassword(passwordEncoder.encode(superAdmin.getPassword()));
         usuarioEntidad.setNombreNegocio(superAdmin.getNombreNegocio());
-        usuarioEntidad.setEmail(superAdmin.getEmail());
+        usuarioEntidad.setEmail(normalizarEmail(superAdmin.getEmail()));
         usuarioEntidad.setMatricula(superAdmin.getMatricula());
         usuarioEntidad.setRazonSocial(superAdmin.getRazonSocial());
         usuarioEntidad.setLocalidad(superAdmin.getLocalidad());
@@ -475,7 +478,10 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
         // Actualizar los campos
         if (dto.getNombreNegocio() != null) usuario.setNombreNegocio(dto.getNombreNegocio());
-        if (dto.getEmail() != null) usuario.setEmail(dto.getEmail());
+        if (dto.getEmail() != null) {
+            validarEmailUnicoEnActualizacion(dto.getEmail(), usuario.getId());
+            usuario.setEmail(normalizarEmail(dto.getEmail()));
+        }
         if (dto.getMatricula() != null) usuario.setMatricula(dto.getMatricula());
         if (dto.getRazonSocial() != null) usuario.setRazonSocial(dto.getRazonSocial());
         if (dto.getLocalidad() != null) usuario.setLocalidad(dto.getLocalidad());
@@ -496,6 +502,24 @@ public class UserService implements IUsuarioService, UserDetailsService {
         int deleted = usuarioRepository.deleteByNombreNegocio(nombreNegocio);
         LOGGER.info("deleteByNombreNegocio('{}') -> {} fila(s) borrada(s)", nombreNegocio, deleted);
         return deleted > 0;
+    }
+
+    private void validarEmailUnicoEnAlta(String email) {
+        String emailNormalizado = normalizarEmail(email);
+        if (usuarioRepository.existsByEmailIgnoreCase(emailNormalizado)) {
+            throw new UsernameAlreadyExistsException("El email ya se encuentra registrado");
+        }
+    }
+
+    private void validarEmailUnicoEnActualizacion(String email, Long userId) {
+        String emailNormalizado = normalizarEmail(email);
+        if (usuarioRepository.existsByEmailIgnoreCaseAndIdNot(emailNormalizado, userId)) {
+            throw new UsernameAlreadyExistsException("El email ya se encuentra registrado");
+        }
+    }
+
+    private String normalizarEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 
 

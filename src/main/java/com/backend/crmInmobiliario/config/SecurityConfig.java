@@ -1,7 +1,6 @@
 package com.backend.crmInmobiliario.config;
 
 import com.backend.crmInmobiliario.config.filter.JwtTokenValidator;
-import com.backend.crmInmobiliario.service.impl.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,18 +8,11 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.NoOpPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
@@ -40,6 +32,7 @@ public class SecurityConfig {
     private JwtTokenValidator jwtTokenValidator;
 
     private static final AuthenticationEntryPoint API_401 = new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED);
+
     public SecurityConfig(@Lazy JwtTokenValidator jwtTokenValidator) {
         this.jwtTokenValidator = jwtTokenValidator;
     }
@@ -118,7 +111,7 @@ public class SecurityConfig {
     // =========================
     @Bean
     @Order(2)
-    public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain webSecurityFilterChain(HttpSecurity http, @Lazy GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler) throws Exception {
         http
                 .cors(c -> c.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
@@ -145,33 +138,12 @@ public class SecurityConfig {
 
                 // Flujo de OAuth2 (esto solo rige en esta cadena, NO en /api/**)
                 .oauth2Login(oauth -> oauth
-                        .defaultSuccessUrl("https://tuinmo.net?google_link=ok", true)
+                        .successHandler(googleOAuth2SuccessHandler)
                         .failureUrl("https://tuinmo.net?google_link=error")
                 )
                 .oauth2Client(Customizer.withDefaults());
 
         return http.build();
-    }
-
-    // =========================
-    // Beans comunes
-    // =========================
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration conf) throws Exception {
-        return conf.getAuthenticationManager();
-    }
-
-    @Bean
-    public AuthenticationProvider authenticationProvider(UserService userService) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setPasswordEncoder(passwordEncoder());
-        provider.setUserDetailsService(userService);
-        return provider;
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return NoOpPasswordEncoder.getInstance(); // ⚠️ En producción cambiá por BCrypt
     }
 
     @Bean

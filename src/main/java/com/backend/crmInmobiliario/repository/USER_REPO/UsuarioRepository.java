@@ -27,6 +27,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Long> {
 
     Optional<Usuario> findByEmail(String email);
 
+    Optional<Usuario> findByEmailIgnoreCase(String email);
+
 
     boolean existsByUsername(String username);
 
@@ -47,6 +49,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Long> {
     int deleteByNombreNegocio(@Param("nombreNegocio") String nombreNegocio);
 
     boolean existsByEmail(String email);
+
+    boolean existsByEmailIgnoreCase(String email);
+
+    boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
 
     @Query("SELECT u FROM Usuario u LEFT JOIN FETCH u.propietario WHERE u.id = :id")
     Optional<Usuario> findUserById(@Param("id") Long id);
@@ -72,12 +78,12 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Long> {
 
 
     @Query("""
-select u from Usuario u
+select distinct u from Usuario u
 left join fetch u.roles r
 left join fetch r.permisosList p
-where u.username = :identifier
-   or u.email = :identifier
-   or u.nombreNegocio = :identifier
+where lower(u.username) = lower(:identifier)
+   or lower(u.email) = lower(:identifier)
+   or lower(u.nombreNegocio) = lower(:identifier)
 """)
     Optional<Usuario> findByIdentifierWithRolesAndPerms(@Param("identifier") String identifier);
 
