@@ -7,6 +7,7 @@ import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.entity.Contrato;
 import com.backend.crmInmobiliario.entity.Garante;
 import com.backend.crmInmobiliario.entity.Inquilino;
@@ -25,6 +26,10 @@ import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -80,6 +85,32 @@ public class GaranteService implements IGaranteService {
         return garanteList.stream()
                 .map(garante -> modelMapper.map(garante, GaranteSalidaDto.class))
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public PageResponse<GaranteSalidaDto> listarGarantesXPagina(int page) throws ResourceNotFoundException {
+        Long idUser = authUtil.extractUserId();
+        LOGGER.info("✅ User ID desde JWT: {}", idUser);
+
+        // opcional pero recomendable: validar que exista el usuario
+        usuarioRepository.findById(idUser)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        // Si tu clase Persona tiene "id" como campo (lo normal), esto sirve.
+        // Si el id real se llama distinto, sacá el Sort o poné el nombre correcto.
+        Pageable pageable = PageRequest.of(page, 6, Sort.by(Sort.Direction.DESC, "id"));
+
+        Page<Garante> pageResult = garanteRepository.findAllByUsuario_Id(idUser, pageable);
+
+        return new PageResponse<>(
+                pageResult.getContent().stream()
+                        .map(p -> modelMapper.map(p, GaranteSalidaDto.class))
+                        .toList(),
+                pageResult.getNumber(),
+                pageResult.getTotalPages(),
+                pageResult.getTotalElements()
+        );
     }
     @Transactional
     @Override

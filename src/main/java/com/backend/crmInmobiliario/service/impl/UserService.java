@@ -21,10 +21,7 @@ import com.backend.crmInmobiliario.repository.USER_REPO.RoleRepository;
 import com.backend.crmInmobiliario.repository.USER_REPO.UsuarioRepository;
 import com.backend.crmInmobiliario.service.IUsuarioService;
 import com.backend.crmInmobiliario.service.impl.nodeMailer.EmailService;
-import com.backend.crmInmobiliario.utils.ApiResponse;
-import com.backend.crmInmobiliario.utils.JsonPrinter;
-import com.backend.crmInmobiliario.utils.JwtUtil;
-import com.backend.crmInmobiliario.utils.RolesCostantes;
+import com.backend.crmInmobiliario.utils.*;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -143,8 +140,29 @@ public class UserService implements IUsuarioService, UserDetailsService {
     @Transactional
     @Override
     public TokenDtoSalida registrarUsuarioAdmin(UserAdminEntradaDto admin) {
+        FieldValidationException errors = new FieldValidationException();
+
         if (usuarioRepository.existsByUsername(admin.getUsername())) {
-            throw new UsernameAlreadyExistsException("El username ya se encuentra registrado");
+            errors.addError("username", "El username ya se encuentra registrado");
+        }
+
+        if (usuarioRepository.existsByEmail(normalizarEmail(admin.getEmail()))) {
+            errors.addError("email", "El email ya se encuentra registrado");
+        }
+
+        if (usuarioRepository.existsByNombreNegocio(admin.getNombreNegocio())) {
+            errors.addError("nombreNegocio", "Ya existe una inmobiliaria registrada con el mismo nombre");
+        }
+
+        if (usuarioRepository.existsByCuit(admin.getCuit())) {
+            errors.addError("cuit", "Ya existe una usuario registrado con este cuit");
+        }
+
+
+
+
+        if (!errors.getErrors().isEmpty()) {
+            throw errors;
         }
         validarEmailUnicoEnAlta(admin.getEmail());
 

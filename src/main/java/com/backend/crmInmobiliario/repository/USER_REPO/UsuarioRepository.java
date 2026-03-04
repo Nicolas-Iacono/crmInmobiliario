@@ -29,8 +29,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Long> {
 
     Optional<Usuario> findByEmailIgnoreCase(String email);
 
-
+    boolean existsByNombreNegocio(String nombreNegocio);
     boolean existsByUsername(String username);
+    boolean existsByCuit(String cuit);
 
     // Para evitar condiciones de carrera, bloqueamos el usuario en la transacción
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -81,8 +82,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Long> {
 select distinct u from Usuario u
 left join fetch u.roles r
 left join fetch r.permisosList p
-where lower(u.username) = lower(:identifier)
-   or lower(u.email) = lower(:identifier)
+where lower(u.email) = lower(:identifier)
    or lower(u.nombreNegocio) = lower(:identifier)
 """)
     Optional<Usuario> findByIdentifierWithRolesAndPerms(@Param("identifier") String identifier);
@@ -111,4 +111,6 @@ where lower(u.username) = lower(:identifier)
         where u.id = :userId
     """)
     Optional<DatosCobroSoloUser> findDatosCobroById(@Param("userId") Long userId);
+
+    Optional<Usuario> findByPropietario_Id(Long propietarioId);
 }

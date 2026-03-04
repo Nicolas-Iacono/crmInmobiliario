@@ -31,5 +31,10 @@ public class PropiedadSoloSalidaDto {
     private PropietarioContratoDtoSalida propietarioContratoDtoSalida;
     private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
     private UsuarioDtoSalida usuarioDtoSalida;
+    private Double metrosCuadradosCubierto;
+    private Double metrosCuadradosDescubierto;
+    private Double metrosCuadradosTotales;
+    private Double metrosFrente;
+    private Double metrosFondo;
 
 }

@@ -440,6 +440,12 @@ public class ContratoService implements IContratoService {
         if (dto.getLuzEmpresa() != null) contrato.setLuzEmpresa(dto.getLuzEmpresa());
         if (dto.getMunicipalEmpresa() != null) contrato.setMunicipalEmpresa(dto.getMunicipalEmpresa());
 
+        if (dto.getAguaCuentaServicio() != null) contrato.setAguaCuentaServicio(dto.getAguaCuentaServicio());
+        if (dto.getGasNroCuenta() != null) contrato.setGasNroCliente(dto.getGasNroCuenta());
+        if (dto.getLuzNroMedidor() != null) contrato.setLuzNroMedidor(dto.getLuzNroMedidor());
+        if (dto.getLuzNroCliente() != null) contrato.setLuzNroCliente(dto.getLuzNroCliente());
+        if (dto.getMunicipalNroCuenta() != null) contrato.setMunicipalNroCuenta(dto.getMunicipalNroCuenta());
+
         if (dto.getAguaPorcentaje() != null) contrato.setAguaPorcentaje(dto.getAguaPorcentaje());
         if (dto.getGasPorcentaje() != null) contrato.setGasPorcentaje(dto.getGasPorcentaje());
         if (dto.getLuzPorcentaje() != null) contrato.setLuzPorcentaje(dto.getLuzPorcentaje());
@@ -608,6 +614,13 @@ public class ContratoService implements IContratoService {
 
         // Crear contrato
         Contrato contratoEnCreacion = modelMapper.map(contratoEntradaDto, Contrato.class);
+
+        contratoEnCreacion.setAguaCuentaServicio(null);
+        contratoEnCreacion.setLuzNroCliente(null);
+        contratoEnCreacion.setLuzNroMedidor(null);
+        contratoEnCreacion.setGasNroCliente(null);
+        contratoEnCreacion.setMunicipalNroCuenta(null);
+
         contratoEnCreacion.setFecha_inicio(fechaInicio);
         contratoEnCreacion.setFecha_fin(fechaFin);
 

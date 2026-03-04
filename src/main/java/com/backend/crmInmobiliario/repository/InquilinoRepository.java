@@ -5,6 +5,9 @@ import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoUser;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioUser;
 import com.backend.crmInmobiliario.entity.Garante;
 import com.backend.crmInmobiliario.entity.Inquilino;
+import com.backend.crmInmobiliario.entity.Propietario;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -76,4 +79,7 @@ public interface InquilinoRepository extends JpaRepository<Inquilino, Long> {
       )
 """)
     List<Inquilino> buscarPorNombreOApellido(@Param("texto") String texto, @Param("userId") Long userId);
+
+
+    Page<Inquilino> findAllByUsuario_Id(Long userId, Pageable pageable);
 }

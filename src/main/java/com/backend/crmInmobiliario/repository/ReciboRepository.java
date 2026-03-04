@@ -350,5 +350,7 @@ where r.id = :reciboId
 """)
     List<Recibo> findLatestReciboPerContratoOwner(@Param("userId") Long userId);
 
+    boolean existsByContratoIdAndPeriodo(Long contratoId, String periodo);
+
 }
 

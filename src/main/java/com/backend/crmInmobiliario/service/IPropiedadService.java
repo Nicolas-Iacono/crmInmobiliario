@@ -4,6 +4,7 @@ import com.backend.crmInmobiliario.DTO.entrada.propiedades.PropiedadEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.PropiedadModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSoloSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -30,4 +31,6 @@ public interface IPropiedadService {
     List<PropiedadSoloSalidaDto> buscarPorEmailPropietario(String email);
 
     List<PropiedadSalidaDto> listarPropiedadesPorUsuarioId(Long userId);
+
+    PageResponse<PropiedadSalidaDto> listarPropiedadesXPage(int page) throws ResourceNotFoundException;
 }

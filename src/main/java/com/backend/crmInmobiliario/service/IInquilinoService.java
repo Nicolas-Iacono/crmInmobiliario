@@ -4,6 +4,7 @@ import com.backend.crmInmobiliario.DTO.entrada.InquilinoEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoUser;
+import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioUser;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 
@@ -25,4 +26,6 @@ public interface IInquilinoService {
     InquilinoUser listarCredenciales(Long propietarioId) throws ResourceNotFoundException;
 
     List<InquilinoSalidaDto> listarInquilinosPorUsuarioId(Long userId);
+
+    public PageResponse<InquilinoSalidaDto> listarInquilinosXPagina(int page) throws ResourceNotFoundException;
 }

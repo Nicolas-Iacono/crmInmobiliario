@@ -32,5 +32,10 @@ public class PropiedadSalidaDtoNoRecursivo {
     private TipoOperacionPropiedad tipoOperacion;
     private boolean visibleAOtros;
     private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
+    private Double metrosCuadradosCubierto;
+    private Double metrosCuadradosDescubierto;
+    private Double metrosCuadradosTotales;
+    private Double metrosFrente;
+    private Double metrosFondo;
 
 }

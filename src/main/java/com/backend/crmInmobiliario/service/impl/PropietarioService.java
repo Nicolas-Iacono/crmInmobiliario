@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.service.impl;
 import com.backend.crmInmobiliario.DTO.entrada.PropietarioEntradaDto;
 //import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.PropietarioDtoModificacion;
+import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioUser;
 import com.backend.crmInmobiliario.entity.Inquilino;
@@ -24,6 +25,10 @@ import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -80,6 +85,8 @@ public class PropietarioService implements IPropietarioService {
                 })
                 .toList();
     }
+
+
 
     @Override
     @Transactional
@@ -245,19 +252,32 @@ public class PropietarioService implements IPropietarioService {
     @Transactional
     @Override
     public void eliminarPropietario(Long id) throws ResourceNotFoundException {
+        Long idUser = authUtil.extractUserId();
+
         Propietario propietario = propietarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Propietario no encontrado"));
 
-        // ✅ 1) Antes de borrar: cortar relación con propiedades
+        // ✅ Seguridad: solo podés borrar propietarios de tu usuario
+        if (propietario.getUsuario() == null || !propietario.getUsuario().getId().equals(idUser)) {
+            throw new RuntimeException("No tenés permiso para eliminar este propietario");
+        }
+
+        // ✅ 0) CORTE CLAVE: limpiar FK usuario.propietario_id que te rompe el delete
+        usuarioRepository.findByPropietario_Id(id).ifPresent(u -> {
+            u.setPropietario(null);
+            usuarioRepository.save(u);
+        });
+
+        // ✅ 1) Antes de borrar: cortar relación con propiedades (como ya hacías)
         if (propietario.getPropiedades() != null) {
             propietario.getPropiedades().forEach(p -> p.setPropietario(null));
             propietario.getPropiedades().clear();
         }
 
-        // ✅ 2) Eliminar en MySQL
+        // ✅ 2) Borrar en MySQL
         propietarioRepository.delete(propietario);
 
-        // ✅ 3) Eliminar embedding en Supabase de manera asíncrona
+        // ✅ 3) Embedding async (ok)
         CompletableFuture.runAsync(() -> {
             try {
                 eliminarPropietarioEmbeddingSupabase(id);
@@ -387,6 +407,33 @@ public class PropietarioService implements IPropietarioService {
                     return dto;
                 })
                 .toList();
+    }
+
+    @Transactional()
+    @Override
+    public PageResponse<PropietarioSalidaDto> listarPropietarios(int page) throws ResourceNotFoundException {
+
+        Long idUser = authUtil.extractUserId();
+        LOGGER.info("✅ User ID desde JWT: {}", idUser);
+
+        // opcional pero recomendable: validar que exista el usuario
+        usuarioRepository.findById(idUser)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        // Si tu clase Persona tiene "id" como campo (lo normal), esto sirve.
+        // Si el id real se llama distinto, sacá el Sort o poné el nombre correcto.
+        Pageable pageable = PageRequest.of(page, 6, Sort.by(Sort.Direction.DESC, "id"));
+
+        Page<Propietario> pageResult = propietarioRepository.findAllByUsuario_Id(idUser, pageable);
+
+        return new PageResponse<>(
+                pageResult.getContent().stream()
+                        .map(p -> modelMapper.map(p, PropietarioSalidaDto.class))
+                        .toList(),
+                pageResult.getNumber(),
+                pageResult.getTotalPages(),
+                pageResult.getTotalElements()
+        );
     }
 }
 

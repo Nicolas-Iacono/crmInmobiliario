@@ -7,6 +7,8 @@ import com.backend.crmInmobiliario.DTO.salida.ImgUrlSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.PropiedadSoloSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
+import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.prospecto.ProspectoSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.PropietarioRepository;
@@ -203,5 +205,14 @@ public class PropiedadController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>("Error interno al listar prospectos compatibles", null));
         }
+    }
+
+
+
+    @GetMapping("/lista/page")
+    public ResponseEntity<PageResponse<PropiedadSalidaDto>> listar(
+            @RequestParam(defaultValue = "0") int page
+    ) throws ResourceNotFoundException {
+        return ResponseEntity.ok(propiedadService.listarPropiedadesXPage(page));
     }
 }

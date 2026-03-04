@@ -3,6 +3,8 @@ package com.backend.crmInmobiliario.repository;
 import com.backend.crmInmobiliario.entity.Inquilino;
 import com.backend.crmInmobiliario.entity.Propiedad;
 import com.backend.crmInmobiliario.entity.Propietario;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -31,4 +33,6 @@ public interface PropiedadRepository extends JpaRepository<Propiedad,Long> {
     List<Propiedad> findByUsuarioIdAndDisponibilidadTrue(Long usuarioId);
 
     List<Propiedad> findByUsuarioIdNotAndVisibleAOtrosTrueAndDisponibilidadTrue(Long usuarioId);
+
+    Page<Propiedad> findAllByUsuario_Id(Long userId, Pageable pageable);
 }

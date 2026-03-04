@@ -5,10 +5,12 @@ import com.backend.crmInmobiliario.DTO.entrada.InquilinoEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.LoginInquilinoEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.RegistroInquilinoDto;
 import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
+import com.backend.crmInmobiliario.DTO.salida.PropiedadSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoUser;
+import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioUser;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.IUserInquilinoService;
@@ -173,6 +175,13 @@ public class Inquilino {
 
     }
 
+
+    @GetMapping("/lista/page")
+    public ResponseEntity<PageResponse<InquilinoSalidaDto>> listar(
+            @RequestParam(defaultValue = "0") int page
+    ) throws ResourceNotFoundException {
+        return ResponseEntity.ok(inquilinoService.listarInquilinosXPagina(page));
+    }
 //
 //    @PostMapping("/{id}/imagenes")
 //    public ResponseEntity<?> subirImagenesAInquilino(@PathVariable Long id,

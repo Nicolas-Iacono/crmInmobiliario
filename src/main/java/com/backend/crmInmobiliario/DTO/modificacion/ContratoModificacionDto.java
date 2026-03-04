@@ -37,15 +37,20 @@ public class ContratoModificacionDto {
     // ===== Servicios =====
     private String aguaEmpresa;
     private BigDecimal aguaPorcentaje;
+    private String aguaCuentaServicio;
 
     private String luzEmpresa;
     private BigDecimal luzPorcentaje;
+    private String luzNroCliente;
+    private String luzNroMedidor;
 
     private String gasEmpresa;
     private BigDecimal gasPorcentaje;
+    private String gasNroCuenta;
 
     private String municipalEmpresa;
     private BigDecimal municipalPorcentaje;
+    private String municipalNroCuenta;
 
     // ===== Condiciones contrato =====
     private Integer actualizacion;

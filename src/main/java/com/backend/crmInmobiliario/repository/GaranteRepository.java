@@ -1,6 +1,9 @@
 package com.backend.crmInmobiliario.repository;
 import com.backend.crmInmobiliario.entity.Contrato;
 import com.backend.crmInmobiliario.entity.Garante;
+import com.backend.crmInmobiliario.entity.Propietario;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -36,4 +39,5 @@ public interface GaranteRepository extends JpaRepository<Garante, Long> {
 """)
     List<Garante> findGarantesByContratoId(Long id);
 
+    Page<Garante> findAllByUsuario_Id(Long userId, Pageable pageable);
 }

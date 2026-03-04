@@ -4,6 +4,7 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.backend.crmInmobiliario.DTO.entrada.propiedades.PropiedadEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.PropiedadModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.*;
+import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -28,6 +29,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -170,6 +175,10 @@ public class PropiedadService implements IPropiedadService {
         propiedad.setInventario(propiedadEntradaDto.getInventario());
         propiedad.setDisponibilidad(propiedadEntradaDto.getDisponibilidad());
         propiedad.setPrecio(propiedadEntradaDto.getPrecio());
+        propiedad.setMetrosCuadradosCubierto(propiedadEntradaDto.getMetrosCuadradosCubierto());
+        propiedad.setMetrosCuadradosDescubierto(propiedadEntradaDto.getMetrosCuadradosDescubierto());
+        propiedad.setMetrosFrente(propiedadEntradaDto.getMetrosFrente());
+        propiedad.setMetrosFondo(propiedadEntradaDto.getMetrosFondo());
         propiedad.setMoneda(
                 propiedadEntradaDto.getMoneda() != null
                         ? propiedadEntradaDto.getMoneda()
@@ -368,6 +377,10 @@ public class PropiedadService implements IPropiedadService {
         if (dto.getDireccion() != null) propiedad.setDireccion(dto.getDireccion());
         if (dto.getLocalidad() != null) propiedad.setLocalidad(dto.getLocalidad());
         if (dto.getPartido() != null) propiedad.setPartido(dto.getPartido());
+        if (dto.getMetrosCuadradosCubierto() != null) propiedad.setMetrosCuadradosCubierto(dto.getMetrosCuadradosCubierto());
+        if (dto.getMetrosCuadradosDescubierto() != null) propiedad.setMetrosCuadradosDescubierto(dto.getMetrosCuadradosDescubierto());
+        if (dto.getMetrosFondo() != null) propiedad.setMetrosFondo(dto.getMetrosFondo());
+        if (dto.getMetrosFrente() != null) propiedad.setMetrosFrente(dto.getMetrosFrente());
         if (dto.getProvincia() != null) propiedad.setProvincia(dto.getProvincia());
         if (dto.getTipo() != null) propiedad.setTipo(dto.getTipo());
         if (dto.getInventario() != null) propiedad.setInventario(dto.getInventario());
@@ -555,5 +568,58 @@ public class PropiedadService implements IPropiedadService {
                 .map(propiedad -> modelMapper.map(propiedad, PropiedadSalidaDto.class))
                 .toList();
     }
+
+    @Override
+    @Transactional()
+    public PageResponse<PropiedadSalidaDto> listarPropiedadesXPage(int page) throws ResourceNotFoundException {
+
+        Long idUser = authUtil.extractUserId();
+
+        usuarioRepository.findById(idUser)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        Pageable pageable = PageRequest.of(page, 6);
+
+        Page<Propiedad> pageResult = propiedadRepository.findAllByUsuario_Id(idUser, pageable);
+
+        return new PageResponse<>(
+                pageResult.getContent().stream()
+                        .map(p -> modelMapper.map(p, PropiedadSalidaDto.class))
+                        .toList(),
+                pageResult.getNumber(),
+                pageResult.getTotalPages(),
+                pageResult.getTotalElements()
+        );
+    }
+
+
+//    List<Propiedad> propiedades = propiedadRepository.findAll();
+//
+//        return propiedades.stream()
+//                .filter(Objects::nonNull)
+//                .map(propiedad -> {
+//        PropiedadSoloSalidaDto dto = modelMapper.map(propiedad, PropiedadSoloSalidaDto.class);
+//
+//        if (propiedad.getImagenes() != null && !propiedad.getImagenes().isEmpty()) {
+//            List<ImgUrlSalidaDto> imagenesDto = propiedad.getImagenes().stream()
+//                    .map(img -> {
+//                        ImgUrlSalidaDto imgDto = new ImgUrlSalidaDto();
+//                        imgDto.setIdImage(img.getIdImage());
+//                        imgDto.setImageUrl(img.getImageUrl());
+//                        imgDto.setNombreOriginal(img.getNombreOriginal());
+//                        imgDto.setTipoImagen(img.getTipoImagen());
+//                        imgDto.setFechaSubida(img.getFechaSubida());
+//                        return imgDto;
+//                    })
+//                    .toList();
+//            dto.setImagenes(imagenesDto);
+//        } else {
+//            dto.setImagenes(Collections.emptyList());
+//        }
+//
+//        return dto;
+//    })
+//            .toList();
+//}
 
 }

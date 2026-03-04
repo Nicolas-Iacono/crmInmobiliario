@@ -7,6 +7,7 @@ import com.backend.crmInmobiliario.DTO.entrada.usuarioPropietario.RegistroPropie
 import com.backend.crmInmobiliario.DTO.modificacion.PropietarioDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.contrato.ContratoSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.propietario.PropietarioUser;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
@@ -69,7 +70,12 @@ public class PropietarioController {
     }
 
 
-
+    @GetMapping("/lista/page")
+    public ResponseEntity<PageResponse<PropietarioSalidaDto>> listar(
+            @RequestParam(defaultValue = "0") int page
+    ) throws ResourceNotFoundException {
+        return ResponseEntity.ok(propietarioService.listarPropietarios(page));
+    }
 
     @Transactional
     @GetMapping("/enum")

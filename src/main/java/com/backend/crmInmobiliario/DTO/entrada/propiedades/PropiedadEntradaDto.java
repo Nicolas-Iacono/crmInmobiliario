@@ -40,5 +40,9 @@ public class PropiedadEntradaDto {
 
     private String inventario;
     private String tipo;
+    private Double metrosCuadradosCubierto;
+    private Double metrosCuadradosDescubierto;
 
+    private Double metrosFrente;
+    private Double metrosFondo;
 }

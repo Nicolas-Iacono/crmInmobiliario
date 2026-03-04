@@ -5,6 +5,8 @@ import com.backend.crmInmobiliario.entity.Inquilino;
 import com.backend.crmInmobiliario.entity.Propiedad;
 import com.backend.crmInmobiliario.entity.Propietario;
 import com.backend.crmInmobiliario.entity.Usuario;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -41,4 +43,7 @@ public interface PropietarioRepository extends JpaRepository<Propietario, Long> 
     Optional<Propietario> findByDniAndUsuarioId(String dni, Long userId);
 
     Optional<Propietario> findByEmailIgnoreCaseAndUsuarioId(String email, Long userId);
+
+    Page<Propietario> findAllByUsuario_Id(Long userId, Pageable pageable);
+
 }

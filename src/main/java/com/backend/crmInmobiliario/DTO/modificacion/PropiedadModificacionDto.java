@@ -24,6 +24,11 @@ public class PropiedadModificacionDto {
     private Boolean patio;
     private Boolean balcon;
     private boolean visibleAOtros;
+    private Double metrosCuadradosCubierto;
+    private Double metrosCuadradosDescubierto;
+
+    private Double metrosFrente;
+    private Double metrosFondo;
 
     private Long propietarioId;
 }

@@ -1037,5 +1037,94 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
             return dto;
         }).toList();
     }
+    private String normalizarPeriodo(String periodo) {
+        if (periodo == null) throw new IllegalArgumentException("Periodo obligatorio");
+        String p = periodo.trim().toLowerCase(Locale.forLanguageTag("es-AR"));
+        // opcional: reemplazar múltiples espacios por uno
+        p = p.replaceAll("\\s+", " ");
+        return p;
+    }
 
+    @Transactional
+    public ReciboSalidaDto crearReciboAutomatico(Long contratoId, String periodo) throws IOException {
+
+        Long userId = authUtil.extractUserId();
+        Usuario usuario = usuarioRepository.findUserById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        Contrato contrato = contratoRepository.findById(contratoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado"));
+
+        contratoService.validarAccesoPorSuscripcion(contrato.getUsuario());
+
+        String periodoNorm = normalizarPeriodo(periodo);
+
+        if (reciboRepository.existsByContratoIdAndPeriodo(contratoId, periodoNorm)) {
+            throw new IllegalStateException("Ya existe un recibo para ese contrato y período: " + periodoNorm);
+        }
+
+        Recibo recibo = new Recibo();
+        recibo.setUsuario(usuario);
+        recibo.setContrato(contrato);
+        recibo.setPeriodo(periodoNorm);
+
+        // fechas: las definís según tu regla (ej: emision hoy, vencimiento día X)
+        recibo.setFechaEmision(LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires")));
+        recibo.setFechaVencimiento(LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires")).plusDays(10));
+
+        // concepto / numero
+        recibo.setConcepto("Alquiler " + periodoNorm);
+        recibo.setNumeroRecibo(generarNumeroRecibo(contrato)); // si ya tenés lógica, usala
+
+        // 1) alquiler base del contrato
+        Double alquilerBase = contrato.getMontoAlquiler(); // ajustá al nombre real
+        if (alquilerBase == null) alquilerBase = Double.ZERO;
+
+        // 2) impuestos desde plantillas
+        List<ContratoImpuestoTemplate> tpls = contratoImpuestoTemplateRepository
+                .findByContratoIdAndActivoTrue(contratoId);
+
+        if (tpls != null && !tpls.isEmpty()) {
+            for (ContratoImpuestoTemplate t : tpls) {
+                ImpuestoEntradaDto dto = new ImpuestoEntradaDto();
+                dto.setTipoImpuesto(t.getTipoImpuesto());
+                dto.setDescripcion(t.getDescripcion());
+                dto.setEmpresa(t.getEmpresa());
+                dto.setNumeroCliente(t.getNumeroCliente());
+                dto.setNumeroMedidor(t.getNumeroMedidor());
+
+                dto.setMontoBase(t.getMontoBase());      // 👈 base del impuesto
+                dto.setPorcentaje(t.getPorcentaje());    // 👈 porcentaje sobre el impuesto
+
+                // dto.setFechaFactura(null); dto.setArchivoFactura(null); etc.
+
+                Impuesto imp = convertToImpuesto(dto);
+                imp.setRecibo(recibo);
+                recibo.getImpuestos().add(imp);
+            }
+        }
+
+        // 3) total = alquiler + sum(impuestos)
+        BigDecimal totalImpuestos = recibo.getImpuestos().stream()
+                .map(Impuesto::getMontoAPagar)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        recibo.setMontoTotal(alquilerBase.add(totalImpuestos));
+
+        Recibo guardado = reciboRepository.save(recibo);
+
+        // sync igual que hoy
+        CompletableFuture.runAsync(() -> {
+            try {
+                guardarReciboEnSupabase(guardado);
+                upsertReciboEmbedding(guardado);
+                contratoService.actualizarContratoEnSupabasePorId(contrato.getId());
+            } catch (Exception e) {
+                LOGGER.error("⚠️ Error sync recibo automático: {}", e.getMessage());
+            }
+        });
+
+        return modelMapper.map(guardado, ReciboSalidaDto.class);
+    }
 }

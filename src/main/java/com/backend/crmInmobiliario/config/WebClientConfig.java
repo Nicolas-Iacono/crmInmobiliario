@@ -24,13 +24,18 @@ public class WebClientConfig {
         return b.baseUrl("https://oauth2.googleapis.com").build();
     }
 
-    @Bean
-    public WebClient webClient(WebClient.Builder builder) {
-        return builder
-//                .baseUrl("https://primary-production-9170b.up.railway.app/webhook")
-                .baseUrl("https://crminmobiliario-app-production.up.railway.app")
-                .build();
-    }
+//    @Bean
+//    public WebClient webClient(WebClient.Builder builder) {
+//        return builder
+//               .baseUrl("https://primary-production-9170b.up.railway.app/webhook")
+//                .baseUrl("https://crminmobiliario-app-production.up.railway.app")
+//                .build();
+//    }
+
+@Bean
+public WebClient webClient(WebClient.Builder builder) {
+    return builder.build();
+}
 
     @Bean
     public RestTemplate restTemplate() {

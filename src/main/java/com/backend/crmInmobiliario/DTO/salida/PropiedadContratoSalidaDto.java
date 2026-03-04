@@ -29,6 +29,10 @@ public class PropiedadContratoSalidaDto {
     private TipoOperacionPropiedad tipoOperacion;
     private boolean visibleAOtros;
     private boolean propia;
-
+    private Double metrosCuadradosCubierto;
+    private Double metrosCuadradosDescubierto;
+    private Double metrosCuadradosTotales;
+    private Double metrosFrente;
+    private Double metrosFondo;
     private List<ImgUrlSalidaDto> imagenes = new ArrayList<>();
 }

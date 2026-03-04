@@ -26,6 +26,11 @@ public class Propiedad {
     private String partido;
     private String provincia;
     private Boolean disponibilidad;
+    private Double metrosCuadradosCubierto;
+    private Double metrosCuadradosDescubierto;
+    private Double metrosCuadradosTotales;
+    private Double metrosFrente;
+    private Double metrosFondo;
 
     @Column(name = "visible_a_otros", nullable = false)
     private boolean visibleAOtros = false;
@@ -74,4 +79,14 @@ public class Propiedad {
     public void setDisponibilidad(boolean disponibilidad) {
         this.disponibilidad = disponibilidad;
     }
+
+    @PrePersist
+    @PreUpdate
+    private void calcularMetrosCuadradosTotales() {
+        double fondo = (metrosFondo != null) ? metrosFondo : 0.0;
+        double frente = (metrosFrente != null) ? metrosFrente : 0.0;
+        this.metrosCuadradosTotales = frente * fondo;
+    }
+
+
 }

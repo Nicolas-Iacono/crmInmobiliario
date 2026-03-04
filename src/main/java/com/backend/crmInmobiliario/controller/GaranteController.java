@@ -5,6 +5,7 @@ import com.backend.crmInmobiliario.DTO.modificacion.GaranteDtoModificacion;
 import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.impl.ContratoService;
 import com.backend.crmInmobiliario.service.impl.GaranteService;
@@ -46,6 +47,13 @@ public class GaranteController {
                 new ApiResponse<>("Lista de garantes: ", garanteSalidaDtos);
         return  ResponseEntity.status(HttpStatus.OK).body(response);
     }
+    @GetMapping("/lista/page")
+    public ResponseEntity<PageResponse<GaranteSalidaDto>> listar(
+            @RequestParam(defaultValue = "0") int page
+    ) throws ResourceNotFoundException {
+        return ResponseEntity.ok(garanteService.listarGarantesXPagina(page));
+    }
+
 
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<GaranteSalidaDto>> crearGarante(@Valid @RequestBody GaranteEntradaDto garanteEntradaDto) {

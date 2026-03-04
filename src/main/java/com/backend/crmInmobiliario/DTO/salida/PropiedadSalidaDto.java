@@ -34,4 +34,9 @@ public class PropiedadSalidaDto {
 
     private PropietarioContratoDtoSalida propietarioSalidaDto;
     private UsuarioDtoSalida usuarioDtoSalida;
+    private Double metrosCuadradosCubierto;
+    private Double metrosCuadradosDescubierto;
+    private Double metrosCuadradosTotales;
+    private Double metrosFrente;
+    private Double metrosFondo;
 }

@@ -20,7 +20,10 @@ import java.util.List;
 
 @Data
 @Entity
-@Table(name = "recibos")
+@Table(name = "recibos",
+        uniqueConstraints = {
+                @UniqueConstraint(name="uk_recibo_contrato_periodo", columnNames={"contrato_id","periodo"})
+        })
 @NoArgsConstructor
 public class Recibo {
 

@@ -72,19 +72,23 @@ public class Contrato {
     private String aguaEmpresa;
     @Column(precision = 5, scale = 2)
     private BigDecimal aguaPorcentaje;
+    private String aguaCuentaServicio;
 
     private String luzEmpresa;
     @Column(precision = 5, scale = 2)
     private BigDecimal luzPorcentaje;
+    private String luzNroCliente;
+    private String luzNroMedidor;
 
     private String gasEmpresa;
     @Column(precision = 5, scale = 2)
     private BigDecimal gasPorcentaje;
+    private String gasNroCliente;
 
     private String municipalEmpresa;
     @Column(precision = 5, scale = 2)
     private BigDecimal municipalPorcentaje;
-
+    private String municipalNroCuenta;
 
     @Column(name = "tipo_garantia")
     private String tipoGarantia;
@@ -171,6 +175,18 @@ public class Contrato {
     @Enumerated(EnumType.STRING)
     private Set<EstadoContrato> estados = new HashSet<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name="modo_recibos", nullable=false)
+    private ModoRecibos modoRecibos = ModoRecibos.MANUAL;
+
+    @Column(name="auto_recibos_activo", nullable=false)
+    private boolean autoRecibosActivo = false;
+
+    @Column(name="dia_generacion", nullable=false)
+    private int diaGeneracion = 1;
+
+    @Column(name="dia_vencimiento", nullable=false)
+    private int diaVencimiento = 10;
 //    @ManyToOne(fetch = FetchType.LAZY)
 //    @JoinColumn(name = "contrato_anterior_id")
 //    private Contrato contratoAnterior;
