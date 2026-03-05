@@ -462,6 +462,11 @@ public class ContratoService implements IContratoService {
             contrato.setComisionMensualPorc(dto.getComisionMensualPorc().setScale(2, RoundingMode.HALF_UP));
         }
 
+        if (dto.getModoRecibos() != null) contrato.setModoRecibos(dto.getModoRecibos());
+        if (dto.getAutoRecibosActivo() != null) contrato.setAutoRecibosActivo(dto.getAutoRecibosActivo());
+        if (dto.getDiaGeneracion() != null) contrato.setDiaGeneracion(Math.max(1, Math.min(28, dto.getDiaGeneracion())));
+        if (dto.getDiaVencimiento() != null) contrato.setDiaVencimiento(Math.max(1, Math.min(28, dto.getDiaVencimiento())));
+
         // 5) Texto del contrato
         if (dto.getPdfContratoTexto() != null) {
             contrato.setPdfContratoTexto(dto.getPdfContratoTexto());
@@ -632,6 +637,11 @@ public class ContratoService implements IContratoService {
         contratoEnCreacion.setDuracion(contratoEntradaDto.getDuracion());
         contratoEnCreacion.setDestino(contratoEntradaDto.getDestino());
         contratoEnCreacion.setIndiceAjuste(contratoEntradaDto.getIndiceAjuste());
+
+        contratoEnCreacion.setModoRecibos(contratoEntradaDto.getModoRecibos() == null ? ModoRecibos.MANUAL : contratoEntradaDto.getModoRecibos());
+        contratoEnCreacion.setAutoRecibosActivo(Boolean.TRUE.equals(contratoEntradaDto.getAutoRecibosActivo()));
+        contratoEnCreacion.setDiaGeneracion(Math.max(1, Math.min(28, contratoEntradaDto.getDiaGeneracion() == null ? 1 : contratoEntradaDto.getDiaGeneracion())));
+        contratoEnCreacion.setDiaVencimiento(Math.max(1, Math.min(28, contratoEntradaDto.getDiaVencimiento() == null ? 10 : contratoEntradaDto.getDiaVencimiento())));
 
         contratoEnCreacion.setComisionContratoPorc(
                 contratoEntradaDto.getComisionContratoPorc() != null ? contratoEntradaDto.getComisionContratoPorc() : BigDecimal.ZERO

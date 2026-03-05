@@ -2,6 +2,8 @@ package com.backend.crmInmobiliario.controller;
 
 import com.backend.crmInmobiliario.DTO.entrada.contrato.*;
 import com.backend.crmInmobiliario.DTO.modificacion.ContratoModificacionDto;
+import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoImpuestoTemplateDto;
+import com.backend.crmInmobiliario.DTO.entrada.contrato.ContratoModoRecibosDto;
 import com.backend.crmInmobiliario.DTO.salida.contrato.*;
 import com.backend.crmInmobiliario.entity.Contrato;
 import com.backend.crmInmobiliario.entity.EstadoContrato;
@@ -11,6 +13,7 @@ import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.IUsuarioService;
 import com.backend.crmInmobiliario.service.impl.ContratoService;
 import com.backend.crmInmobiliario.service.impl.GaranteService;
+import com.backend.crmInmobiliario.service.impl.ReciboAutomaticoService;
 import com.backend.crmInmobiliario.service.impl.ReciboService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
 import com.backend.crmInmobiliario.utils.AuthUtil;
@@ -42,14 +45,16 @@ public class ContratoController {
     private final GaranteService garanteService;
     private final ContratoService contratoService;
     private final ReciboService reciboService;
+    private final ReciboAutomaticoService reciboAutomaticoService;
     private final AuthUtil authUtil;
     private final IUsuarioService usuarioService;
     private final ModelMapper modelMapper;
 
-    public ContratoController(GaranteService garanteService, ContratoService contratoService, ReciboService reciboService, AuthUtil authUtil, IUsuarioService usuarioService, ModelMapper modelMapper) {
+    public ContratoController(GaranteService garanteService, ContratoService contratoService, ReciboService reciboService, ReciboAutomaticoService reciboAutomaticoService, AuthUtil authUtil, IUsuarioService usuarioService, ModelMapper modelMapper) {
         this.garanteService = garanteService;
         this.contratoService = contratoService;
         this.reciboService = reciboService;
+        this.reciboAutomaticoService = reciboAutomaticoService;
         this.authUtil = authUtil;
         this.usuarioService = usuarioService;
         this.modelMapper = modelMapper;
@@ -189,6 +194,29 @@ public class ContratoController {
         List<ContratoSalidaDto> contratos = contratoService.buscarContratoPorUsuario(username);
         return ResponseEntity.ok(contratos);
     }
+    @PutMapping("/{id}/modo-recibos")
+    public ResponseEntity<ApiResponse<ContratoSalidaDto>> configurarModoRecibos(
+            @PathVariable Long id,
+            @RequestBody ContratoModoRecibosDto dto
+    ) {
+        Contrato contrato = reciboAutomaticoService.configurarModoRecibos(id, dto);
+        return ResponseEntity.ok(new ApiResponse<>("Modo de recibos actualizado", modelMapper.map(contrato, ContratoSalidaDto.class)));
+    }
+
+    @GetMapping("/{id}/impuestos-template")
+    public ResponseEntity<ApiResponse<List<ContratoImpuestoTemplateDto>>> listarTemplates(@PathVariable Long id) {
+        return ResponseEntity.ok(new ApiResponse<>("Templates de impuestos", reciboAutomaticoService.listarTemplates(id)));
+    }
+
+    @PutMapping("/{id}/impuestos-template")
+    public ResponseEntity<ApiResponse<List<ContratoImpuestoTemplateDto>>> reemplazarTemplates(
+            @PathVariable Long id,
+            @RequestBody List<ContratoImpuestoTemplateDto> templates
+    ) {
+        return ResponseEntity.ok(new ApiResponse<>("Templates actualizados", reciboAutomaticoService.reemplazarTemplates(id, templates)));
+    }
+
+
 
     @Transactional
     @DeleteMapping("/delete/{id}")
