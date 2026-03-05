@@ -6,6 +6,7 @@ import com.backend.crmInmobiliario.DTO.salida.garante.GaranteContratoDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.entity.EstadoContrato;
+import com.backend.crmInmobiliario.entity.ModoRecibos;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -73,6 +74,11 @@ public class ContratoSalidaDto {
     private BigDecimal montoMensualPropietario;
     private Set<EstadoContrato> estados;
     private boolean vencido;
+
+    private ModoRecibos modoRecibos;
+    private boolean autoRecibosActivo;
+    private int diaGeneracion;
+    private int diaVencimiento;
 
 
 

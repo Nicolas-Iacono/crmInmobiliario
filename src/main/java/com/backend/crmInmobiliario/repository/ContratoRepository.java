@@ -255,6 +255,8 @@ where c.usuario.id = :usuarioId
 
     List<Contrato> findByActivoTrue();
 
+    List<Contrato> findByModoRecibosAndAutoRecibosActivoTrueAndActivoTrue(ModoRecibos modoRecibos);
+
     interface ContratoAlertaRow {
         Long getContratoId();
         String getNombreContrato();
@@ -281,4 +283,3 @@ where c.usuario.id = :usuarioId
         """)
     List<ContratoAlertaRow> findAlertasVencimientoActivos();
 }
-

@@ -209,6 +209,18 @@ public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @ModelAtt
     }
 
 
+    @PostMapping("/automatico")
+    public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearReciboAutomatico(
+            @RequestParam Long contratoId,
+            @RequestParam String periodo
+    ) throws IOException {
+        ReciboSalidaDto recibo = reciboService.crearReciboAutomatico(contratoId, periodo);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiResponse<>(true, "Recibo automático generado", recibo));
+    }
+
+
+
 
     @GetMapping("/ultimos-by-contrato")
     public ResponseEntity<List<LatestRecibosSalidaDto>> getLatestRecibosPorContrato() {
