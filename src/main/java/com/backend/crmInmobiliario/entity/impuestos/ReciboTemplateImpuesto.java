@@ -1,10 +1,14 @@
 package com.backend.crmInmobiliario.entity.impuestos;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
 @Entity
+@Data
+@NoArgsConstructor
 @Table(name="recibo_template_impuesto")
 public class ReciboTemplateImpuesto {
     @Id

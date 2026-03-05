@@ -1,6 +1,7 @@
 package com.backend.crmInmobiliario.DTO.modificacion;
 
 import com.backend.crmInmobiliario.entity.EstadoContrato;
+import com.backend.crmInmobiliario.entity.ModoRecibos;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -76,4 +77,9 @@ public class ContratoModificacionDto {
 
     // ===== Texto contrato (HTML/PDF) =====
     private String pdfContratoTexto;
+
+    private ModoRecibos modoRecibos;
+    private Boolean autoRecibosActivo;
+    private Integer diaGeneracion;
+    private Integer diaVencimiento;
 }

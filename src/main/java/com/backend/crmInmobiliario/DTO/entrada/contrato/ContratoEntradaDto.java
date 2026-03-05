@@ -1,6 +1,7 @@
 package com.backend.crmInmobiliario.DTO.entrada.contrato;
 
 
+import com.backend.crmInmobiliario.entity.ModoRecibos;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -69,4 +70,9 @@ public class ContratoEntradaDto {
     @DecimalMin(value = "0.00") @DecimalMax(value = "100.00")
     @Digits(integer = 3, fraction = 2)
     private BigDecimal comisionMensualPorc;
+
+    private ModoRecibos modoRecibos;
+    private Boolean autoRecibosActivo;
+    private Integer diaGeneracion;
+    private Integer diaVencimiento;
 }

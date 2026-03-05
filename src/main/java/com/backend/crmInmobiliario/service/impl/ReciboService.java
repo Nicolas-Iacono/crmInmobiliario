@@ -12,6 +12,7 @@ import com.backend.crmInmobiliario.DTO.salida.recibo.LatestRecibosSalidaDto;
 import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.entity.impuestos.*;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import com.backend.crmInmobiliario.repository.ContratoImpuestoTemplateRepository;
 import com.backend.crmInmobiliario.repository.ContratoRepository;
 import com.backend.crmInmobiliario.repository.ImpuestoRepository;
 import com.backend.crmInmobiliario.repository.InquilinoRepository;
@@ -77,13 +78,14 @@ public class ReciboService implements IReciboService {
     private ImpuestoRepository impuestoRepository;
     private UsuarioRepository usuarioRepository;
     private ReciboAlertaRepository reciboAlertaRepository;
+    private ContratoImpuestoTemplateRepository contratoImpuestoTemplateRepository;
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
     private final ImpuestoCalculoService impuestoCalculoService;
     private AuthUtil authUtil;
 
 
-    public ReciboService(AuthUtil authUtil, UsuarioRepository usuarioRepository, ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService, ReciboAlertaRepository reciboAlertaRepository) {
+    public ReciboService(AuthUtil authUtil, UsuarioRepository usuarioRepository, ImpuestoRepository impuestoRepository, EmbeddingService embeddingService, ContratoService contratoService, ImagenService imagenService, PushNotificationService pushNotificationService, PushSubscriptionRepository pushSubscriptionRepository, ModelMapper modelMapper, ReciboRepository reciboRepository, ContratoRepository contratoRepository, InquilinoRepository inquilinoRepository, ImpuestoCalculoService impuestoCalculoService, ReciboAlertaRepository reciboAlertaRepository, ContratoImpuestoTemplateRepository contratoImpuestoTemplateRepository) {
         this.modelMapper = modelMapper;
         this.reciboRepository = reciboRepository;
         this.contratoRepository = contratoRepository;
@@ -97,6 +99,7 @@ public class ReciboService implements IReciboService {
         this.impuestoRepository = impuestoRepository;
         this.usuarioRepository = usuarioRepository;
         this.reciboAlertaRepository = reciboAlertaRepository;
+        this.contratoImpuestoTemplateRepository = contratoImpuestoTemplateRepository;
         this.authUtil = authUtil;
         configureMapping();
     }
@@ -1047,43 +1050,62 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
 
     @Transactional
     public ReciboSalidaDto crearReciboAutomatico(Long contratoId, String periodo) throws IOException {
+        return crearReciboAutomatico(contratoId, periodo, null);
+    }
 
+    @Transactional
+    public ReciboSalidaDto crearReciboAutomatico(Long contratoId, String periodo, String concepto) throws IOException {
         Long userId = authUtil.extractUserId();
-        Usuario usuario = usuarioRepository.findUserById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+        return crearReciboAutomaticoInterno(contratoId, periodo, concepto, userId, true);
+    }
+
+    @Transactional
+    public ReciboSalidaDto crearReciboAutomaticoSistema(Long contratoId, String periodo) throws IOException {
+        return crearReciboAutomaticoInterno(contratoId, periodo, null, null, false);
+    }
+
+    private ReciboSalidaDto crearReciboAutomaticoInterno(Long contratoId, String periodo, String concepto, Long userId, boolean validarPropietario) throws IOException {
+        Usuario usuario;
+        if (userId != null) {
+            usuario = usuarioRepository.findUserById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+        } else {
+            usuario = null;
+        }
 
         Contrato contrato = contratoRepository.findById(contratoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Contrato no encontrado"));
 
+        if (validarPropietario && (contrato.getUsuario() == null || !Objects.equals(contrato.getUsuario().getId(), userId))) {
+            throw new AccessDeniedException("No tenés permiso para generar recibos de este contrato");
+        }
+
         contratoService.validarAccesoPorSuscripcion(contrato.getUsuario());
 
         String periodoNorm = normalizarPeriodo(periodo);
-
         if (reciboRepository.existsByContratoIdAndPeriodo(contratoId, periodoNorm)) {
             throw new IllegalStateException("Ya existe un recibo para ese contrato y período: " + periodoNorm);
         }
 
         Recibo recibo = new Recibo();
-        recibo.setUsuario(usuario);
+        recibo.setUsuario(usuario != null ? usuario : contrato.getUsuario());
         recibo.setContrato(contrato);
         recibo.setPeriodo(periodoNorm);
 
-        // fechas: las definís según tu regla (ej: emision hoy, vencimiento día X)
-        recibo.setFechaEmision(LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires")));
-        recibo.setFechaVencimiento(LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires")).plusDays(10));
+        LocalDate hoy = LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires"));
+        recibo.setFechaEmision(hoy);
+        int diaVencimiento = Math.max(1, Math.min(28, contrato.getDiaVencimiento()));
+        recibo.setFechaVencimiento(hoy.withDayOfMonth(Math.min(diaVencimiento, hoy.lengthOfMonth())));
 
-        // concepto / numero
-        recibo.setConcepto("Alquiler " + periodoNorm);
-        recibo.setNumeroRecibo(generarNumeroRecibo(contrato)); // si ya tenés lógica, usala
+        String conceptoNormalizado = (concepto == null || concepto.isBlank())
+                ? "Alquiler " + periodoNorm
+                : concepto.trim();
+        recibo.setConcepto(conceptoNormalizado);
+        recibo.setNumeroRecibo(generarNumeroRecibo(contrato.getId()));
 
-        // 1) alquiler base del contrato
-        Double alquilerBase = contrato.getMontoAlquiler(); // ajustá al nombre real
-        if (alquilerBase == null) alquilerBase = Double.ZERO;
+        BigDecimal alquilerBase = contrato.getMontoAlquiler() == null ? BigDecimal.ZERO : BigDecimal.valueOf(contrato.getMontoAlquiler());
 
-        // 2) impuestos desde plantillas
-        List<ContratoImpuestoTemplate> tpls = contratoImpuestoTemplateRepository
-                .findByContratoIdAndActivoTrue(contratoId);
-
+        List<ContratoImpuestoTemplate> tpls = contratoImpuestoTemplateRepository.findByContratoIdAndActivoTrue(contratoId);
         if (tpls != null && !tpls.isEmpty()) {
             for (ContratoImpuestoTemplate t : tpls) {
                 ImpuestoEntradaDto dto = new ImpuestoEntradaDto();
@@ -1092,11 +1114,8 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
                 dto.setEmpresa(t.getEmpresa());
                 dto.setNumeroCliente(t.getNumeroCliente());
                 dto.setNumeroMedidor(t.getNumeroMedidor());
-
-                dto.setMontoBase(t.getMontoBase());      // 👈 base del impuesto
-                dto.setPorcentaje(t.getPorcentaje());    // 👈 porcentaje sobre el impuesto
-
-                // dto.setFechaFactura(null); dto.setArchivoFactura(null); etc.
+                dto.setMontoBase(t.getMontoBase());
+                dto.setPorcentaje(t.getPorcentaje());
 
                 Impuesto imp = convertToImpuesto(dto);
                 imp.setRecibo(recibo);
@@ -1104,7 +1123,6 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
             }
         }
 
-        // 3) total = alquiler + sum(impuestos)
         BigDecimal totalImpuestos = recibo.getImpuestos().stream()
                 .map(Impuesto::getMontoAPagar)
                 .filter(Objects::nonNull)
@@ -1114,7 +1132,6 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
 
         Recibo guardado = reciboRepository.save(recibo);
 
-        // sync igual que hoy
         CompletableFuture.runAsync(() -> {
             try {
                 guardarReciboEnSupabase(guardado);
@@ -1127,4 +1144,9 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
 
         return modelMapper.map(guardado, ReciboSalidaDto.class);
     }
+
+    private int generarNumeroRecibo(Long contratoId) {
+        return reciboRepository.findMaxNumeroReciboByContratoId(contratoId) + 1;
+    }
+
 }

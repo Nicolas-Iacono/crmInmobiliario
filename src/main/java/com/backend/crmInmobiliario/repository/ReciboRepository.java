@@ -350,6 +350,10 @@ where r.id = :reciboId
 """)
     List<Recibo> findLatestReciboPerContratoOwner(@Param("userId") Long userId);
 
+
+    @Query("SELECT COALESCE(MAX(r.numeroRecibo), 0) FROM Recibo r WHERE r.contrato.id = :contratoId")
+    int findMaxNumeroReciboByContratoId(@Param("contratoId") Long contratoId);
+
     boolean existsByContratoIdAndPeriodo(Long contratoId, String periodo);
 
 }
