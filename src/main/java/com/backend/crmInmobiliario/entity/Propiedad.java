@@ -67,6 +67,11 @@ public class Propiedad {
     @ToString.Exclude
     private List<ImageUrls> imagenes = new ArrayList<>();
 
+    @OneToMany(mappedBy = "propiedad", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @JsonIgnore
+    private List<Visita> visitas = new ArrayList<>();
+
     @ManyToOne
     @ToString.Exclude
     @JsonIgnore
