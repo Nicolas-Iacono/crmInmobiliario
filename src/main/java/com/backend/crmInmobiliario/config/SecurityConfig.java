@@ -63,6 +63,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/webhooks/mercadopago",
                                 "/api/webhooks/n8n/stripe/past-due",
                                 "/api/subscriptions/provider-event").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/vapi").permitAll()
 
                         // --- Auth pública ---
                         .requestMatchers(HttpMethod.GET, "/usuario/check-username").permitAll()
