@@ -119,6 +119,7 @@ public class JwtTokenValidator extends OncePerRequestFilter {
                 || path.equals("/api/webhooks/mercadopago")
                 || path.equals("/api/webhooks/n8n/stripe/past-due")
                 || path.equals("/api/subscriptions/provider-event")
+                || path.equals("/api/vapi")
 
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/v3/api-docs");
