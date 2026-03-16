@@ -167,6 +167,12 @@ public class Usuario  implements UserDetails {
     @JsonIgnore // 🔥 evita ciclo con Propietario
     private Propietario propietario;
 
+    @OneToOne
+    @JoinColumn(name = "garante_id")
+    @ToString.Exclude
+    @JsonIgnore // 🔥 evita ciclo con Propietario
+    private Garante garante;
+
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @JsonIgnore
