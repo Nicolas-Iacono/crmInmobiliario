@@ -6,6 +6,7 @@ import com.backend.crmInmobiliario.DTO.modificacion.GaranteDtoModificacion;
 import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.UsuarioDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.garante.GaranteUser;
 import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.entity.Contrato;
@@ -409,6 +410,39 @@ public class GaranteService implements IGaranteService {
             }
         });
         return garanteSalidaDto;
+    }
+
+
+    @Override
+    @Transactional
+    public GaranteUser listarCredenciales(Long garanteId) throws ResourceNotFoundException {
+
+        Garante garante = garanteRepository.findById(garanteId)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró el garante con el ID proporcionado"));
+
+        Usuario usuarioCuenta = garante.getUsuarioCuentaGarante();
+
+        if (usuarioCuenta == null) {
+            throw new ResourceNotFoundException("El garante con ID " + garanteId + " no tiene un usuario asociado");
+        }
+
+        GaranteUser dto = new GaranteUser();
+        dto.setUsername(usuarioCuenta.getUsername());
+        dto.setPassword(usuarioCuenta.getPassword());
+
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public void eliminarUsuarioCuentaGarante(Long usuarioId) {
+        garanteRepository.desvincularUsuarioCuentaGarante(usuarioId);
+
+        if (usuarioRepository.existsById(usuarioId)) {
+            usuarioRepository.deleteById(usuarioId);
+        } else {
+            throw new ResourceNotFoundException("No se encontró el usuario con ID " + usuarioId);
+        }
     }
 
     public Garante clonarGarante(Garante origen) {
