@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.service;
 import com.backend.crmInmobiliario.DTO.entrada.garante.GaranteEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.GaranteDtoModificacion;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.garante.GaranteUser;
 import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
@@ -33,4 +34,8 @@ public void deleteByContratoId(Long contratoId);
     List<GaranteSalidaDto> buscarGarantePorUsuario(String username);
 
     public PageResponse<GaranteSalidaDto> listarGarantesXPagina(int page) throws ResourceNotFoundException;
+
+    GaranteUser listarCredenciales(Long garanteId) throws ResourceNotFoundException;
+
+    void eliminarUsuarioCuentaGarante(Long usuarioId);
 }

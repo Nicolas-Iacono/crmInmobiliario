@@ -3,6 +3,7 @@ package com.backend.crmInmobiliario.service.impl;
 import com.backend.crmInmobiliario.DTO.AuthResponse;
 import com.backend.crmInmobiliario.DTO.entrada.LoginEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.UserAdminEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.usuarioGarante.LoginGaranteEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.usuarioInquilino.LoginInquilinoEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.usuarioPropietario.LoginPropietarioEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.ActualizarUsuarioDto;
@@ -353,7 +354,7 @@ public class UserService implements IUsuarioService, UserDetailsService {
         // 3️⃣ Bloquear roles propietarios e inquilinos
         boolean tieneRolRestringido = usuario.getRoles().stream()
                 .map(role -> role.getRol().toUpperCase())
-                .anyMatch(nombreRol -> nombreRol.equals("PROPIETARIO_USER") || nombreRol.equals("INQUILINO_USER"));
+                .anyMatch(nombreRol -> nombreRol.equals("PROPIETARIO_USER") || nombreRol.equals("INQUILINO_USER") || nombreRol.equals("GARANTE_USER"));
 
         if (tieneRolRestringido) {
             throw new AccessDeniedException("Este tipo de usuario no tiene acceso al panel principal.");
@@ -451,6 +452,34 @@ public class UserService implements IUsuarioService, UserDetailsService {
 
 
 
+
+
+    @Override
+    public AuthResponse loginGarante(LoginGaranteEntradaDto loginEntradaDto) {
+
+        String email = loginEntradaDto.getEmail();
+        String password = loginEntradaDto.getPassword();
+
+        Authentication authentication = this.authenticate(email, password);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Long userId = usuarioRepository.findByEmail(email)
+                .map(Usuario::getId)
+                .orElse(null);
+
+        String accessToken = jwtUtil.createAccessToken(authentication, userId);
+        String refreshToken = jwtUtil.createRefreshToken(authentication);
+
+        return new AuthResponse(
+                email,
+                "Garante logueado correctamente",
+                accessToken,
+                refreshToken,
+                "Bearer",
+                jwtUtil.getAccessTokenTtlSeconds(),
+                true
+        );
+    }
 
 
     public Authentication authenticate(String username, String password) {
