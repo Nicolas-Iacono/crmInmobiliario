@@ -94,7 +94,8 @@ public class ReciboAlertaService {
                     logger.info("ℹ️ Sin suscripciones push para usuario {}.", usuarioId);
                 }
 
-                alertasUsuario.forEach(alerta -> alerta.setUltimaNotificacion(hoy));
+                alertasUsuario.forEach(a -> a.setUltimaNotificacion(hoy));
+                reciboAlertaRepository.saveAll(alertasUsuario);
             } catch (Exception e) {
                 logger.error("❌ Error al enviar recordatorio de transferencias al usuario {}.", usuarioId, e);
             }

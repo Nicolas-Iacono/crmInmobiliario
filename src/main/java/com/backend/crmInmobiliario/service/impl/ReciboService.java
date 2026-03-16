@@ -286,7 +286,7 @@ public class ReciboService implements IReciboService {
         LOGGER.info("---------------------------------------------------------------------------------------");
 
         // Convierte el tipo de impuesto a mayúsculas para la comparación
-        String tipoImpuestoMayus = dto.getTipoImpuesto().toUpperCase();
+        String tipoImpuestoMayus = normalizarTipoImpuesto(dto.getTipoImpuesto());
         Impuesto impuesto;
 
         // Utiliza un switch para crear la instancia del tipo de impuesto correcto
@@ -304,15 +304,25 @@ public class ReciboService implements IReciboService {
                 impuesto = new Municipal();
                 break;
             case "EXP_ORD":
+            case "EXPENSAS":
+            case "EXPENSA":
+            case "EXPENSA_ORDINARIA":
+            case "EXPENSA ORDINARIA":
                 impuesto = new ExpensaOrdinaria();
                 break;
             case "EXP_EXT_ORD":
+            case "EXPENSAS_EXTRAORDINARIAS":
+            case "EXPENSAS EXTRAORDINARIAS":
+            case "EXPENSA_EXTRAORDINARIA":
+            case "EXPENSA EXTRAORDINARIA":
                 impuesto = new ExpensaExtraOrdinaria();
                 break;
             case "DEUDA_PENDIENTE":
+            case "DEUDA PENDIENTE":
                 impuesto = new DeudaPendiente();
                 break;
             case "OTRO":
+            case "OTROS":
                 impuesto = new Otro();
                 break;
             default:
@@ -326,7 +336,7 @@ public class ReciboService implements IReciboService {
         impuesto.setNumeroCliente(dto.getNumeroCliente());
         impuesto.setNumeroMedidor(dto.getNumeroMedidor());
         impuesto.setFechaFactura(dto.getFechaFactura());
-        impuesto.setEstadoPago(dto.getEstadoPago());
+        impuesto.setEstadoPago(Boolean.TRUE.equals(dto.getEstadoPago()));
 
         BigDecimal montoBase = dto.getMontoBase();
         BigDecimal porcentaje = dto.getPorcentaje();
@@ -359,6 +369,20 @@ public class ReciboService implements IReciboService {
         }
 
         return impuesto;
+    }
+
+    private String normalizarTipoImpuesto(String tipoImpuesto) {
+        if (tipoImpuesto == null) {
+            return null;
+        }
+
+        String normalizado = tipoImpuesto.trim().toUpperCase(Locale.ROOT);
+        return normalizado
+                .replace('Á', 'A')
+                .replace('É', 'E')
+                .replace('Í', 'I')
+                .replace('Ó', 'O')
+                .replace('Ú', 'U');
     }
     public void guardarReciboEnSupabase(Recibo r) throws IOException {
         OkHttpClient client = new OkHttpClient();
@@ -1050,16 +1074,21 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
 
     @Transactional
     public ReciboSalidaDto crearReciboAutomatico(Long contratoId, String periodo) throws IOException {
+        return crearReciboAutomatico(contratoId, periodo, null);
+    }
+
+    @Transactional
+    public ReciboSalidaDto crearReciboAutomatico(Long contratoId, String periodo, String concepto) throws IOException {
         Long userId = authUtil.extractUserId();
-        return crearReciboAutomaticoInterno(contratoId, periodo, userId, true);
+        return crearReciboAutomaticoInterno(contratoId, periodo, concepto, userId, true);
     }
 
     @Transactional
     public ReciboSalidaDto crearReciboAutomaticoSistema(Long contratoId, String periodo) throws IOException {
-        return crearReciboAutomaticoInterno(contratoId, periodo, null, false);
+        return crearReciboAutomaticoInterno(contratoId, periodo, null, null, false);
     }
 
-    private ReciboSalidaDto crearReciboAutomaticoInterno(Long contratoId, String periodo, Long userId, boolean validarPropietario) throws IOException {
+    private ReciboSalidaDto crearReciboAutomaticoInterno(Long contratoId, String periodo, String concepto, Long userId, boolean validarPropietario) throws IOException {
         Usuario usuario;
         if (userId != null) {
             usuario = usuarioRepository.findUserById(userId)
@@ -1092,7 +1121,10 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
         int diaVencimiento = Math.max(1, Math.min(28, contrato.getDiaVencimiento()));
         recibo.setFechaVencimiento(hoy.withDayOfMonth(Math.min(diaVencimiento, hoy.lengthOfMonth())));
 
-        recibo.setConcepto("Alquiler " + periodoNorm);
+        String conceptoNormalizado = (concepto == null || concepto.isBlank())
+                ? "Alquiler " + periodoNorm
+                : concepto.trim();
+        recibo.setConcepto(conceptoNormalizado);
         recibo.setNumeroRecibo(generarNumeroRecibo(contrato.getId()));
 
         BigDecimal alquilerBase = contrato.getMontoAlquiler() == null ? BigDecimal.ZERO : BigDecimal.valueOf(contrato.getMontoAlquiler());
@@ -1108,7 +1140,7 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
                 dto.setNumeroMedidor(t.getNumeroMedidor());
                 dto.setMontoBase(t.getMontoBase());
                 dto.setPorcentaje(t.getPorcentaje());
-
+                dto.setEstadoPago(false);
                 Impuesto imp = convertToImpuesto(dto);
                 imp.setRecibo(recibo);
                 recibo.getImpuestos().add(imp);
@@ -1120,7 +1152,7 @@ private void upsertAlertaTransferencia(Recibo recibo, Usuario inmobiliaria) {
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        recibo.setMontoTotal(alquilerBase.add(totalImpuestos));
+        recibo.setMontoTotal(alquilerBase);
 
         Recibo guardado = reciboRepository.save(recibo);
 

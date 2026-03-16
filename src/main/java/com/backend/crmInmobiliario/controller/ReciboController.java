@@ -212,9 +212,10 @@ public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearRecibo(@Valid @ModelAtt
     @PostMapping("/automatico")
     public ResponseEntity<ApiResponse<ReciboSalidaDto>> crearReciboAutomatico(
             @RequestParam Long contratoId,
-            @RequestParam String periodo
+            @RequestParam String periodo,
+            @RequestParam(required = false) String concepto
     ) throws IOException {
-        ReciboSalidaDto recibo = reciboService.crearReciboAutomatico(contratoId, periodo);
+        ReciboSalidaDto recibo = reciboService.crearReciboAutomatico(contratoId, periodo, concepto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>(true, "Recibo automático generado", recibo));
     }

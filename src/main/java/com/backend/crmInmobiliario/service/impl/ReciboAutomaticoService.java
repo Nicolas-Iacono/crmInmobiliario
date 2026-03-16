@@ -54,8 +54,7 @@ public class ReciboAutomaticoService {
     public List<ContratoImpuestoTemplateDto> reemplazarTemplates(Long contratoId, List<ContratoImpuestoTemplateDto> dtos) {
         Contrato contrato = getContratoPropio(contratoId);
 
-        List<ContratoImpuestoTemplate> existentes = contratoImpuestoTemplateRepository.findByContratoId(contratoId);
-        contratoImpuestoTemplateRepository.deleteAll(existentes);
+        contratoImpuestoTemplateRepository.deleteByContratoId(contratoId);
 
         List<ContratoImpuestoTemplate> nuevos = dtos.stream().map(dto -> {
             ContratoImpuestoTemplate t = new ContratoImpuestoTemplate();

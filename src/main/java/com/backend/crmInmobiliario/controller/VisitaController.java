@@ -2,10 +2,12 @@ package com.backend.crmInmobiliario.controller;
 
 import com.backend.crmInmobiliario.DTO.entrada.visita.VisitaEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.visita.VisitaModificacionDto;
+import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.visita.VisitaSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.service.IVisitaService;
 import com.backend.crmInmobiliario.utils.ApiResponse;
+import com.backend.crmInmobiliario.utils.AuthUtil;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +22,10 @@ import java.util.List;
 public class VisitaController {
 
     private final IVisitaService visitaService;
-
-    public VisitaController(IVisitaService visitaService) {
+    private final AuthUtil authUtil;
+    public VisitaController(IVisitaService visitaService, AuthUtil authUtil) {
         this.visitaService = visitaService;
+        this.authUtil = authUtil;
     }
 
     @PostMapping("/create")
@@ -66,5 +69,12 @@ public class VisitaController {
     public ResponseEntity<ApiResponse<Void>> eliminar(@PathVariable Long id) throws ResourceNotFoundException {
         visitaService.eliminarVisita(id);
         return ResponseEntity.ok(new ApiResponse<>("Visita eliminada", null));
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<VisitaSalidaDto>> listarMisVisitas() {
+        Long userId = authUtil.extractUserId();
+        return ResponseEntity.ok(visitaService.listarVisitasPorUsuarioId(userId));
     }
 }

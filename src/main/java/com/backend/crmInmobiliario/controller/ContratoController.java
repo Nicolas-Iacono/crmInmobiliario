@@ -48,7 +48,7 @@ public class ContratoController {
     private final ReciboAutomaticoService reciboAutomaticoService;
     private final AuthUtil authUtil;
     private final IUsuarioService usuarioService;
-    private final ModelMapper modelMapper;
+
 
     public ContratoController(GaranteService garanteService, ContratoService contratoService, ReciboService reciboService, ReciboAutomaticoService reciboAutomaticoService, AuthUtil authUtil, IUsuarioService usuarioService, ModelMapper modelMapper) {
         this.garanteService = garanteService;
@@ -57,7 +57,7 @@ public class ContratoController {
         this.reciboAutomaticoService = reciboAutomaticoService;
         this.authUtil = authUtil;
         this.usuarioService = usuarioService;
-        this.modelMapper = modelMapper;
+
     }
 
 
@@ -199,8 +199,9 @@ public class ContratoController {
             @PathVariable Long id,
             @RequestBody ContratoModoRecibosDto dto
     ) {
-        Contrato contrato = reciboAutomaticoService.configurarModoRecibos(id, dto);
-        return ResponseEntity.ok(new ApiResponse<>("Modo de recibos actualizado", modelMapper.map(contrato, ContratoSalidaDto.class)));
+        reciboAutomaticoService.configurarModoRecibos(id, dto);
+        ContratoSalidaDto contratoActualizado = contratoService.buscarContratoPorId(id);
+        return ResponseEntity.ok(new ApiResponse<>("Modo de recibos actualizado", contratoActualizado));
     }
 
     @GetMapping("/{id}/impuestos-template")

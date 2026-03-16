@@ -4,6 +4,8 @@ import com.backend.crmInmobiliario.DTO.entrada.visita.VisitaEntradaDto;
 import com.backend.crmInmobiliario.DTO.modificacion.visita.VisitaModificacionDto;
 import com.backend.crmInmobiliario.DTO.salida.visita.VisitaSalidaDto;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -17,4 +19,9 @@ public interface IVisitaService {
     List<VisitaSalidaDto> listarVisitasPorPropiedad(Long propiedadId);
 
     void eliminarVisita(Long visitaId) throws ResourceNotFoundException;
+    List<VisitaSalidaDto> listarVisitasPorUsuarioId(Long userId);
+
+
+
+
 }

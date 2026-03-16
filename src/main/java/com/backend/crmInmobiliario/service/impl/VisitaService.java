@@ -1,11 +1,13 @@
 package com.backend.crmInmobiliario.service.impl;
 
+import com.backend.crmInmobiliario.DTO.entrada.ReciboEntradaDto;
 import com.backend.crmInmobiliario.DTO.entrada.visita.VisitaEntradaDto;
+import com.backend.crmInmobiliario.DTO.modificacion.ReciboModificacionDto;
 import com.backend.crmInmobiliario.DTO.modificacion.visita.VisitaModificacionDto;
+import com.backend.crmInmobiliario.DTO.salida.ReciboSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
 import com.backend.crmInmobiliario.DTO.salida.visita.VisitaSalidaDto;
-import com.backend.crmInmobiliario.entity.Propiedad;
-import com.backend.crmInmobiliario.entity.Prospecto;
-import com.backend.crmInmobiliario.entity.Visita;
+import com.backend.crmInmobiliario.entity.*;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
 import com.backend.crmInmobiliario.repository.PropiedadRepository;
 import com.backend.crmInmobiliario.repository.ProspectoRepository;
@@ -13,6 +15,8 @@ import com.backend.crmInmobiliario.repository.VisitaRepository;
 import com.backend.crmInmobiliario.service.IVisitaService;
 import com.backend.crmInmobiliario.utils.AuthUtil;
 import jakarta.transaction.Transactional;
+import org.modelmapper.ModelMapper;
+import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -25,14 +29,50 @@ public class VisitaService implements IVisitaService {
     private final PropiedadRepository propiedadRepository;
     private final ProspectoRepository prospectoRepository;
     private final AuthUtil authUtil;
+    private final ModelMapper modelMapper;
 
-    public VisitaService(VisitaRepository visitaRepository, PropiedadRepository propiedadRepository, ProspectoRepository prospectoRepository, AuthUtil authUtil) {
+    public VisitaService(VisitaRepository visitaRepository, PropiedadRepository propiedadRepository, ProspectoRepository prospectoRepository, AuthUtil authUtil, ModelMapper modelMapper) {
         this.visitaRepository = visitaRepository;
         this.propiedadRepository = propiedadRepository;
         this.prospectoRepository = prospectoRepository;
         this.authUtil = authUtil;
+        this.modelMapper = modelMapper;
+        configureMapping();
     }
+    private void configureMapping() {
 
+        modelMapper.getConfiguration()
+                .setMatchingStrategy(MatchingStrategies.LOOSE)
+                .setAmbiguityIgnored(true);
+
+
+
+//        // Verifica si ya existe el TypeMap para evitar duplicados
+//        if (modelMapper.getTypeMap(PersistentBag.class, List.class) == null) {
+//            modelMapper.createTypeMap(PersistentBag.class, List.class).setConverter(context -> {
+//                PersistentBag source = (PersistentBag) context.getSource();
+//                return source == null ? null : new ArrayList<>(source);
+//            });
+//        }
+
+
+
+
+        modelMapper.typeMap(Visita.class, VisitaSalidaDto.class)
+                .addMapping(Visita::getId, VisitaSalidaDto::setId)
+                .addMapping(Visita::getPropiedad, VisitaSalidaDto::setPropiedadId)
+                .addMapping(Visita::getFecha, VisitaSalidaDto::setFecha)
+                .addMapping(Visita::getHora, VisitaSalidaDto::setHora)
+                .addMapping(Visita::getNombreCorredor, VisitaSalidaDto::setNombreCorredor)
+                .addMapping(Visita::getVisitanteApellido, VisitaSalidaDto::setVisitanteApellido)
+                .addMapping(Visita::getAclaracion, VisitaSalidaDto::setAclaracion)
+                .addMapping(Visita::getTitulo, VisitaSalidaDto::setTitulo)
+                .addMapping(Visita::getVisitanteTelefono, VisitaSalidaDto::setVisitanteTelefono)
+                .addMapping(Visita::getVisitanteNombre, VisitaSalidaDto::setVisitanteNombre)
+                .addMapping(Visita::getProspectoVisitante, VisitaSalidaDto::setProspectoId);
+
+
+    }
     @Override
     @Transactional
     public VisitaSalidaDto crearVisita(VisitaEntradaDto dto) throws ResourceNotFoundException {
@@ -83,17 +123,17 @@ public class VisitaService implements IVisitaService {
     }
 
     @Override
+    @Transactional
     public List<VisitaSalidaDto> listarVisitasPorPropiedad(Long propiedadId) {
+
         Long userId = authUtil.extractUserId();
 
         Propiedad propiedad = propiedadRepository.findById(propiedadId)
                 .orElseThrow(() -> new ResourceNotFoundException("Propiedad no encontrada"));
+
         validarPropiedadDelUsuario(propiedad, userId);
 
-        return visitaRepository.findByPropiedadId_propiedadOrderByFechaDescHoraDesc(propiedadId)
-                .stream()
-                .map(this::mapSalida)
-                .toList();
+        return visitaRepository.listarDtoPorPropiedad(propiedadId);
     }
 
     @Override
@@ -158,4 +198,39 @@ public class VisitaService implements IVisitaService {
 
         return salida;
     }
+
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<VisitaSalidaDto> listarVisitasPorUsuarioId(Long userId) {
+        return visitaRepository.findByPropiedadUsuarioIdOrderByFechaDescHoraDesc(userId)
+                .stream()
+                .map(this::toSalida)
+                .toList();
+    }
+
+    private VisitaSalidaDto toSalida(Visita visita) {
+        VisitaSalidaDto dto = new VisitaSalidaDto();
+        dto.setId(visita.getId());
+        dto.setTitulo(visita.getTitulo());
+        dto.setFecha(visita.getFecha());
+        dto.setHora(visita.getHora());
+        dto.setAclaracion(visita.getAclaracion());
+        dto.setNombreCorredor(visita.getNombreCorredor());
+        dto.setVisitanteNombre(visita.getVisitanteNombre());
+        dto.setVisitanteApellido(visita.getVisitanteApellido());
+        dto.setVisitanteTelefono(visita.getVisitanteTelefono());
+
+        dto.setPropiedadId(visita.getPropiedad().getId_propiedad());
+
+        if (visita.getProspectoVisitante() != null) {
+            dto.setProspectoId(visita.getProspectoVisitante().getId());
+            dto.setProspectoNombreCompleto(
+                    visita.getProspectoVisitante().getNombre() + " " + visita.getProspectoVisitante().getApellido()
+            );
+        }
+
+        return dto;
+    }
+
+
 }
