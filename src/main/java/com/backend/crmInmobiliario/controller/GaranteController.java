@@ -1,12 +1,17 @@
 package com.backend.crmInmobiliario.controller;
 
+import com.backend.crmInmobiliario.DTO.AuthResponse;
 import com.backend.crmInmobiliario.DTO.entrada.garante.GaranteEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.usuarioGarante.LoginGaranteEntradaDto;
+import com.backend.crmInmobiliario.DTO.entrada.usuarioGarante.RegistroGaranteDto;
 import com.backend.crmInmobiliario.DTO.modificacion.GaranteDtoModificacion;
-import com.backend.crmInmobiliario.DTO.modificacion.InquilinoDtoModificacion;
+import com.backend.crmInmobiliario.DTO.salida.TokenDtoSalida;
 import com.backend.crmInmobiliario.DTO.salida.garante.GaranteSalidaDto;
-import com.backend.crmInmobiliario.DTO.salida.inquilino.InquilinoSalidaDto;
+import com.backend.crmInmobiliario.DTO.salida.garante.GaranteUser;
 import com.backend.crmInmobiliario.DTO.salida.pages.PageResponse;
 import com.backend.crmInmobiliario.exception.ResourceNotFoundException;
+import com.backend.crmInmobiliario.service.IUserGaranteService;
+import com.backend.crmInmobiliario.service.IUsuarioService;
 import com.backend.crmInmobiliario.service.impl.ContratoService;
 import com.backend.crmInmobiliario.service.impl.GaranteService;
 import com.backend.crmInmobiliario.service.impl.ImagenService;
@@ -19,7 +24,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -32,6 +36,23 @@ public class GaranteController {
     private final ContratoService contratoService;
     private final ImagenService imagenService;
     private final AuthUtil authUtil;
+    private final IUserGaranteService userGaranteService;
+    private final IUsuarioService userService;
+
+    @CrossOrigin(origins = "https://tuinmo.net")
+    @PreAuthorize("permitAll()")
+    @PostMapping("/register")
+    public ResponseEntity<TokenDtoSalida> registrar(@RequestBody RegistroGaranteDto dto) {
+        TokenDtoSalida response = userGaranteService.registrarGarante(dto);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/login")
+    @CrossOrigin(origins = "https://tuinmo.net")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<AuthResponse> login(@RequestBody LoginGaranteEntradaDto loginEntradaDto) {
+        return new ResponseEntity<>(this.userService.loginGarante(loginEntradaDto), HttpStatus.OK);
+    }
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
@@ -90,6 +111,13 @@ public class GaranteController {
                     .body(new ApiResponse<>("No se encontro el garante buscado, ", null));
         }
     }
+
+    @GetMapping("/credenciales/{garanteId}")
+    public ResponseEntity<GaranteUser> obtenerCredencialesPorGarante(@PathVariable Long garanteId) {
+        GaranteUser credenciales = garanteService.listarCredenciales(garanteId);
+        return ResponseEntity.ok(credenciales);
+    }
+
     @GetMapping("/generar-embeddings")
     public ResponseEntity<?> generarEmbeddings() {
         try {
@@ -114,6 +142,13 @@ public class GaranteController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>("Error interno al eliminar el Garante", null));
         }
+    }
+
+    @DeleteMapping("/usuario-garante/{usuarioId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<String> eliminarUsuarioGarante(@PathVariable Long usuarioId) {
+        garanteService.eliminarUsuarioCuentaGarante(usuarioId);
+        return ResponseEntity.ok("Usuario garante eliminado correctamente sin borrar al garante.");
     }
 
     @GetMapping("/{username}")
