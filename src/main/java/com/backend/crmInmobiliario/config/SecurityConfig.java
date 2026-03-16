@@ -78,6 +78,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/usuario/registrar-admin").permitAll()
                         .requestMatchers("/api/inquilino/register", "/api/inquilino/login").permitAll()
                         .requestMatchers("/api/propietario/register", "/api/propietario/login").permitAll()
+                        .requestMatchers("/api/garante/register", "/api/garante/login").permitAll()
                         .requestMatchers("/api/oficios/proveedores/registro").permitAll()
                         .requestMatchers("/api/proveedores/auth/login").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()

@@ -1,4 +1,5 @@
 package com.backend.crmInmobiliario.repository;
+import com.backend.crmInmobiliario.DTO.salida.garante.GaranteUser;
 import com.backend.crmInmobiliario.entity.Contrato;
 import com.backend.crmInmobiliario.entity.Garante;
 import com.backend.crmInmobiliario.entity.Propietario;
@@ -38,6 +39,26 @@ public interface GaranteRepository extends JpaRepository<Garante, Long> {
     WHERE g.contrato.id = :id
 """)
     List<Garante> findGarantesByContratoId(Long id);
+
+
+    @Query("SELECT g FROM Garante g WHERE g.dni = :dni OR g.email = :email")
+    Optional<Garante> findByDniOrEmail(@Param("dni") String dni, @Param("email") String email);
+
+    Optional<Garante> findByUsuarioCuentaGaranteId(Long usuarioId);
+
+    @Query("""
+    SELECT g FROM Garante g
+    WHERE g.usuarioCuentaGarante.username = :dato
+       OR g.usuarioCuentaGarante.email = :dato
+""")
+    Optional<Garante> findByUsuarioCuentaGaranteUsernameOrEmail(@Param("dato") String dato);
+
+    @Query("SELECT u.username AS username, u.password AS password FROM Usuario u JOIN u.garante g WHERE g.id = :garanteId")
+    Optional<GaranteUser> obtenerCredencialesPorGarante(@Param("garanteId") Long garanteId);
+
+    @Modifying
+    @Query("UPDATE Garante g SET g.usuarioCuentaGarante = NULL WHERE g.usuarioCuentaGarante.id = :usuarioId")
+    void desvincularUsuarioCuentaGarante(@Param("usuarioId") Long usuarioId);
 
     Page<Garante> findAllByUsuario_Id(Long userId, Pageable pageable);
 }
