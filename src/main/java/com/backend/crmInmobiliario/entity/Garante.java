@@ -53,4 +53,10 @@ public class Garante extends Persona{
     @JsonIgnore
     private List<Documento> documentos = new ArrayList<>();
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_cuenta_garante_id")
+    @ToString.Exclude
+    @JsonIgnore // ⛔ evita recursión con usuarioCuentaInquilino
+    private Usuario usuarioCuentaGarante;
+
 }

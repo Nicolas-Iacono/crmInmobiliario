@@ -6,6 +6,7 @@ public class RolesCostantes {
     public static final String SUPER_ADMIN = "SUPER_ADMIN";
     public static final String INQUILINO_USER = "INQUILINO_USER";
     public static final String PROPIETARIO_USER = "PROPIETARIO_USER";
+    public static final String GARANTE_USER = "GARANTE_USER";
     public static final String OFICIO_ADMIN = "OFICIO_ADMIN";
 
 }
