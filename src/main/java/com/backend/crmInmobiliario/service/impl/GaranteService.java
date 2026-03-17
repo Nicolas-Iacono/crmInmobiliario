@@ -80,11 +80,30 @@ public class GaranteService implements IGaranteService {
         garanteRepository.deleteByContratoId(contratoId);
     }
 
+    private GaranteSalidaDto mapearGaranteSalidaDto(Garante garante) {
+        GaranteSalidaDto dto = modelMapper.map(garante, GaranteSalidaDto.class);
+
+        Usuario usuarioCuenta = garante.getUsuarioCuentaGarante();
+        if (usuarioCuenta != null) {
+            dto.setUsuarioCuentaId(usuarioCuenta.getId());
+            dto.setUsuarioCuentaGarante(new GaranteUser(
+                    usuarioCuenta.getUsername(),
+                    usuarioCuenta.getPassword()
+            ));
+        } else {
+            dto.setUsuarioCuentaId(null);
+            dto.setUsuarioCuentaGarante(null);
+        }
+
+        return dto;
+    }
+
+
     @Override
     public List<GaranteSalidaDto> buscarGarantePorUsuario(String username) {
         List<Garante> garanteList = garanteRepository.findGaranteByUsername(username);
         return garanteList.stream()
-                .map(garante -> modelMapper.map(garante, GaranteSalidaDto.class))
+                .map(this::mapearGaranteSalidaDto)
                 .toList();
     }
 
@@ -106,7 +125,7 @@ public class GaranteService implements IGaranteService {
 
         return new PageResponse<>(
                 pageResult.getContent().stream()
-                        .map(p -> modelMapper.map(p, GaranteSalidaDto.class))
+                        .map(this::mapearGaranteSalidaDto)
                         .toList(),
                 pageResult.getNumber(),
                 pageResult.getTotalPages(),
@@ -119,7 +138,7 @@ public class GaranteService implements IGaranteService {
         List<Garante> garantes = garanteRepository.findAll();
         return garantes.stream()
                 .map(garante -> {
-                    GaranteSalidaDto dto = modelMapper.map(garante, GaranteSalidaDto.class);
+                    GaranteSalidaDto dto = mapearGaranteSalidaDto(garante);
 
 //                    List<ImgUrlSalidaDto> imagenesDto = garante.getImagenes()
 //                            .stream()
@@ -139,7 +158,7 @@ public class GaranteService implements IGaranteService {
 
         return garantes.stream()
                 .map(garante -> {
-                    GaranteSalidaDto dto = modelMapper.map(garante, GaranteSalidaDto.class);
+                    GaranteSalidaDto dto = mapearGaranteSalidaDto(garante);
 
                     Usuario usuario = garante.getUsuario();
                     if (usuario != null) {
@@ -202,7 +221,7 @@ public class GaranteService implements IGaranteService {
             }
         });
 // Mapeo manual con fallback seguro para el UsuarioDtoSalida
-        GaranteSalidaDto garanteSalidaDto = modelMapper.map(garanteToSave, GaranteSalidaDto.class);
+        GaranteSalidaDto garanteSalidaDto = mapearGaranteSalidaDto(garanteToSave);
 
 // Si el mapeo automático no funcionó, lo forzamos
         if (garanteSalidaDto.getUsuarioDtoSalida() == null && garanteToSave.getUsuario() != null) {
@@ -312,7 +331,7 @@ public class GaranteService implements IGaranteService {
         Garante garante = garanteRepository.findById(id).orElse(null);
         GaranteSalidaDto garanteSalidaDto = null;
         if(garante !=null){
-            garanteSalidaDto = modelMapper.map(garante, GaranteSalidaDto.class);
+            garanteSalidaDto = mapearGaranteSalidaDto(garante);
 
 //            List<ImgUrlSalidaDto> imagenesDto = garante.getImagenes()
 //                    .stream()
@@ -400,7 +419,7 @@ public class GaranteService implements IGaranteService {
         garante.setDireccionResidencial(garanteDtoModificacion.getDireccionResidencial());
 
         Garante garanteToSave = garanteRepository.save(garante);
-        GaranteSalidaDto garanteSalidaDto = modelMapper.map(garanteToSave, GaranteSalidaDto.class);
+        GaranteSalidaDto garanteSalidaDto = mapearGaranteSalidaDto(garanteToSave);
 
         CompletableFuture.runAsync(() -> {
             try {

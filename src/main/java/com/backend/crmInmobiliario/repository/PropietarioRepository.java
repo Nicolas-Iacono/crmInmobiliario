@@ -46,4 +46,6 @@ public interface PropietarioRepository extends JpaRepository<Propietario, Long> 
 
     Page<Propietario> findAllByUsuario_Id(Long userId, Pageable pageable);
 
+    Optional<Propietario> findByUsuarioCuentaPropietarioId(Long usuarioId);
+
 }
